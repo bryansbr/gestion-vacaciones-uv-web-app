@@ -1,0 +1,47 @@
+# Archivos compilados de Python y caché
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Entornos virtuales
+venv/
+ENV/
+env/
+
+# Archivos de log y archivos temporales de Django
+*.log
+*.pot
+*.pyc
+*.pyo
+*.pyd
+
+# Archivos generados por collectstatic (si usas staticfiles)
+staticfiles/
+
+# Configuraciones locales que no se deben versionar
+local_settings.py
+
+# Configuraciones de editores/IDE
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Directorios de construcción y empaquetado
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+
+# Archivos de cobertura de pruebas
+.coverage
+htmlcov/
+
+# Archivos de entorno
+.env
