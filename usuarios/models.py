@@ -8,6 +8,7 @@ class Funcionario(models.Model):
     correo_electronico = models.EmailField(unique=True)
     telefono = models.CharField(max_length=20)
     fecha_ingreso_universidad = models.DateField()
+    decreto_resolucion = models.CharField(max_length=10, blank=True, null=True, help_text="Código de resolución para docentes ('1279' o '115')")
 
     estamento = models.ForeignKey(Catalogo, on_delete=models.PROTECT, related_name='funcionarios_estamento')
     facultad_dependencia = models.ForeignKey(Catalogo, on_delete=models.PROTECT, related_name='funcionarios_facultad_dependencia')
@@ -15,3 +16,4 @@ class Funcionario(models.Model):
 
     def __str__(self):
         return f"{self.nombre} {self.apellido}"
+    

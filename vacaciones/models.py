@@ -1,7 +1,6 @@
 from django.db import models
 from usuarios.models import Funcionario
 from core.models import Catalogo
-from django.contrib.auth.models import User
 
 class PeriodoVacacional(models.Model):
     fecha_inicio_periodo = models.DateField()
@@ -69,7 +68,6 @@ class HistoricoAcciones(models.Model):
     fecha_hora_accion = models.DateTimeField(auto_now_add=True)
     observacion = models.TextField(blank=True, null=True)
 
-    usuario = models.ForeignKey(User, on_delete=models.CASCADE)
     solicitud_vacaciones = models.ForeignKey(SolicitudVacaciones, null=True, blank=True, on_delete=models.CASCADE)
     reintegro_vacaciones = models.ForeignKey(ReintegroVacaciones, null=True, blank=True, on_delete=models.CASCADE)
     tipo_accion = models.CharField(max_length=20, choices=TIPO_ACCION)
