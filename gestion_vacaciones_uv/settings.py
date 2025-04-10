@@ -41,12 +41,23 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    #'django.contrib.sites', # Required for allauth
 
     # Vacaciones
     'core',
     'notificaciones',
     'usuarios',
     'vacaciones',
+    
+    # Autenticación
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
+    'rest_framework',
+    'rest_framework.authtoken',
+    'dj_rest_auth',
+    'dj_rest_auth.registration',
 ]
 
 MIDDLEWARE = [
@@ -57,6 +68,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'gestion_vacaciones_uv.urls'
@@ -64,7 +76,7 @@ ROOT_URLCONF = 'gestion_vacaciones_uv.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -75,6 +87,10 @@ TEMPLATES = [
         },
     },
 ]
+
+LOGIN_URL = '/usuarios/iniciar-sesion/'
+LOGIN_REDIRECT_URL = 'home'  # Vista destino tras login
+#LOGOUT_REDIRECT_URL = 'login'
 
 WSGI_APPLICATION = 'gestion_vacaciones_uv.wsgi.application'
 
@@ -129,6 +145,12 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+
+STATICFILES_DIRS = [
+    BASE_DIR / "static",  # Si usás Pathlib
+    # o:
+    # os.path.join(BASE_DIR, "static")
+]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
