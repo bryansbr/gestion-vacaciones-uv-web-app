@@ -84,7 +84,7 @@ TEMPLATES = [
 
 LOGIN_URL = '/usuarios/iniciar-sesion/'
 LOGIN_REDIRECT_URL = 'usuarios:dashboard'  # Vista destino tras login
-#LOGOUT_REDIRECT_URL = 'login'
+LOGOUT_REDIRECT_URL = 'usuarios:login'  # Vista destino tras logout
 
 WSGI_APPLICATION = 'gestion_vacaciones_uv.wsgi.application'
 
