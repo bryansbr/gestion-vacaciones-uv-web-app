@@ -1,7 +1,8 @@
 from django.db import models
-from usuarios.models import Funcionario
-from core.models import Catalogo
+#from usuarios.models import Funcionario
+#from core.models import Catalogo
 
+"""
 class PeriodoVacacional(models.Model):
     fecha_inicio_periodo = models.DateField()
     fecha_fin_periodo = models.DateField()
@@ -78,3 +79,4 @@ class HistoricoAcciones(models.Model):
         elif self.tipo_accion == 'reintegro':
             self.solicitud_vacaciones = None
         super().save(*args, **kwargs)
+"""
