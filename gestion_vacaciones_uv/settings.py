@@ -31,9 +31,10 @@ DEBUG = os.getenv('DEBUG')
 
 ALLOWED_HOSTS = []
 
+# Se define el modelo de usuario personalizado
+#AUTH_USER_MODEL = 'usuarios.CustomUser'
 
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -50,14 +51,8 @@ INSTALLED_APPS = [
     'vacaciones',
     
     # Autenticación
-    'allauth',
-    'allauth.account',
-    'allauth.socialaccount',
-    'allauth.socialaccount.providers.google',
     'rest_framework',
     'rest_framework.authtoken',
-    'dj_rest_auth',
-    'dj_rest_auth.registration',
 ]
 
 MIDDLEWARE = [
@@ -68,7 +63,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'gestion_vacaciones_uv.urls'

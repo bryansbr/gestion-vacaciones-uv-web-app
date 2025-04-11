@@ -1,7 +1,8 @@
 from django.db import models
-from usuarios.models import Funcionario
-from vacaciones.models import SolicitudVacaciones, ReintegroVacaciones
+#from usuarios.models import Funcionario
+#from vacaciones.models import SolicitudVacaciones, ReintegroVacaciones
 
+"""
 class Notificacion(models.Model):
     TIPO_NOTIFICACION = [('solicitud', 'Solicitud'), ('reintegro', 'Reintegro')]
 
@@ -21,3 +22,4 @@ class Notificacion(models.Model):
         elif self.tipo_notificacion == 'reintegro':
             self.solicitud_vacaciones = None
         super().save(*args, **kwargs)
+"""
