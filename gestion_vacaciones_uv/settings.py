@@ -32,7 +32,7 @@ DEBUG = os.getenv('DEBUG')
 ALLOWED_HOSTS = []
 
 # Se define el modelo de usuario personalizado
-#AUTH_USER_MODEL = 'usuarios.CustomUser'
+AUTH_USER_MODEL = 'usuarios.CustomUser'
 
 # Application definition
 INSTALLED_APPS = [
@@ -83,7 +83,7 @@ TEMPLATES = [
 ]
 
 LOGIN_URL = '/usuarios/iniciar-sesion/'
-LOGIN_REDIRECT_URL = 'home'  # Vista destino tras login
+LOGIN_REDIRECT_URL = 'usuarios:dashboard'  # Vista destino tras login
 #LOGOUT_REDIRECT_URL = 'login'
 
 WSGI_APPLICATION = 'gestion_vacaciones_uv.wsgi.application'
