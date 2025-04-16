@@ -1,27 +1,36 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser
+from .models import CustomUser, Funcionario
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-"""
-REVISAR ESTO Y AJUSTARLO DESPUÉS
-"""
-class CustomUserAdmin(UserAdmin):
+@admin.register(CustomUser)
+class CustomUserAdmin(BaseUserAdmin):
     model = CustomUser
     list_display = ('email', 'first_name', 'last_name', 'is_staff')
-    search_fields = ('email', 'first_name', 'last_name')
+    list_filter = ('is_active', 'is_staff', 'groups')
     ordering = ('email',)
-    
+    search_fields = ('email', 'first_name', 'last_name')
+
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
-        ('Información Personal', {'fields': ('first_name', 'last_name', 'username')}),
-        ('Permisos', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Información personal', {'fields': ('first_name', 'last_name', 'username')}),
+        ('Permisos', {
+            'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
+        }),
+        ('Fechas', {'fields': ('last_login', 'date_joined')}),
     )
-    
+
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('email', 'username', 'password1', 'password2', 'is_staff', 'is_active')}
-        ),
+            'fields': ('email', 'username', 'password1', 'password2', 'is_staff', 'is_active'),
+        }),
     )
 
-admin.site.register(CustomUser, CustomUserAdmin)
+@admin.register(Funcionario)
+class FuncionarioAdmin(admin.ModelAdmin):
+    list_display = (
+        'nombre', 'apellido', 'numero_identificacion',
+        'correo_electronico', 'estamento', 'facultad_dependencia', 'sede'
+    )
+    search_fields = ('nombre', 'apellido', 'numero_identificacion', 'user__email')
+    list_filter = ('estamento', 'facultad_dependencia', 'sede')

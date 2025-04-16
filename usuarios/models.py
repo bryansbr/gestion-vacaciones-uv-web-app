@@ -1,14 +1,14 @@
 from django.db import models
-from django.contrib.auth.models import AbstractUser, BaseUserManager
-#from django.contrib.auth.models import User, AbstractUser
-#from django.conf import settings 
-#from core.models import Catalogo, Sede
+from django.conf import settings
+from core.models import Estamento, FacultadDependencia, Sede
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
-            raise ValueError('El email es obligatorio')
+            raise ValueError('El correo electrónico es obligatorio.')
         email = self.normalize_email(email)
+        extra_fields.setdefault('username', email)
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
@@ -18,35 +18,33 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
-        
-        if extra_fields.get('is_staff') is not True:
-            raise ValueError('Superuser debe tener is_staff=True.')
-        if extra_fields.get('is_superuser') is not True:
-            raise ValueError('Superuser debe tener is_superuser=True.')
-        
-        # Asegurarse de que el username sea igual al email si no está especificado
-        if 'username' not in extra_fields:
+        if not extra_fields.get('username'):
             extra_fields['username'] = email
-            
         return self.create_user(email, password, **extra_fields)
 
-class CustomUser(AbstractUser):
-    # Modelo de usuario personalizado.
+class CustomUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
+    username = models.CharField(max_length=150, unique=True, blank=True)
+    first_name = models.CharField(max_length=150, blank=True)
+    last_name = models.CharField(max_length=150, blank=True)
+    is_staff = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    date_joined = models.DateTimeField(auto_now_add=True)
+
+    objects = CustomUserManager()
+
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
-    
-    objects = CustomUserManager()
 
     def __str__(self):
         return self.email
-    
-"""
+
 class Funcionario(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        null=True, blank=True
+        related_name='funcionario',
+        verbose_name='Usuario'
     )
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100)
@@ -57,19 +55,29 @@ class Funcionario(models.Model):
         max_length=10,
         blank=True,
         null=True,
-        help_text="Código de resolución para docentes ('1279' o '115')"
+        help_text="Solo para docentes ('1279' o '115')"
     )
 
-    estamento = models.ForeignKey(Catalogo, on_delete=models.PROTECT, related_name='funcionarios_estamento')
-    facultad_dependencia = models.ForeignKey(Catalogo, on_delete=models.PROTECT, related_name='funcionarios_facultad_dependencia')
-    sede = models.ForeignKey(Sede, on_delete=models.PROTECT)
+    estamento = models.ForeignKey(
+        Estamento,
+        on_delete=models.PROTECT,
+        related_name='funcionarios'
+    )
+    facultad_dependencia = models.ForeignKey(
+        FacultadDependencia,
+        on_delete=models.PROTECT,
+        related_name='funcionarios'
+    )
+    sede = models.ForeignKey(
+        Sede,
+        on_delete=models.PROTECT,
+        related_name='funcionarios'
+    )
 
     def __str__(self):
         return f"{self.nombre} {self.apellido}"
-    
+
     @property
     def correo_electronico(self):
-        #Devuelve el email que se encuentra en el modelo CustomUser asociado.
         return self.user.email if self.user else None
-"""
     
