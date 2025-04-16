@@ -39,6 +39,10 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.email
 
+    class Meta:
+        verbose_name = "Usuario"
+        verbose_name_plural = "Usuarios"
+
 class Funcionario(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -80,4 +84,8 @@ class Funcionario(models.Model):
     @property
     def correo_electronico(self):
         return self.user.email if self.user else None
+    
+    class Meta:
+        verbose_name = "Funcionario"
+        verbose_name_plural = "Funcionarios"
     
