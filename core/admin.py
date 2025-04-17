@@ -1,9 +1,20 @@
 from django.contrib import admin
-#from .models import Sede, Catalogo
-#from usuarios.models import Funcionario
+from .models import Estamento, FacultadDependencia, Sede
 
-"""
-admin.site.register(Sede)
-admin.site.register(Catalogo)
-admin.site.register(Funcionario)
-"""
+@admin.register(Estamento)
+class EstamentoAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'descripcion')
+    search_fields = ('nombre',)
+    list_filter = ('nombre',)
+
+@admin.register(FacultadDependencia)
+class FacultadDependenciaAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'descripcion')
+    search_fields = ('nombre',)
+    list_filter = ('nombre',)
+
+@admin.register(Sede)
+class SedeAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'direccion')
+    search_fields = ('nombre', 'direccion')
+    list_filter = ('nombre',)

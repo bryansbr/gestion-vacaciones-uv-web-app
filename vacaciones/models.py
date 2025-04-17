@@ -49,6 +49,16 @@ class SolicitudVacaciones(models.Model):
     class Meta:
         verbose_name = "Solicitud de vacaciones"
         verbose_name_plural = "Solicitudes de vacaciones"
+        permissions = [
+            ("dar_visto_bueno_solicitud", "Puede dar visto bueno a solicitudes de vacaciones"),
+            ("devolver_solicitud", "Puede devolver solicitudes de vacaciones para corrección"),
+            ("autorizar_solicitud", "Puede autorizar solicitudes de vacaciones"),
+            ("rechazar_solicitud", "Puede rechazar solicitudes de vacaciones"),
+            ("cerrar_solicitud", "Puede cerrar solicitudes de vacaciones"),
+            ("crear_solicitud_vacaciones", "Puede crear solicitudes de vacaciones"),
+            ("editar_solicitud_vacaciones", "Puede editar solicitudes de vacaciones"),
+            ("ver_solicitud_vacaciones", "Puede ver solicitudes de vacaciones"),
+        ]
 
 class DiasPendientesVacaciones(models.Model):
     periodo_desde = models.IntegerField()
@@ -101,6 +111,16 @@ class ReintegroVacaciones(models.Model):
     class Meta:
         verbose_name = "Reintegro de vacaciones"
         verbose_name_plural = "Reintegros de vacaciones"
+        permissions = [
+            ("dar_visto_bueno_reintegro", "Puede dar visto bueno a reintegros de vacaciones"),
+            ("devolver_reintegro", "Puede devolver reintegros de vacaciones para corrección"),
+            ("autorizar_reintegro", "Puede autorizar reintegros de vacaciones"),
+            ("rechazar_reintegro", "Puede rechazar reintegros de vacaciones"),
+            ("cerrar_reintegro", "Puede cerrar reintegros de vacaciones"),
+            ("crear_reintegro_vacaciones", "Puede crear reintegros de vacaciones"),
+            ("editar_reintegro_vacaciones", "Puede editar reintegros de vacaciones"),
+            ("ver_reintegro_vacaciones", "Puede ver reintegros de vacaciones"),
+        ]
 
 class HistoricoAcciones(models.Model):
     TIPO_ACCION = [('solicitud', 'Solicitud'), ('reintegro', 'Reintegro')]

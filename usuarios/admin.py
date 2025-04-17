@@ -5,14 +5,15 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 @admin.register(CustomUser)
 class CustomUserAdmin(BaseUserAdmin):
     model = CustomUser
-    list_display = ('email', 'first_name', 'last_name', 'is_staff')
+    list_display = ('email', 'is_staff', 'is_active')
     list_filter = ('is_active', 'is_staff', 'groups')
     ordering = ('email',)
-    search_fields = ('email', 'first_name', 'last_name')
+    search_fields = ('email',)
+
+    readonly_fields = ('date_joined', 'last_login')
 
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
-        ('Información personal', {'fields': ('first_name', 'last_name', 'username')}),
         ('Permisos', {
             'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
         }),
@@ -22,9 +23,14 @@ class CustomUserAdmin(BaseUserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('email', 'username', 'password1', 'password2', 'is_staff', 'is_active'),
+            'fields': ('email', 'password1', 'password2', 'is_staff', 'is_active'),
         }),
     )
+
+    def save_model(self, request, obj, form, change):
+        if not obj.username:
+            obj.username = obj.email
+        obj.save()
 
 @admin.register(Funcionario)
 class FuncionarioAdmin(admin.ModelAdmin):
