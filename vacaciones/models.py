@@ -1,6 +1,8 @@
+from datetime import timedelta
 from django.db import models
 from django.core.exceptions import ValidationError
 from usuarios.models import Funcionario, CustomUser
+import holidays
 
 # -----------------------------------------
 # MODELO: PeriodoVacacional
@@ -8,8 +10,8 @@ from usuarios.models import Funcionario, CustomUser
 class PeriodoVacacional(models.Model):
     fecha_inicio_periodo = models.DateField(verbose_name="Fecha de inicio del periodo")
     fecha_fin_periodo = models.DateField(verbose_name="Fecha de fin del periodo")
-    dias_totales_periodo = models.IntegerField(verbose_name="Días totales del periodo")
-    dias_pendientes_periodo = models.IntegerField(verbose_name="Días pendientes del periodo")
+    dias_totales_periodo = models.IntegerField(verbose_name="Días totales del periodo", default=0, editable=False)
+    dias_pendientes_periodo = models.IntegerField(verbose_name="Días pendientes del periodo", default=0, editable=False)
     dias_disfrutados_periodo = models.IntegerField(verbose_name="Días disfrutados del periodo", default=0)
 
     funcionario = models.ForeignKey(
@@ -19,22 +21,66 @@ class PeriodoVacacional(models.Model):
         verbose_name="Funcionario"
     )
 
-    def clean(self):
-        # Validación: fechas coherentes
-        if self.fecha_inicio_periodo > self.fecha_fin_periodo:
-            raise ValidationError("La fecha de inicio no puede ser posterior a la fecha de fin.")
+    def contar_dias_por_regimen(self):
+        """Calcula los días totales según estamento y decreto del funcionario, considerando festivos colombianos."""
+        inicio = self.fecha_inicio_periodo
+        fin = self.fecha_fin_periodo
 
-        # Validación: lógica de días
+        if not inicio or not fin:
+            return 0
+
+        festivos_colombia = holidays.Colombia(years=range(inicio.year, fin.year + 1))
+        estamento = self.funcionario.estamento.nombre.lower()
+        decreto = (self.funcionario.decreto_resolucion or '').strip()
+
+        if estamento == 'docente' and decreto == '1279':
+            # Paso 1: contar los primeros 15 días hábiles (sin festivos)
+            dias_habiles = 0
+            actual = inicio
+
+            while actual <= fin and dias_habiles < 15:
+                if actual.weekday() < 5 and actual not in festivos_colombia:
+                    dias_habiles += 1
+                actual += timedelta(days=1)
+
+            # Paso 2: contar días calendario después de los hábiles hasta completar el periodo
+            dias_calendario = (fin - actual + timedelta(days=1)).days if actual <= fin else 0
+            return dias_habiles + dias_calendario
+
+        else:
+            # Otros funcionarios: contar días hábiles sin festivos
+            total = 0
+            actual = inicio
+            while actual <= fin:
+                if actual.weekday() < 5 and actual not in festivos_colombia:
+                    total += 1
+                actual += timedelta(days=1)
+            return total
+
+    def clean(self):
+        if self.fecha_inicio_periodo and self.fecha_fin_periodo:
+            if self.fecha_inicio_periodo > self.fecha_fin_periodo:
+                raise ValidationError("La fecha de inicio no puede ser posterior a la fecha de fin.")
+
+        self.dias_totales_periodo = self.contar_dias_por_regimen()
+
         if self.dias_pendientes_periodo + self.dias_disfrutados_periodo > self.dias_totales_periodo:
             raise ValidationError("La suma de días pendientes y disfrutados no puede superar los días totales.")
 
-        # Validación: evitar solapamiento
+        # Validación de solapamiento con periodos existentes
         periodos = PeriodoVacacional.objects.filter(funcionario=self.funcionario)
         if self.pk:
             periodos = periodos.exclude(pk=self.pk)
+
         for periodo in periodos:
-            if (self.fecha_inicio_periodo <= periodo.fecha_fin_periodo and self.fecha_fin_periodo >= periodo.fecha_inicio_periodo):
+            if (self.fecha_inicio_periodo <= periodo.fecha_fin_periodo and
+                self.fecha_fin_periodo >= periodo.fecha_inicio_periodo):
                 raise ValidationError("Este funcionario ya tiene un periodo que se cruza con las fechas ingresadas.")
+
+    def save(self, *args, **kwargs):
+        self.dias_totales_periodo = self.contar_dias_por_regimen()
+        self.dias_pendientes_periodo = self.dias_totales_periodo - self.dias_disfrutados_periodo
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Periodo {self.fecha_inicio_periodo} - {self.fecha_fin_periodo} ({self.funcionario})"

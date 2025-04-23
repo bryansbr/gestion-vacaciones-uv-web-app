@@ -15,11 +15,19 @@ class PeriodoVacacionalForm(forms.ModelForm):
         widgets = {
             'fecha_inicio_periodo': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
             'fecha_fin_periodo': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
-            'dias_totales_periodo': forms.NumberInput(attrs={'class': 'form-input'}),
+            'dias_totales_periodo': forms.NumberInput(attrs={
+                'class': 'form-input',
+                'readonly': 'readonly'
+            }),
             'dias_pendientes_periodo': forms.NumberInput(attrs={'class': 'form-input'}),
             'dias_disfrutados_periodo': forms.NumberInput(attrs={'class': 'form-input'}),
             'funcionario': forms.Select(attrs={'class': 'form-select'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['dias_totales_periodo'].disabled = True
+        self.fields['dias_totales_periodo'].required = False
 
     def clean(self):
         cleaned_data = super().clean()

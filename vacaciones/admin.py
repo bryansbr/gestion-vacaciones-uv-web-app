@@ -9,10 +9,42 @@ from .models import (
 
 @admin.register(PeriodoVacacional)
 class PeriodoVacacionalAdmin(admin.ModelAdmin):
-    list_display = ('id', 'funcionario', 'fecha_inicio_periodo', 'fecha_fin_periodo', 'dias_totales_periodo', 'dias_pendientes_periodo', 'dias_disfrutados_periodo')
-    search_fields = ('funcionario__nombre', 'funcionario__apellido', 'funcionario__numero_identificacion')
+    list_display = (
+        'id',
+        'funcionario',
+        'fecha_inicio_periodo',
+        'fecha_fin_periodo',
+        'dias_totales_periodo',
+        'dias_pendientes_periodo',
+        'dias_disfrutados_periodo',
+    )
+    readonly_fields = ('dias_totales_periodo', 'dias_pendientes_periodo')
+
+    fields = (
+        'funcionario',
+        'fecha_inicio_periodo',
+        'fecha_fin_periodo',
+        'dias_disfrutados_periodo',
+        'dias_totales_periodo',
+        'dias_pendientes_periodo',
+    )
+
+    search_fields = (
+        'funcionario__nombre',
+        'funcionario__apellido',
+        'funcionario__numero_identificacion',
+    )
     list_filter = ('fecha_inicio_periodo', 'fecha_fin_periodo')
     ordering = ('-fecha_inicio_periodo',)
+
+    def save_model(self, request, obj, form, change):
+        """
+        Se asegura que los campos calculados se actualicen correctamente,
+        tanto al crear como al editar desde el admin.
+        """
+        obj.dias_totales_periodo = obj.contar_dias_por_regimen()
+        obj.dias_pendientes_periodo = obj.dias_totales_periodo - obj.dias_disfrutados_periodo
+        super().save_model(request, obj, form, change)
 
 @admin.register(SolicitudVacaciones)
 class SolicitudVacacionesAdmin(admin.ModelAdmin):
