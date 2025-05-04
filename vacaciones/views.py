@@ -37,7 +37,7 @@ class PeriodoVacacionalDeleteView(LoginRequiredMixin, DeleteView):
     success_url = reverse_lazy("vacaciones:periodo_vacacional_list")
 
 # Ver detalle del periodo vacacional (revisar si es necesario)
-class PeriodoVacacionalDetailView(LoginRequiredMixin, DetailView):
-    model = PeriodoVacacional
-    template_name = "vacaciones/periodo_vacacional_detail.html"
-    context_object_name = "periodo"
+# class PeriodoVacacionalDetailView(LoginRequiredMixin, DetailView):
+#    model = PeriodoVacacional
+#    template_name = "vacaciones/periodo_vacacional_detail.html"
+#    context_object_name = "periodo"

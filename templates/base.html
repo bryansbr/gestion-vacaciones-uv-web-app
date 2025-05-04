@@ -3,17 +3,71 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>{% block title %}Inicio de sesión{% endblock %}</title>
+  <title>{% block title %}Gestión de Vacaciones{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
   {% block extra_head %}{% endblock %}
 </head>
-<body class="min-h-screen bg-gray-100 text-gray-900">
-  <main class="min-h-screen">
-    {% block content %}{% endblock %}
-  </main>
+
+<body class="bg-gray-100 text-gray-900 min-h-screen flex flex-col">
+
+  <!-- Navbar superior -->
+  <header class="bg-white shadow flex items-center justify-between px-4 h-16">
+    <div class="flex items-center gap-3">
+      <!-- Botón hamburguesa (visible solo cuando sidebar está colapsado) -->
+      <button id="menu-toggle" class="text-gray-600 focus:outline-none">
+        <svg id="icon-open" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+        <svg id="icon-close" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+      <img src="{% static 'img/banner_logo_univalle.png' %}" alt="Logo Univalle" class="h-7">
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="text-gray-700 text-sm">
+        Bienvenido, <strong>{{ request.user.funcionario.nombre }} {{ request.user.funcionario.apellido }}</strong>
+      </span>
+      <img src="https://www.svgrepo.com/show/382106/avatar-default.svg" alt="Avatar" class="h-8 w-8 rounded-full">
+    </div>
+  </header>
+
+  <!-- Contenedor principal -->
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="bg-red-700 text-white w-64 transition-all duration-300 ease-in-out space-y-6 px-4 py-6 lg:block hidden">
+      <button id="collapseSidebar" class="text-white absolute top-4 right-4 focus:outline-none">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+      <nav>
+        <ul class="space-y-2 mt-8">
+          <li>
+            <a href="{% url 'vacaciones:periodo_vacacional_list' %}"
+               class="block py-2 px-3 rounded hover:bg-red-600">
+              Periodos Vacacionales
+            </a>
+          </li>
+          <!-- Agrega más ítems aquí si lo necesitas -->
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- Contenido -->
+    <main class="flex-1 overflow-y-auto p-6">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
 
   {% block extra_scripts %}
+    <script src="{% static 'js/sidebar.js' %}"></script>
   {% endblock %}
 </body>
 </html>
