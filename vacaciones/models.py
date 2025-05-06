@@ -1,14 +1,79 @@
+from datetime import timedelta
+import holidays
 from django.db import models
+from django.core.exceptions import ValidationError
 from usuarios.models import Funcionario, CustomUser
 
+# -----------------------------------------
+# MODELO: PeriodoVacacional
+# -----------------------------------------
 class PeriodoVacacional(models.Model):
-    fecha_inicio_periodo = models.DateField()
-    fecha_fin_periodo = models.DateField()
-    dias_totales_periodo = models.IntegerField()
-    dias_pendientes_periodo = models.IntegerField()
-    dias_disfrutados_periodo = models.IntegerField(default=0)
+    fecha_inicio_periodo = models.DateField(verbose_name="Fecha de inicio del periodo")
+    fecha_fin_periodo = models.DateField(verbose_name="Fecha de fin del periodo")
+    dias_totales_periodo = models.IntegerField(verbose_name="Días totales del periodo", default=0, editable=False)
+    dias_pendientes_periodo = models.IntegerField(verbose_name="Días pendientes del periodo", default=0, editable=False)
+    dias_disfrutados_periodo = models.IntegerField(verbose_name="Días disfrutados del periodo", default=0)
 
-    funcionario = models.ForeignKey(Funcionario, on_delete=models.CASCADE)
+    funcionario = models.ForeignKey(
+        Funcionario,
+        on_delete=models.CASCADE,
+        related_name="periodos_vacacionales",
+        verbose_name="Funcionario"
+    )
+
+    def _calcular_dias_docente_1279(self, inicio, fin, festivos):
+        dias_habiles, actual = 0, inicio
+        while actual <= fin and dias_habiles < 15:
+            if actual.weekday() < 5 and actual not in festivos:
+                dias_habiles += 1
+            actual += timedelta(days=1)
+
+        dias_calendario = (fin - actual + timedelta(days=1)).days if actual <= fin else 0
+        return dias_habiles + dias_calendario
+
+    def _calcular_dias_generico(self, inicio, fin, festivos):
+        total, actual = 0, inicio
+        while actual <= fin:
+            if actual.weekday() < 5 and actual not in festivos:
+                total += 1
+            actual += timedelta(days=1)
+        return total
+
+    def contar_dias_por_regimen(self):
+        inicio, fin = self.fecha_inicio_periodo, self.fecha_fin_periodo
+        if not inicio or not fin:
+            return 0
+
+        festivos = holidays.Colombia(years=range(inicio.year, fin.year + 1))
+        estamento = self.funcionario.estamento.nombre.lower()
+        decreto = (self.funcionario.decreto_resolucion or '').strip()
+
+        if estamento == 'docente' and decreto == '1279':
+            return self._calcular_dias_docente_1279(inicio, fin, festivos)
+        
+        return self._calcular_dias_generico(inicio, fin, festivos)
+
+    def clean(self):
+        if self.fecha_inicio_periodo > self.fecha_fin_periodo:
+            raise ValidationError("La fecha de inicio no puede ser posterior a la fecha de fin.")
+        self.dias_totales_periodo = self.contar_dias_por_regimen()
+
+        if self.dias_pendientes_periodo + self.dias_disfrutados_periodo > self.dias_totales_periodo:
+            raise ValidationError("La suma de días pendientes y disfrutados no puede superar los días totales.")
+        periodos = PeriodoVacacional.objects.filter(funcionario=self.funcionario)
+        
+        if self.pk:
+            periodos = periodos.exclude(pk=self.pk)
+
+        for periodo in periodos:
+            if (self.fecha_inicio_periodo <= periodo.fecha_fin_periodo <= self.fecha_fin_periodo) or \
+               (periodo.fecha_inicio_periodo <= self.fecha_fin_periodo <= periodo.fecha_fin_periodo):
+                raise ValidationError("Este funcionario ya tiene un periodo que se cruza con las fechas ingresadas.")
+
+    def save(self, *args, **kwargs):
+        self.dias_totales_periodo = self.contar_dias_por_regimen()
+        self.dias_pendientes_periodo = self.dias_totales_periodo - self.dias_disfrutados_periodo
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Periodo {self.fecha_inicio_periodo} - {self.fecha_fin_periodo} ({self.funcionario})"
@@ -16,7 +81,11 @@ class PeriodoVacacional(models.Model):
     class Meta:
         verbose_name = "Periodo vacacional"
         verbose_name_plural = "Periodos vacacionales"
+        ordering = ['-fecha_inicio_periodo']
 
+# -----------------------------------------
+# MODELO: SolicitudVacaciones
+# -----------------------------------------
 class SolicitudVacaciones(models.Model):
     TIPO_DIAS = (('H', 'Hábiles'), ('C', 'Calendario'))
     ESTADOS = [
@@ -43,23 +112,32 @@ class SolicitudVacaciones(models.Model):
     funcionario = models.ForeignKey(Funcionario, on_delete=models.CASCADE)
     estado_solicitud = models.CharField(max_length=20, choices=ESTADOS, default='pendiente')
 
+    def clean(self):
+        if not self.funcionario.puede_solicitar_vacaciones():
+            raise ValidationError(
+                "El funcionario no cumple con la antigüedad mínima de un año ni tiene días pendientes para solicitar vacaciones."
+            )
+
     def __str__(self):
         return f"Solicitud {self.codigo_sabs} - {self.funcionario}"
-    
+
     class Meta:
         verbose_name = "Solicitud de vacaciones"
         verbose_name_plural = "Solicitudes de vacaciones"
         permissions = [
+            ("crear_solicitud_vacaciones", "Puede crear solicitudes de vacaciones"),
+            ("editar_solicitud_vacaciones", "Puede editar solicitudes de vacaciones"),
+            ("ver_solicitud_vacaciones", "Puede ver solicitudes de vacaciones"),
             ("dar_visto_bueno_solicitud", "Puede dar visto bueno a solicitudes de vacaciones"),
             ("devolver_solicitud", "Puede devolver solicitudes de vacaciones para corrección"),
             ("autorizar_solicitud", "Puede autorizar solicitudes de vacaciones"),
             ("rechazar_solicitud", "Puede rechazar solicitudes de vacaciones"),
             ("cerrar_solicitud", "Puede cerrar solicitudes de vacaciones"),
-            ("crear_solicitud_vacaciones", "Puede crear solicitudes de vacaciones"),
-            ("editar_solicitud_vacaciones", "Puede editar solicitudes de vacaciones"),
-            ("ver_solicitud_vacaciones", "Puede ver solicitudes de vacaciones"),
         ]
 
+# -----------------------------------------
+# MODELO: DiasPendientesVacaciones
+# -----------------------------------------
 class DiasPendientesVacaciones(models.Model):
     periodo_desde = models.IntegerField()
     periodo_hasta = models.IntegerField()
@@ -67,16 +145,18 @@ class DiasPendientesVacaciones(models.Model):
     dias_pendientes = models.IntegerField()
     fecha_disfrute_desde = models.DateField()
     fecha_disfrute_hasta = models.DateField()
-
     solicitud_vacaciones = models.ForeignKey(SolicitudVacaciones, on_delete=models.CASCADE)
 
     def __str__(self):
-        return f"Días pendientes {self.solicitud_vacaciones.codigo_sabs}"
-    
+        return f"Días pendientes - {self.solicitud_vacaciones.codigo_sabs}"
+
     class Meta:
         verbose_name = "Días pendientes de vacaciones"
         verbose_name_plural = "Días pendientes de vacaciones"
 
+# -----------------------------------------
+# MODELO: ReintegroVacaciones
+# -----------------------------------------
 class ReintegroVacaciones(models.Model):
     TIPO_DIAS = (('H', 'Hábiles'), ('C', 'Calendario'))
     MOTIVOS_REINTEGRO = [('Vacaciones', 'Vacaciones')]
@@ -85,7 +165,7 @@ class ReintegroVacaciones(models.Model):
         ('en_revision', 'En revisión'),
         ('aprobado', 'Aprobado'),
         ('rechazado', 'Rechazado'),
-        ('cancelado', 'Cancelado')
+        ('cancelado', 'Cancelado'),
     ]
 
     codigo_sabs = models.CharField(max_length=50, unique=True)
@@ -102,26 +182,33 @@ class ReintegroVacaciones(models.Model):
 
     periodo_vacacional = models.ForeignKey(PeriodoVacacional, on_delete=models.PROTECT)
     solicitud_vacaciones = models.ForeignKey(SolicitudVacaciones, on_delete=models.PROTECT)
-    funcionario = models.ForeignKey(Funcionario, on_delete=models.CASCADE)
+    funcionario = models.ForeignKey(
+        Funcionario,
+        on_delete=models.CASCADE,
+        related_name="reintegros_vacaciones"
+    )
     estado_solicitud = models.CharField(max_length=20, choices=ESTADOS, default='pendiente')
 
     def __str__(self):
         return f"Reintegro {self.codigo_sabs} - {self.funcionario}"
-    
+
     class Meta:
         verbose_name = "Reintegro de vacaciones"
         verbose_name_plural = "Reintegros de vacaciones"
         permissions = [
-            ("dar_visto_bueno_reintegro", "Puede dar visto bueno a reintegros de vacaciones"),
-            ("devolver_reintegro", "Puede devolver reintegros de vacaciones para corrección"),
-            ("autorizar_reintegro", "Puede autorizar reintegros de vacaciones"),
-            ("rechazar_reintegro", "Puede rechazar reintegros de vacaciones"),
-            ("cerrar_reintegro", "Puede cerrar reintegros de vacaciones"),
             ("crear_reintegro_vacaciones", "Puede crear reintegros de vacaciones"),
             ("editar_reintegro_vacaciones", "Puede editar reintegros de vacaciones"),
             ("ver_reintegro_vacaciones", "Puede ver reintegros de vacaciones"),
+            ("dar_visto_bueno_reintegro", "Puede dar visto bueno a reintegros de vacaciones"),
+            ("devolver_reintegro", "Puede devolver reintegros para corrección"),
+            ("autorizar_reintegro", "Puede autorizar reintegros de vacaciones"),
+            ("rechazar_reintegro", "Puede rechazar reintegros de vacaciones"),
+            ("cerrar_reintegro", "Puede cerrar reintegros de vacaciones"),
         ]
 
+# -----------------------------------------
+# MODELO: HistoricoAcciones
+# -----------------------------------------
 class HistoricoAcciones(models.Model):
     TIPO_ACCION = [('solicitud', 'Solicitud'), ('reintegro', 'Reintegro')]
     ACCIONES = [
@@ -130,7 +217,7 @@ class HistoricoAcciones(models.Model):
         ('aprobacion', 'Aprobación'),
         ('rechazo', 'Rechazo'),
         ('observacion', 'Observación'),
-        ('cancelacion', 'Cancelación')
+        ('cancelacion', 'Cancelación'),
     ]
 
     accion_realizada = models.CharField(max_length=50, choices=ACCIONES)
@@ -153,8 +240,8 @@ class HistoricoAcciones(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.tipo_accion} - {self.accion_realizada} por {self.usuario}"
-    
+        return f"{self.tipo_accion.capitalize()} - {self.get_accion_realizada_display()} por {self.usuario}"
+
     class Meta:
         verbose_name = "Historial de acciones"
         verbose_name_plural = "Historial de acciones"

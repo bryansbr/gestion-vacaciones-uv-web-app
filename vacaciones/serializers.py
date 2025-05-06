@@ -1,0 +1,79 @@
+from django.forms import ValidationError
+from rest_framework import serializers
+from .models import PeriodoVacacional, SolicitudVacaciones, ReintegroVacaciones
+
+class PeriodoVacacionalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PeriodoVacacional
+        fields = [
+            'id', 'fecha_inicio_periodo', 'fecha_fin_periodo',
+            'dias_totales_periodo', 'dias_pendientes_periodo',
+            'dias_disfrutados_periodo', 'funcionario'
+        ]
+        read_only_fields = ('dias_totales_periodo', 'dias_pendientes_periodo')
+
+    def validate(self, data):
+        periodo = PeriodoVacacional(**data)
+        periodo.funcionario = data.get('funcionario')
+
+        try:
+            periodo.clean()
+        except ValidationError as e:
+            raise serializers.ValidationError(e.messages)
+
+        return data
+
+
+class SolicitudVacacionesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SolicitudVacaciones
+        fields = [
+            'id',
+            'codigo_sabs',
+            'fecha_elaboracion',
+            'fecha_inicio_vacaciones',
+            'fecha_fin_vacaciones',
+            'total_dias_solicitados',
+            'tipo_dias_solicitados',
+            'quincena_pago',
+            'mes_pago',
+            'anio_pago',
+            'observaciones',
+            'disfrute_dias_pendientes',
+            'periodo_vacacional',
+            'funcionario',
+            'estado_solicitud',
+        ]
+        read_only_fields = ('fecha_elaboracion', 'estado_solicitud')
+
+    def validate(self, data):
+        funcionario = data.get('funcionario')
+        if funcionario and not funcionario.puede_solicitar_vacaciones():
+            raise serializers.ValidationError(
+                "El funcionario no cumple con el año de antigüedad ni tiene días pendientes."
+            )
+        return data
+
+
+class ReintegroVacacionesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReintegroVacaciones
+        fields = [
+            'id',
+            'codigo_sabs',
+            'fecha_elaboracion',
+            'fecha_reintegro',
+            'motivo_reintegro',
+            'observaciones',
+            'fecha_disfrute_desde',
+            'fecha_disfrute_hasta',
+            'dias_disfrutados',
+            'tipo_dias_disfrutados',
+            'dias_pendientes',
+            'tipo_dias_pendientes',
+            'periodo_vacacional',
+            'solicitud_vacaciones',
+            'funcionario',
+            'estado_solicitud',
+        ]
+        read_only_fields = ('fecha_elaboracion', 'estado_solicitud')

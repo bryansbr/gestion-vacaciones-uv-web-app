@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.urls import path, include, reverse_lazy
 from django.shortcuts import redirect
+from rest_framework.authtoken.views import obtain_auth_token
 
 def root_redirect(request):
     if request.user.is_authenticated:
@@ -10,7 +11,10 @@ def root_redirect(request):
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("django.contrib.auth.urls")),
+    path('api/token/', obtain_auth_token, name='api_token_auth'),
     path("core/", include("core.urls")),
     path("usuarios/", include("usuarios.urls")),
+    path('vacaciones/', include('vacaciones.urls')),
+    path('api/vacaciones/', include('vacaciones.urls_api')),
     path("", root_redirect),
 ]
