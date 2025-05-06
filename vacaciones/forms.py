@@ -19,13 +19,22 @@ class PeriodoVacacionalForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-
         fecha_inicio = cleaned_data.get('fecha_inicio_periodo')
         fecha_fin = cleaned_data.get('fecha_fin_periodo')
         dias_disfrutados = cleaned_data.get('dias_disfrutados_periodo')
+        funcionario = cleaned_data.get('funcionario')
 
-        # Validación de fechas
-        if fecha_inicio and fecha_fin and fecha_inicio > fecha_fin:
-            self.add_error('fecha_inicio_periodo', "La fecha de inicio no puede ser posterior a la fecha de fin.")
+        periodo = PeriodoVacacional(
+            fecha_inicio_periodo=fecha_inicio,
+            fecha_fin_periodo=fecha_fin,
+            dias_disfrutados_periodo=dias_disfrutados,
+            funcionario=funcionario
+        )
+
+        try:
+            periodo.clean()
+        except forms.ValidationError as e:
+            for error in e.error_list:
+                self.add_error(None, error.message)
 
         return cleaned_data

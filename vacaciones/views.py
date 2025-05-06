@@ -1,12 +1,7 @@
-from django.views.generic import (
-    ListView, 
-    CreateView, 
-    UpdateView, 
-    DeleteView, 
-    DetailView
-)
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib import messages
 from .models import PeriodoVacacional
 from .forms import PeriodoVacacionalForm
 
@@ -23,6 +18,10 @@ class PeriodoVacacionalCreateView(LoginRequiredMixin, CreateView):
     template_name = "vacaciones/periodo_vacacional_form.html"
     success_url = reverse_lazy("vacaciones:periodo_vacacional_list")
 
+    def form_valid(self, form):
+        messages.success(self.request, "Periodo vacacional creado correctamente.")
+        return super().form_valid(form)
+
 # Actualizar periodos vacacionales
 class PeriodoVacacionalUpdateView(LoginRequiredMixin, UpdateView):
     model = PeriodoVacacional
@@ -30,14 +29,16 @@ class PeriodoVacacionalUpdateView(LoginRequiredMixin, UpdateView):
     template_name = "vacaciones/periodo_vacacional_form.html"
     success_url = reverse_lazy("vacaciones:periodo_vacacional_list")
 
+    def form_valid(self, form):
+        messages.success(self.request, "Periodo vacacional actualizado correctamente.")
+        return super().form_valid(form)
+
 # Eliminar periodos vacacionales
 class PeriodoVacacionalDeleteView(LoginRequiredMixin, DeleteView):
     model = PeriodoVacacional
     template_name = "vacaciones/periodo_vacacional_confirm_delete.html"
     success_url = reverse_lazy("vacaciones:periodo_vacacional_list")
 
-# Ver detalle del periodo vacacional (revisar si es necesario)
-# class PeriodoVacacionalDetailView(LoginRequiredMixin, DetailView):
-#    model = PeriodoVacacional
-#    template_name = "vacaciones/periodo_vacacional_detail.html"
-#    context_object_name = "periodo"
+    def delete(self, request, *args, **kwargs):
+        messages.success(request, "Periodo vacacional eliminado correctamente.")
+        return super().delete(request, *args, **kwargs)

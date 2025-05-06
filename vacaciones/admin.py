@@ -37,15 +37,6 @@ class PeriodoVacacionalAdmin(admin.ModelAdmin):
     list_filter = ('fecha_inicio_periodo', 'fecha_fin_periodo')
     ordering = ('-fecha_inicio_periodo',)
 
-    def save_model(self, request, obj, form, change):
-        """
-        Se asegura que los campos calculados se actualicen correctamente,
-        tanto al crear como al editar desde el admin.
-        """
-        obj.dias_totales_periodo = obj.contar_dias_por_regimen()
-        obj.dias_pendientes_periodo = obj.dias_totales_periodo - obj.dias_disfrutados_periodo
-        super().save_model(request, obj, form, change)
-
 @admin.register(SolicitudVacaciones)
 class SolicitudVacacionesAdmin(admin.ModelAdmin):
     list_display = ('codigo_sabs', 'funcionario', 'fecha_inicio_vacaciones', 'fecha_fin_vacaciones', 'estado_solicitud')

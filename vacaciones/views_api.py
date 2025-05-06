@@ -1,8 +1,14 @@
 from rest_framework import viewsets, filters
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, SAFE_METHODS
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import PeriodoVacacional
-from .serializers import PeriodoVacacionalSerializer
+from .models import PeriodoVacacional, SolicitudVacaciones, ReintegroVacaciones
+from .serializers import PeriodoVacacionalSerializer, SolicitudVacacionesSerializer, ReintegroVacacionesSerializer
+
+class IsAdminOrReadOnly(IsAuthenticated):
+    def has_permission(self, request, view):
+        if request.method in SAFE_METHODS:
+            return True
+        return request.user and request.user.is_staff
 
 class PeriodoVacacionalViewSet(viewsets.ModelViewSet):
     """
@@ -11,20 +17,52 @@ class PeriodoVacacionalViewSet(viewsets.ModelViewSet):
     """
     queryset = PeriodoVacacional.objects.all()
     serializer_class = PeriodoVacacionalSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminOrReadOnly]
 
-    # Filtros
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-
     filterset_fields = ['fecha_inicio_periodo', 'fecha_fin_periodo', 'funcionario']
-
-    # Búsqueda
     search_fields = [
         'funcionario__nombre',
         'funcionario__apellido',
         'funcionario__numero_identificacion'
     ]
-
-    # Ordenamiento
     ordering_fields = ['fecha_inicio_periodo', 'fecha_fin_periodo', 'dias_totales_periodo']
-    ordering = ['fecha_inicio_periodo']
+    ordering = ['-fecha_inicio_periodo']
+
+
+class SolicitudVacacionesViewSet(viewsets.ModelViewSet):
+    """
+    API REST para gestión de Solicitudes de Vacaciones.
+    """
+    queryset = SolicitudVacaciones.objects.all()
+    serializer_class = SolicitudVacacionesSerializer
+    permission_classes = [IsAuthenticated]
+
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['estado_solicitud', 'funcionario', 'periodo_vacacional']
+    search_fields = [
+        'codigo_sabs',
+        'funcionario__nombre',
+        'funcionario__apellido',
+    ]
+    ordering_fields = ['fecha_elaboracion', 'fecha_inicio_vacaciones', 'total_dias_solicitados']
+    ordering = ['-fecha_elaboracion']
+
+
+class ReintegroVacacionesViewSet(viewsets.ModelViewSet):
+    """
+    API REST para gestión de Reintegros de Vacaciones.
+    """
+    queryset = ReintegroVacaciones.objects.all()
+    serializer_class = ReintegroVacacionesSerializer
+    permission_classes = [IsAuthenticated]
+
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['estado_solicitud', 'funcionario', 'periodo_vacacional']
+    search_fields = [
+        'codigo_sabs',
+        'funcionario__nombre',
+        'funcionario__apellido',
+    ]
+    ordering_fields = ['fecha_elaboracion', 'fecha_reintegro', 'dias_disfrutados']
+    ordering = ['-fecha_elaboracion']

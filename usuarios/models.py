@@ -1,7 +1,8 @@
+from datetime import date
 from django.db import models
 from django.conf import settings
-from core.models import Estamento, FacultadDependencia, Sede
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from core.models import Estamento, FacultadDependencia, Sede
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -59,7 +60,6 @@ class Funcionario(models.Model):
         null=True,
         help_text="Solo para docentes ('1279' o '115')"
     )
-
     estamento = models.ForeignKey(
         Estamento,
         on_delete=models.PROTECT,
@@ -76,14 +76,49 @@ class Funcionario(models.Model):
         related_name='funcionarios'
     )
 
-    def __str__(self):
-        return f"{self.nombre} {self.apellido}"
+    def puede_solicitar_vacaciones(self):
+        """
+        Un funcionario puede solicitar vacaciones si:
+         - Ha cumplido al menos 1 año en el cargo
+         - O bien tiene días pendientes por reintegro anticipado
+        """
+        hoy = date.today()
+        antiguedad = (hoy - self.fecha_ingreso_universidad).days >= 365
+        tiene_pendientes = self.reintegros_vacaciones.filter(
+            dias_pendientes__gt=0,
+            estado_solicitud__in=['aprobado', 'cerrado']
+        ).exists()
+        
+        return antiguedad or tiene_pendientes
+
+    def estado_de_vacaciones(self):
+        """
+        Devuelve un resumen del estado:
+         - antigüedad en días
+         - si puede solicitar
+         - datos de su último periodo vacacional
+        """
+        hoy = date.today()
+        antiguedad_dias = (hoy - self.fecha_ingreso_universidad).days
+        ultimo = self.periodos_vacacionales.order_by('-fecha_inicio_periodo').first()
+        return {
+            "antiguedad_dias": antiguedad_dias,
+            "puede_solicitar": self.puede_solicitar_vacaciones(),
+            "ultimo_periodo": {
+                "id": ultimo.id,
+                "dias_totales": ultimo.dias_totales_periodo,
+                "dias_pendientes": ultimo.dias_pendientes_periodo,
+                "dias_disfrutados": ultimo.dias_disfrutados_periodo,
+            } if ultimo else None
+        }
 
     @property
     def correo_electronico(self):
         return self.user.email if self.user else None
-    
+
+    def __str__(self):
+        return f"{self.nombre} {self.apellido} ({self.numero_identificacion})"
+
     class Meta:
         verbose_name = "Funcionario"
         verbose_name_plural = "Funcionarios"
-    
