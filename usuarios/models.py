@@ -78,39 +78,48 @@ class Funcionario(models.Model):
 
     def puede_solicitar_vacaciones(self):
         """
-        Un funcionario puede solicitar vacaciones si:
-         - Ha cumplido al menos 1 año en el cargo
-         - O bien tiene días pendientes por reintegro anticipado
+        Verifica si el funcionario puede solicitar vacaciones considerando:
+        - Antigüedad laboral >= 365 días
+        - Días pendientes por reintegros aprobados o cerrados
         """
         hoy = date.today()
-        antiguedad = (hoy - self.fecha_ingreso_universidad).days >= 365
-        tiene_pendientes = self.reintegros_vacaciones.filter(
+        antiguedad_suficiente = (hoy - self.fecha_ingreso_universidad).days >= 365
+        tiene_dias_pendientes = self.reintegros_vacaciones.filter(
             dias_pendientes__gt=0,
             estado_solicitud__in=['aprobado', 'cerrado']
         ).exists()
         
-        return antiguedad or tiene_pendientes
+        return antiguedad_suficiente or tiene_dias_pendientes
 
     def estado_de_vacaciones(self):
         """
-        Devuelve un resumen del estado:
-         - antigüedad en días
-         - si puede solicitar
-         - datos de su último periodo vacacional
+        Retorna estado general del funcionario relacionado con sus vacaciones
         """
         hoy = date.today()
         antiguedad_dias = (hoy - self.fecha_ingreso_universidad).days
-        ultimo = self.periodos_vacacionales.order_by('-fecha_inicio_periodo').first()
-        return {
+        ultimo_periodo = self.periodos_vacacionales.order_by('-fecha_inicio_periodo').first()
+
+        estado = {
             "antiguedad_dias": antiguedad_dias,
             "puede_solicitar": self.puede_solicitar_vacaciones(),
-            "ultimo_periodo": {
-                "id": ultimo.id,
-                "dias_totales": ultimo.dias_totales_periodo,
-                "dias_pendientes": ultimo.dias_pendientes_periodo,
-                "dias_disfrutados": ultimo.dias_disfrutados_periodo,
-            } if ultimo else None
+            "ultimo_periodo": None,
+            "dias_pendientes_totales": 0
         }
+
+        if ultimo_periodo:
+            estado["ultimo_periodo"] = {
+                "id": ultimo_periodo.id,
+                "fecha_inicio": ultimo_periodo.fecha_inicio_periodo,
+                "fecha_fin": ultimo_periodo.fecha_fin_periodo,
+                "dias_totales": ultimo_periodo.dias_totales_periodo,
+                "dias_pendientes": ultimo_periodo.dias_pendientes_periodo,
+                "dias_disfrutados": ultimo_periodo.dias_disfrutados_periodo,
+            }
+            estado["dias_pendientes_totales"] = sum(
+                p.dias_pendientes_periodo for p in self.periodos_vacacionales.all()
+            )
+
+        return estado
 
     @property
     def correo_electronico(self):
