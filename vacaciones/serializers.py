@@ -44,16 +44,24 @@ class SolicitudVacacionesSerializer(serializers.ModelSerializer):
             'funcionario',
             'estado_solicitud',
         ]
-        read_only_fields = ('fecha_elaboracion', 'estado_solicitud')
+        read_only_fields = ['fecha_elaboracion', 'estado_solicitud']
 
     def validate(self, data):
-        funcionario = data.get('funcionario')
-        if funcionario and not funcionario.puede_solicitar_vacaciones():
-            raise serializers.ValidationError(
-                "El funcionario no cumple con el año de antigüedad ni tiene días pendientes."
-            )
-        return data
+        """
+        Validación cruzada reutilizando el método .clean() del modelo
+        """
+        instance = SolicitudVacaciones(**data)
 
+        if self.instance: instance.pk = self.instance.pk
+
+        try:
+            instance.clean()
+        except serializers.ValidationError as e:
+            raise e
+        except Exception as e:
+            raise serializers.ValidationError(str(e))
+
+        return data
 
 class ReintegroVacacionesSerializer(serializers.ModelSerializer):
     class Meta:

@@ -113,10 +113,58 @@ class SolicitudVacaciones(models.Model):
     estado_solicitud = models.CharField(max_length=20, choices=ESTADOS, default='pendiente')
 
     def clean(self):
+        errores = {}
+
+        # Validación de antigüedad o días pendientes
         if not self.funcionario.puede_solicitar_vacaciones():
-            raise ValidationError(
-                "El funcionario no cumple con la antigüedad mínima de un año ni tiene días pendientes para solicitar vacaciones."
-            )
+            errores['funcionario'] = "El funcionario no cumple con la antigüedad mínima ni tiene días pendientes."
+
+        # Validación de cruce de fechas con otras solicitudes en curso
+        solicitudes = SolicitudVacaciones.objects.filter(
+            funcionario=self.funcionario,
+            estado_solicitud__in=['aprobado', 'en_revision']
+        ).exclude(pk=self.pk)
+
+        for s in solicitudes:
+            if (
+                self.fecha_inicio_vacaciones <= s.fecha_fin_vacaciones and
+                self.fecha_fin_vacaciones >= s.fecha_inicio_vacaciones
+            ):
+                errores['fecha_inicio_vacaciones'] = "Las fechas se cruzan con otra solicitud en revisión o aprobada."
+                break
+
+        # Validación de cálculo de días
+        if self.fecha_inicio_vacaciones and self.fecha_fin_vacaciones:
+            dias_solicitados = (self.fecha_fin_vacaciones - self.fecha_inicio_vacaciones).days + 1
+
+            if self.tipo_dias_solicitados == 'H':
+                festivos = holidays.Colombia(
+                    years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1)
+                )
+                dias_habiles = 0
+                actual = self.fecha_inicio_vacaciones
+                
+                while actual <= self.fecha_fin_vacaciones:
+                    if actual.weekday() < 5 and actual not in festivos:
+                        dias_habiles += 1
+                    actual += timedelta(days=1)
+
+                if dias_habiles != self.total_dias_solicitados:
+                    errores['total_dias_solicitados'] = (
+                        f"Se calcularon {dias_habiles} días hábiles, pero se ingresaron {self.total_dias_solicitados}."
+                    )
+
+            elif dias_solicitados != self.total_dias_solicitados:
+                errores['total_dias_solicitados'] = (
+                    f"Se calcularon {dias_solicitados} días calendario, pero se ingresaron {self.total_dias_solicitados}."
+                )
+
+        # Validación de días disponibles en el periodo vacacional
+        if self.periodo_vacacional and self.total_dias_solicitados > self.periodo_vacacional.dias_pendientes_periodo:
+            errores['periodo_vacacional'] = "No hay suficientes días pendientes disponibles en el periodo seleccionado."
+
+        if errores:
+            raise ValidationError(errores)
 
     def __str__(self):
         return f"Solicitud {self.codigo_sabs} - {self.funcionario}"

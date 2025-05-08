@@ -1,5 +1,5 @@
 from django import forms
-from .models import PeriodoVacacional
+from .models import PeriodoVacacional, SolicitudVacaciones
 
 class PeriodoVacacionalForm(forms.ModelForm):
     class Meta:
@@ -38,3 +38,21 @@ class PeriodoVacacionalForm(forms.ModelForm):
                 self.add_error(None, error.message)
 
         return cleaned_data
+
+class SolicitudVacacionesForm(forms.ModelForm):
+    class Meta:
+        model = SolicitudVacaciones
+        exclude = ['estado_solicitud', 'fecha_elaboracion', 'funcionario']
+        widgets = {
+            'fecha_inicio_vacaciones': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+            'fecha_fin_vacaciones': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+            'total_dias_solicitados': forms.NumberInput(attrs={'class': 'form-input'}),
+            'tipo_dias_solicitados': forms.Select(attrs={'class': 'form-select'}),
+            'quincena_pago': forms.Select(attrs={'class': 'form-select'}),
+            'mes_pago': forms.NumberInput(attrs={'class': 'form-input'}),
+            'anio_pago': forms.NumberInput(attrs={'class': 'form-input'}),
+            'observaciones': forms.Textarea(attrs={'class': 'form-textarea'}),
+            'periodo_vacacional': forms.Select(attrs={'class': 'form-select'}),
+            'disfrute_dias_pendientes': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'codigo_sabs': forms.TextInput(attrs={'class': 'form-input'}),
+        }
