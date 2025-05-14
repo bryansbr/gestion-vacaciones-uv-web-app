@@ -1,8 +1,8 @@
-from datetime import timedelta
-import holidays
+from datetime import timedelta, datetime
 from django.db import models
 from django.core.exceptions import ValidationError
 from usuarios.models import Funcionario, CustomUser
+import holidays
 
 # -----------------------------------------
 # MODELO: PeriodoVacacional
@@ -183,6 +183,11 @@ class SolicitudVacaciones(models.Model):
             ("cerrar_solicitud", "Puede cerrar solicitudes de vacaciones"),
         ]
 
+    def save(self, *args, **kwargs):
+        if not self.codigo_sabs:
+            self.codigo_sabs = generar_codigo_sabs('VAC', datetime.now().year)
+        super().save(*args, **kwargs)
+
 # -----------------------------------------
 # MODELO: DiasPendientesVacaciones
 # -----------------------------------------
@@ -254,6 +259,11 @@ class ReintegroVacaciones(models.Model):
             ("cerrar_reintegro", "Puede cerrar reintegros de vacaciones"),
         ]
 
+    def save(self, *args, **kwargs):
+        if not self.codigo_sabs:
+            self.codigo_sabs = generar_codigo_sabs('REI', datetime.now().year)
+        super().save(*args, **kwargs)
+
 # -----------------------------------------
 # MODELO: HistoricoAcciones
 # -----------------------------------------
@@ -293,3 +303,32 @@ class HistoricoAcciones(models.Model):
     class Meta:
         verbose_name = "Historial de acciones"
         verbose_name_plural = "Historial de acciones"
+
+def generar_codigo_sabs(tipo, anio):
+    """
+    Genera un código SABS único para solicitudes o reintegros.
+    tipo: 'VAC' para vacaciones, 'REI' para reintegros
+    anio: año actual
+    """
+    if tipo == 'VAC':
+        modelo = SolicitudVacaciones
+    else:
+        modelo = ReintegroVacaciones
+    
+    # Obtener el último código del año actual
+    ultimo_codigo = modelo.objects.filter(
+        codigo_sabs__startswith=f"{tipo}-{anio}-"
+    ).order_by('-codigo_sabs').first()
+    
+    if ultimo_codigo:
+        try:
+            # Extraer el número del último código, ignorando el padding
+            numero_str = ultimo_codigo.codigo_sabs.split('-')[-1].lstrip('0')
+            consecutivo = int(numero_str) + 1 if numero_str else 1
+        except (ValueError, IndexError):
+            consecutivo = 1
+    else:
+        consecutivo = 1
+    
+    padding = max(4, len(str(consecutivo)))
+    return f"{tipo}{anio}{str(consecutivo).zfill(padding)}"

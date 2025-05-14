@@ -54,5 +54,5 @@ class SolicitudVacacionesForm(forms.ModelForm):
             'observaciones': forms.Textarea(attrs={'class': 'form-textarea'}),
             'periodo_vacacional': forms.Select(attrs={'class': 'form-select'}),
             'disfrute_dias_pendientes': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
-            'codigo_sabs': forms.TextInput(attrs={'class': 'form-input'}),
+            'codigo_sabs': forms.TextInput(attrs={'class': 'form-input', 'readonly': 'readonly'}),
         }

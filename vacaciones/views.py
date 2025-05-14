@@ -2,8 +2,9 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
-from .models import PeriodoVacacional, SolicitudVacaciones
+from .models import PeriodoVacacional, SolicitudVacaciones, generar_codigo_sabs
 from .forms import PeriodoVacacionalForm, SolicitudVacacionesForm
+from django.utils.timezone import now
 
 # -----------------------------------------
 # MODELO: PeriodoVacacional
@@ -50,6 +51,11 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
     form_class = SolicitudVacacionesForm
     template_name = "vacaciones/solicitud_vacaciones_form.html"
     success_url = reverse_lazy("vacaciones:solicitud_vacaciones_list")
+
+    def get_initial(self):
+        initial = super().get_initial()
+        initial['codigo_sabs'] = generar_codigo_sabs('VAC', now().year)
+        return initial
 
     def form_valid(self, form):
         form.instance.funcionario = self.request.user.funcionario
