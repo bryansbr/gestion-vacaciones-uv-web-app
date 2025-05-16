@@ -52,6 +52,12 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
     template_name = "vacaciones/solicitud_vacaciones_form.html"
     success_url = reverse_lazy("vacaciones:solicitud_vacaciones_list")
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['initial'] = kwargs.get('initial', {})
+        kwargs['initial']['user_id'] = self.request.user.id
+        return kwargs
+
     def get_initial(self):
         initial = super().get_initial()
         initial['codigo_sabs'] = generar_codigo_sabs('VAC', now().year)
@@ -75,6 +81,12 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
     form_class = SolicitudVacacionesForm
     template_name = "vacaciones/solicitud_vacaciones_form.html"
     success_url = reverse_lazy("vacaciones:solicitud_vacaciones_list")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['initial'] = kwargs.get('initial', {})
+        kwargs['initial']['user_id'] = self.request.user.id
+        return kwargs
 
     def get_queryset(self):
         return SolicitudVacaciones.objects.filter(
