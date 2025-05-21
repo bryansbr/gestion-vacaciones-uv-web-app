@@ -29,11 +29,32 @@
                 <label class="block text-sm font-medium text-gray-700 mb-1">Facultad/Dependencia</label>
                 {% render_field form.facultad_dependencia class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-500 cursor-not-allowed" disabled="disabled" %}
             </div>
+            <div class="mb-4 md:col-span-1 flex flex-col">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Días a los que tiene derecho</label>
+                {% render_field form.dias_derecho class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-700" %}
+            </div>
+            <div class="mb-4 md:col-span-1 flex flex-col justify-start">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de días</label>
+                <div class="flex items-center gap-4">
+                    <label class="inline-flex items-center">
+                        {% render_field form.tipo_habiles %}
+                        <span class="ml-2">Hábiles</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        {% render_field form.tipo_calendario %}
+                        <span class="ml-2">Calendario</span>
+                    </label>
+                </div>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Días pendientes</label>
+                {% render_field form.dias_pendientes class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-700" %}
+            </div>
         </div>
 
         <!-- Resto de los campos del formulario -->
         {% for field in form %}
-            {% if field.name != 'numero_identificacion' and field.name != 'nombre_funcionario' and field.name != 'estamento' and field.name != 'facultad_dependencia' %}
+            {% if field.name != 'numero_identificacion' and field.name != 'nombre_funcionario' and field.name != 'estamento' and field.name != 'facultad_dependencia' and field.name != 'dias_derecho' and field.name != 'dias_pendientes' and field.name != 'tipo_habiles' and field.name != 'tipo_calendario' %}
                 <div class="mb-4">
                     <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
                         {{ field.label }}
@@ -42,23 +63,6 @@
                         {% render_field field class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-500 cursor-not-allowed" disabled="disabled" %}
                     {% elif field.name == 'total_dias_solicitados' %}
                         {% render_field field class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-700" %}
-                        <div class="mb-4 mt-6">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Días a los que tiene derecho</label>
-                            {% render_field form.dias_derecho class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-700 mb-4" %}
-                        </div>
-                        <div class="mb-4 flex gap-6 items-center">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Tipo días solicitados</label>
-                            <div class="flex items-center gap-4">
-                                <label class="inline-flex items-center">
-                                    {% render_field form.tipo_habiles %}
-                                    <span class="ml-2">Hábiles</span>
-                                </label>
-                                <label class="inline-flex items-center">
-                                    {% render_field form.tipo_calendario %}
-                                    <span class="ml-2">Calendario</span>
-                                </label>
-                            </div>
-                        </div>
                     {% elif field|field_type == "Textarea" %}
                         {% render_field field class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[120px]" %}
                     {% else %}
@@ -87,9 +91,10 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<link rel="stylesheet" href="{% static 'css/datepicker_icon.css' %}">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-<script src="{% static 'js/datepicker_vacaciones.js' %}"></script>
-<script src="{% static 'js/solicitud_vacaciones.js' %}"></script>
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'css/datepicker_icon.css' %}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="{% static 'js/datepicker_vacaciones.js' %}"></script>
+    <script src="{% static 'js/solicitud_vacaciones.js' %}"></script>
 {% endblock %}

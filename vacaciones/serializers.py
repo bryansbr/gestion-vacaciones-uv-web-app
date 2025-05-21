@@ -34,7 +34,6 @@ class SolicitudVacacionesSerializer(serializers.ModelSerializer):
             'fecha_inicio_vacaciones',
             'fecha_fin_vacaciones',
             'total_dias_solicitados',
-            'tipo_dias_solicitados',
             'quincena_pago',
             'mes_pago',
             'anio_pago',

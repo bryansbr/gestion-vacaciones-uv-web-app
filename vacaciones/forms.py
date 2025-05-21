@@ -1,5 +1,6 @@
 from django import forms
 from .models import PeriodoVacacional, SolicitudVacaciones
+from django.contrib.auth import get_user_model
 
 class PeriodoVacacionalForm(forms.ModelForm):
     class Meta:
@@ -48,6 +49,16 @@ class SolicitudVacacionesForm(forms.ModelForm):
         'class': 'form-input bg-gray-100',
         'readonly': 'readonly'
     }))
+    dias_derecho = forms.IntegerField(label='Días a los que tiene derecho', required=False, disabled=True, widget=forms.NumberInput(attrs={
+        'class': 'form-input bg-gray-100',
+        'readonly': 'readonly'
+    }))
+    tipo_habiles = forms.BooleanField(label='Hábiles', required=False, disabled=True)
+    tipo_calendario = forms.BooleanField(label='Calendario', required=False, disabled=True)
+    dias_pendientes = forms.IntegerField(label='Días pendientes', required=False, disabled=True, widget=forms.NumberInput(attrs={
+        'class': 'form-input bg-gray-100',
+        'readonly': 'readonly'
+    }))
 
     class Meta:
         model = SolicitudVacaciones
@@ -55,7 +66,6 @@ class SolicitudVacacionesForm(forms.ModelForm):
         widgets = {
             'fecha_inicio_vacaciones': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
             'fecha_fin_vacaciones': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
-            'tipo_dias_solicitados': forms.Select(attrs={'class': 'form-select'}),
             'quincena_pago': forms.Select(attrs={'class': 'form-select'}),
             'mes_pago': forms.NumberInput(attrs={'class': 'form-input'}),
             'anio_pago': forms.NumberInput(attrs={'class': 'form-input'}),
@@ -91,7 +101,6 @@ class SolicitudVacacionesForm(forms.ModelForm):
             funcionario = kwargs['instance'].funcionario
         else:
             # Obtener el funcionario del usuario actual
-            from django.contrib.auth import get_user_model
             User = get_user_model()
             user = User.objects.get(id=kwargs.get('initial', {}).get('user_id'))
             funcionario = user.funcionario
@@ -103,3 +112,37 @@ class SolicitudVacacionesForm(forms.ModelForm):
             'estamento': funcionario.estamento.nombre,
             'facultad_dependencia': funcionario.facultad_dependencia.nombre,
         })
+        # Calcular días a los que tiene derecho según estamento y decreto/resolución
+        estamento_nombre = funcionario.estamento.nombre.lower()
+        decreto = (funcionario.decreto_resolucion or '').strip()
+        if estamento_nombre == 'docente':
+            if decreto == '1279':
+                dias_derecho = 30
+                self.initial['tipo_habiles'] = True
+                self.initial['tipo_calendario'] = True
+            elif decreto == '115':
+                dias_derecho = 30
+                self.initial['tipo_habiles'] = False
+                self.initial['tipo_calendario'] = True
+            else:
+                dias_derecho = 0
+                self.initial['tipo_habiles'] = False
+                self.initial['tipo_calendario'] = False
+        elif estamento_nombre == 'administrativo':
+            dias_derecho = 15
+            self.initial['tipo_habiles'] = True
+            self.initial['tipo_calendario'] = False
+        elif estamento_nombre == 'trabajador oficial':
+            dias_derecho = 30
+            self.initial['tipo_habiles'] = False
+            self.initial['tipo_calendario'] = True
+        else:
+            dias_derecho = 0
+            self.initial['tipo_habiles'] = False
+            self.initial['tipo_calendario'] = False
+        self.initial['dias_derecho'] = dias_derecho
+        # Calcular días pendientes de periodos anteriores
+        dias_pendientes = 0
+        if hasattr(funcionario, 'periodos_vacacionales'):
+            dias_pendientes = sum(p.dias_pendientes_periodo for p in funcionario.periodos_vacacionales.all())
+        self.initial['dias_pendientes'] = dias_pendientes

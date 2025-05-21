@@ -87,7 +87,6 @@ class PeriodoVacacional(models.Model):
 # MODELO: SolicitudVacaciones
 # -----------------------------------------
 class SolicitudVacaciones(models.Model):
-    TIPO_DIAS = (('H', 'Hábiles'), ('C', 'Calendario'))
     ESTADOS = [
         ('pendiente', 'Pendiente'),
         ('en_revision', 'En revisión'),
@@ -101,7 +100,6 @@ class SolicitudVacaciones(models.Model):
     fecha_inicio_vacaciones = models.DateField()
     fecha_fin_vacaciones = models.DateField()
     total_dias_solicitados = models.IntegerField()
-    tipo_dias_solicitados = models.CharField(max_length=1, choices=TIPO_DIAS)
     quincena_pago = models.IntegerField(choices=[(1, 'Primera'), (2, 'Segunda')])
     mes_pago = models.IntegerField()
     anio_pago = models.IntegerField()
@@ -133,28 +131,10 @@ class SolicitudVacaciones(models.Model):
                 errores['fecha_inicio_vacaciones'] = "Las fechas se cruzan con otra solicitud en revisión o aprobada."
                 break
 
-        # Validación de cálculo de días
+        # Validación de cálculo de días (solo calendario)
         if self.fecha_inicio_vacaciones and self.fecha_fin_vacaciones:
             dias_solicitados = (self.fecha_fin_vacaciones - self.fecha_inicio_vacaciones).days + 1
-
-            if self.tipo_dias_solicitados == 'H':
-                festivos = holidays.Colombia(
-                    years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1)
-                )
-                dias_habiles = 0
-                actual = self.fecha_inicio_vacaciones
-                
-                while actual <= self.fecha_fin_vacaciones:
-                    if actual.weekday() < 5 and actual not in festivos:
-                        dias_habiles += 1
-                    actual += timedelta(days=1)
-
-                if dias_habiles != self.total_dias_solicitados:
-                    errores['total_dias_solicitados'] = (
-                        f"Se calcularon {dias_habiles} días hábiles, pero se ingresaron {self.total_dias_solicitados}."
-                    )
-
-            elif dias_solicitados != self.total_dias_solicitados:
+            if dias_solicitados != self.total_dias_solicitados:
                 errores['total_dias_solicitados'] = (
                     f"Se calcularon {dias_solicitados} días calendario, pero se ingresaron {self.total_dias_solicitados}."
                 )
