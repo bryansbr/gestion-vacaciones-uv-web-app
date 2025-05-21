@@ -44,6 +44,10 @@ class SolicitudVacacionesForm(forms.ModelForm):
     nombre_funcionario = forms.CharField(required=False, disabled=True)
     estamento = forms.CharField(required=False, disabled=True)
     facultad_dependencia = forms.CharField(required=False, disabled=True)
+    total_dias_solicitados = forms.IntegerField(required=True, widget=forms.NumberInput(attrs={
+        'class': 'form-input bg-gray-100',
+        'readonly': 'readonly'
+    }))
 
     class Meta:
         model = SolicitudVacaciones
@@ -51,11 +55,6 @@ class SolicitudVacacionesForm(forms.ModelForm):
         widgets = {
             'fecha_inicio_vacaciones': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
             'fecha_fin_vacaciones': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
-            'total_dias_solicitados': forms.NumberInput(attrs={
-                'class': 'form-input bg-gray-100 cursor-not-allowed',
-                'readonly': 'readonly',
-                'disabled': 'disabled'
-            }),
             'tipo_dias_solicitados': forms.Select(attrs={'class': 'form-select'}),
             'quincena_pago': forms.Select(attrs={'class': 'form-select'}),
             'mes_pago': forms.NumberInput(attrs={'class': 'form-input'}),
