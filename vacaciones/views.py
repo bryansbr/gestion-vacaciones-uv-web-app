@@ -1,3 +1,4 @@
+from django.shortcuts import render
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -5,6 +6,9 @@ from django.contrib import messages
 from .models import PeriodoVacacional, SolicitudVacaciones, generar_codigo_sabs
 from .forms import PeriodoVacacionalForm, SolicitudVacacionesForm
 from django.utils.timezone import now
+import holidays
+import json
+from datetime import date
 
 # -----------------------------------------
 # MODELO: PeriodoVacacional
@@ -63,6 +67,18 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         initial['codigo_sabs'] = generar_codigo_sabs('VAC', now().year)
         return initial
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        years = [date.today().year, date.today().year + 1]
+        festivos = []
+
+        for y in years:
+            festivos += [d.strftime('%d/%m/%Y') for d in holidays.Colombia(years=[y]).keys()]
+        
+        context['festivos_colombia'] = json.dumps(festivos)
+        
+        return context
+
     def form_valid(self, form):
         form.instance.funcionario = self.request.user.funcionario
         messages.success(self.request, "Solicitud registrada correctamente.")
@@ -112,3 +128,14 @@ class SolicitudVacacionesDeleteView(LoginRequiredMixin, DeleteView):
     def delete(self, request, *args, **kwargs):
         messages.success(request, "Solicitud eliminada correctamente.")
         return super().delete(request, *args, **kwargs)
+
+def solicitud_vacaciones_create(request):
+    years = [date.today().year, date.today().year + 1]
+    festivos = []
+
+    for y in years:
+        festivos += [d.strftime('%d/%m/%Y') for d in holidays.Colombia(years=[y]).keys()]
+        
+    festivos_json = json.dumps(festivos)
+
+    return render(request, 'vacaciones/solicitud_vacaciones_form.html', {'festivos_colombia': festivos_json})

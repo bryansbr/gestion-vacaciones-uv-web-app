@@ -92,6 +92,12 @@
 
 {% block extra_scripts %}
     {{ block.super }}
+    {% if festivos_colombia %}
+      <script id="festivos-colombia-json" type="application/json">{{ festivos_colombia|safe }}</script>
+      <script type="text/javascript">
+        window.FESTIVOS_COLOMBIA = JSON.parse(document.getElementById('festivos-colombia-json').textContent);
+      </script>
+    {% endif %}
     <link rel="stylesheet" href="{% static 'css/datepicker_icon.css' %}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>

@@ -1,4 +1,14 @@
 document.addEventListener('DOMContentLoaded', function() {
+  const festivosColombia = window.FESTIVOS_COLOMBIA || [];
+
+  function esFestivo(fecha) {
+    const dia = String(fecha.getDate()).padStart(2, '0');
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+    const anio = fecha.getFullYear();
+    
+    return festivosColombia.includes(`${dia}/${mes}/${anio}`);
+  }
+
   flatpickr("#id_fecha_inicio_vacaciones", {
     dateFormat: "d/m/Y",
     allowInput: true,
@@ -12,6 +22,22 @@ document.addEventListener('DOMContentLoaded', function() {
         shorthand: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"],
         longhand: ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"],
       },
+    },
+    disable: [
+      function(date) {
+        // Se deshabilitan sábados, domingos y festivos
+        return date.getDay() === 0 || date.getDay() === 6 || esFestivo(date);
+      }
+    ],
+    onChange: function(selectedDates, _dateStr, instance) {
+      if (selectedDates.length > 0) {
+        const date = selectedDates[0];
+        
+        if (date.getDay() === 0 || date.getDay() === 6 || esFestivo(date)) {
+          alert('La fecha seleccionada no es un día hábil. Por favor, elija un día hábil.');
+          instance.clear();
+        }
+      }
     }
   });
 

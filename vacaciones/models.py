@@ -131,13 +131,62 @@ class SolicitudVacaciones(models.Model):
                 errores['fecha_inicio_vacaciones'] = "Las fechas se cruzan con otra solicitud en revisión o aprobada."
                 break
 
-        # Validación de cálculo de días (solo calendario)
+        # Validación de cálculo de días según estamento y decreto
         if self.fecha_inicio_vacaciones and self.fecha_fin_vacaciones:
+            estamento = self.funcionario.estamento.nombre.lower()
+            decreto = (self.funcionario.decreto_resolucion or '').strip()
             dias_solicitados = (self.fecha_fin_vacaciones - self.fecha_inicio_vacaciones).days + 1
-            if dias_solicitados != self.total_dias_solicitados:
-                errores['total_dias_solicitados'] = (
-                    f"Se calcularon {dias_solicitados} días calendario, pero se ingresaron {self.total_dias_solicitados}."
-                )
+            if estamento == 'docente' and decreto == '1279':
+                # 15 hábiles + el resto calendario
+                festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
+                dias_habiles = 0
+                actual = self.fecha_inicio_vacaciones
+                habiles_marcados = 0
+                while actual <= self.fecha_fin_vacaciones and habiles_marcados < 15:
+                    if actual.weekday() < 5 and actual not in festivos:
+                        habiles_marcados += 1
+                    actual += timedelta(days=1)
+                dias_calendario = 0
+                while actual <= self.fecha_fin_vacaciones:
+                    dias_calendario += 1
+                    actual += timedelta(days=1)
+                total = 15 + dias_calendario
+                if total != self.total_dias_solicitados:
+                    errores['total_dias_solicitados'] = (
+                        f"Se calcularon {total} días (15 hábiles y {dias_calendario} calendario), pero se ingresaron {self.total_dias_solicitados}."
+                    )
+            elif estamento == 'administrativo' or (estamento == 'docente' and decreto == '115'):
+                # Solo hábiles para administrativo, solo calendario para docente 115
+                if estamento == 'administrativo':
+                    festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
+                    dias_habiles = 0
+                    actual = self.fecha_inicio_vacaciones
+                    while actual <= self.fecha_fin_vacaciones:
+                        if actual.weekday() < 5 and actual not in festivos:
+                            dias_habiles += 1
+                        actual += timedelta(days=1)
+                    if dias_habiles != self.total_dias_solicitados:
+                        errores['total_dias_solicitados'] = (
+                            f"Se calcularon {dias_habiles} días hábiles, pero se ingresaron {self.total_dias_solicitados}."
+                        )
+                else:
+                    # Docente 115 y trabajador oficial: solo calendario
+                    if dias_solicitados != self.total_dias_solicitados:
+                        errores['total_dias_solicitados'] = (
+                            f"Se calcularon {dias_solicitados} días calendario, pero se ingresaron {self.total_dias_solicitados}."
+                        )
+            elif estamento == 'trabajador oficial':
+                # Solo calendario
+                if dias_solicitados != self.total_dias_solicitados:
+                    errores['total_dias_solicitados'] = (
+                        f"Se calcularon {dias_solicitados} días calendario, pero se ingresaron {self.total_dias_solicitados}."
+                    )
+            else:
+                # Por defecto, solo calendario
+                if dias_solicitados != self.total_dias_solicitados:
+                    errores['total_dias_solicitados'] = (
+                        f"Se calcularon {dias_solicitados} días calendario, pero se ingresaron {self.total_dias_solicitados}."
+                    )
 
         # Validación de días disponibles en el periodo vacacional
         if self.periodo_vacacional and self.total_dias_solicitados > self.periodo_vacacional.dias_pendientes_periodo:

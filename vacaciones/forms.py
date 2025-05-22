@@ -45,10 +45,7 @@ class SolicitudVacacionesForm(forms.ModelForm):
     nombre_funcionario = forms.CharField(required=False, disabled=True)
     estamento = forms.CharField(required=False, disabled=True)
     facultad_dependencia = forms.CharField(required=False, disabled=True)
-    total_dias_solicitados = forms.IntegerField(required=True, widget=forms.NumberInput(attrs={
-        'class': 'form-input bg-gray-100',
-        'readonly': 'readonly'
-    }))
+    total_dias_solicitados = forms.IntegerField(required=True, widget=forms.NumberInput(attrs={'class': 'form-input bg-gray-100'}))
     dias_derecho = forms.IntegerField(label='Días a los que tiene derecho', required=False, disabled=True, widget=forms.NumberInput(attrs={
         'class': 'form-input bg-gray-100',
         'readonly': 'readonly'
@@ -97,6 +94,7 @@ class SolicitudVacacionesForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
         if 'instance' in kwargs and kwargs['instance']:
             funcionario = kwargs['instance'].funcionario
         else:
@@ -115,6 +113,7 @@ class SolicitudVacacionesForm(forms.ModelForm):
         # Calcular días a los que tiene derecho según estamento y decreto/resolución
         estamento_nombre = funcionario.estamento.nombre.lower()
         decreto = (funcionario.decreto_resolucion or '').strip()
+
         if estamento_nombre == 'docente':
             if decreto == '1279':
                 dias_derecho = 30
@@ -141,6 +140,7 @@ class SolicitudVacacionesForm(forms.ModelForm):
             self.initial['tipo_habiles'] = False
             self.initial['tipo_calendario'] = False
         self.initial['dias_derecho'] = dias_derecho
+        
         # Calcular días pendientes de periodos anteriores
         dias_pendientes = 0
         if hasattr(funcionario, 'periodos_vacacionales'):
