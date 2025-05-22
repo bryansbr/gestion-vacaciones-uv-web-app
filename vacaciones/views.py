@@ -3,12 +3,12 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
+from django.utils.timezone import now
+from datetime import date
 from .models import PeriodoVacacional, SolicitudVacaciones, generar_codigo_sabs
 from .forms import PeriodoVacacionalForm, SolicitudVacacionesForm
-from django.utils.timezone import now
 import holidays
 import json
-from datetime import date
 
 # -----------------------------------------
 # MODELO: PeriodoVacacional
@@ -76,6 +76,10 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
             festivos += [d.strftime('%d/%m/%Y') for d in holidays.Colombia(years=[y]).keys()]
         
         context['festivos_colombia'] = json.dumps(festivos)
+        
+        funcionario = self.request.user.funcionario
+        context['funcionario_estamento'] = funcionario.estamento.nombre.lower()
+        context['funcionario_decreto'] = (funcionario.decreto_resolucion or '').strip()
         
         return context
 
