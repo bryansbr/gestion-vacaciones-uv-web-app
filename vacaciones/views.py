@@ -5,8 +5,13 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from django.utils.timezone import now
 from datetime import date
-from .models import PeriodoVacacional, SolicitudVacaciones, generar_codigo_sabs
 from .forms import PeriodoVacacionalForm, SolicitudVacacionesForm
+from .models import (
+    PeriodoVacacional,
+    SolicitudVacaciones,
+    ReintegroVacaciones,
+    generar_codigo_sabs
+)
 import holidays
 import json
 
@@ -80,6 +85,27 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         funcionario = self.request.user.funcionario
         context['funcionario_estamento'] = funcionario.estamento.nombre.lower()
         context['funcionario_decreto'] = (funcionario.decreto_resolucion or '').strip()
+        
+        # Obtener reintegros aprobados con días pendientes
+        reintegros_pendientes = ReintegroVacaciones.objects.filter(
+            funcionario=funcionario,
+            estado_solicitud='aprobado',
+            dias_pendientes__gt=0
+        ).order_by('-fecha_elaboracion')
+        
+        # Preparar datos de reintegros para el frontend
+        reintegros_data = []
+        for reintegro in reintegros_pendientes:
+            reintegros_data.append({
+                'id': reintegro.id,
+                'dias_pendientes': reintegro.dias_pendientes,
+                'tipo_dias': reintegro.tipo_dias_pendientes,
+                'periodo_vacacional_id': reintegro.periodo_vacacional_id,
+                'fecha_disfrute_desde': reintegro.fecha_disfrute_desde.strftime('%d/%m/%Y'),
+                'fecha_disfrute_hasta': reintegro.fecha_disfrute_hasta.strftime('%d/%m/%Y')
+            })
+        
+        context['reintegros_pendientes'] = json.dumps(reintegros_data)
         
         return context
 

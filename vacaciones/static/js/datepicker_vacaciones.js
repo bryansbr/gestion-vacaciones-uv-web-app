@@ -9,9 +9,34 @@ document.addEventListener('DOMContentLoaded', function() {
     return festivosColombia.includes(`${dia}/${mes}/${anio}`);
   }
 
+  function obtenerSiguienteDiaHabil(fecha) {
+    let siguienteDia = new Date(fecha);
+    
+    while (siguienteDia.getDay() === 0 ||
+           siguienteDia.getDay() === 6 ||
+           esFestivo(siguienteDia)) {
+      siguienteDia.setDate(siguienteDia.getDate() + 1);
+    }
+    
+    return siguienteDia;
+  }
+
+  function calcularFechaMinimaInicio() {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const fechaMinima = new Date(hoy);
+    fechaMinima.setDate(hoy.getDate() + 16);
+    const siguienteHabil = obtenerSiguienteDiaHabil(fechaMinima);
+    siguienteHabil.setHours(0, 0, 0, 0);
+    return siguienteHabil;
+  }
+
+  const fechaMinimaInicio = calcularFechaMinimaInicio();
+
   flatpickr("#id_fecha_inicio_vacaciones", {
     dateFormat: "d/m/Y",
     allowInput: true,
+    minDate: fechaMinimaInicio,
     locale: {
       firstDayOfWeek: 1,
       weekdays: {
@@ -25,14 +50,13 @@ document.addEventListener('DOMContentLoaded', function() {
     },
     disable: [
       function(date) {
-        // Se deshabilitan sábados, domingos y festivos
         return date.getDay() === 0 || date.getDay() === 6 || esFestivo(date);
       }
     ],
     onChange: function(selectedDates, _dateStr, instance) {
       if (selectedDates.length > 0) {
         const date = selectedDates[0];
-        
+  
         if (date.getDay() === 0 || date.getDay() === 6 || esFestivo(date)) {
           alert('La fecha seleccionada no es un día hábil. Por favor, elija un día hábil.');
           instance.clear();

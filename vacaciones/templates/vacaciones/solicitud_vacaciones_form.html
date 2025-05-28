@@ -61,8 +61,6 @@
                     </label>
                     {% if field.name == 'codigo_sabs' %}
                         {% render_field field class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-500 cursor-not-allowed" disabled="disabled" %}
-                    {% elif field.name == 'total_dias_solicitados' %}
-                        {% render_field field class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-700" %}
                     {% elif field|field_type == "Textarea" %}
                         {% render_field field class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[120px]" %}
                     {% else %}
@@ -99,6 +97,7 @@
       window.FESTIVOS_COLOMBIA = JSON.parse(document.getElementById('festivos-colombia-json').textContent);
       window.FUNCIONARIO_ESTAMENTO = "{{ funcionario_estamento|escapejs }}";
       window.FUNCIONARIO_DECRETO = "{{ funcionario_decreto|escapejs }}";
+      window.REINTEGROS_PENDIENTES = "{{ reintegros_pendientes|safe }}";
     </script>
     <link rel="stylesheet" href="{% static 'css/datepicker_icon.css' %}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">

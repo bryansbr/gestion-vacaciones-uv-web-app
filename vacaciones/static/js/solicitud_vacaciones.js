@@ -7,16 +7,15 @@ document.addEventListener('DOMContentLoaded', function() {
   const fechaFin = document.getElementById('id_fecha_fin_vacaciones');
   const tipoHabiles = document.getElementById('id_tipo_habiles');
   const tipoCalendario = document.getElementById('id_tipo_calendario');
-  const totalDias = document.getElementById('id_total_dias_solicitados');
+  const periodoVacacional = document.getElementById('id_periodo_vacacional');
+  const disfruteDiasPendientes = document.getElementById('id_disfrute_dias_pendientes');
+  const reintegrosPendientes = window.REINTEGROS_PENDIENTES || [];
 
-  if (fechaInicio && fechaFin && totalDias) {
+  if (fechaInicio && fechaFin) {
     function parseFechaDMY(fechaStr) {
       if (!fechaStr) return null;
-
       const partes = fechaStr.split('/');
-
       if (partes.length !== 3) return null;
-
       return new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
     }
 
@@ -47,49 +46,52 @@ document.addEventListener('DOMContentLoaded', function() {
       return result;
     }
 
-    function calcularDias() {
-      if (!fechaInicio.value || !fechaFin.value) {
-        totalDias.value = '';
-        return;
-      }
-
-      const inicio = parseFechaDMY(fechaInicio.value);
-      const fin = parseFechaDMY(fechaFin.value);
-
-      if (!inicio || !fin || inicio > fin) {
-        totalDias.value = '';
-        return;
-      }
-
-      const diffTime = Math.abs(fin - inicio);
-      const diasCalculados = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-      totalDias.value = diasCalculados;
-      totalDias.dispatchEvent(new Event('change', { bubbles: true }));
-      totalDias.dispatchEvent(new Event('input', { bubbles: true }));
+    function obtenerDiasPendientesReintegro() {
+      if (!periodoVacacional || !disfruteDiasPendientes) return null;
+      
+      const periodoId = periodoVacacional.value;
+      const esDisfrutePendientes = disfruteDiasPendientes.checked;
+      
+      if (!esDisfrutePendientes || !periodoId) return null;
+      
+      const reintegro = reintegrosPendientes.find(r => r.periodo_vacacional_id === parseInt(periodoId));
+      return reintegro ? {
+        dias: reintegro.dias_pendientes,
+        tipo: reintegro.tipo_dias
+      } : null;
     }
 
     function calcularFechaFinAutomatico() {
       if (!fechaInicio.value) return;
 
       const inicio = parseFechaDMY(fechaInicio.value);
-
       if (!inicio) return;
 
       let fechaFinCalculada = null;
       const estamento = (window.FUNCIONARIO_ESTAMENTO || '').toLowerCase();
       const decreto = (window.FUNCIONARIO_DECRETO || '').trim();
-
-      if (estamento === 'docente' && decreto === '1279') {
-        const ultimoHabil = addBusinessDays(inicio, 15, window.FESTIVOS_COLOMBIA);
-        const primerCalendario = new Date(ultimoHabil);
-        primerCalendario.setDate(primerCalendario.getDate() + 1);
-        fechaFinCalculada = addDays(primerCalendario, 15);
-      } else if (estamento === 'docente' && decreto === '115') {
-        fechaFinCalculada = addDays(inicio, 30);
-      } else if (estamento === 'administrativo') {
-        fechaFinCalculada = addBusinessDays(inicio, 15, window.FESTIVOS_COLOMBIA);
-      } else if (estamento === 'trabajador oficial') {
-        fechaFinCalculada = addDays(inicio, 30);
+      
+      const diasPendientes = obtenerDiasPendientesReintegro();
+      
+      if (diasPendientes) {
+        if (diasPendientes.tipo === 'H') {
+          fechaFinCalculada = addBusinessDays(inicio, diasPendientes.dias, window.FESTIVOS_COLOMBIA);
+        } else {
+          fechaFinCalculada = addDays(inicio, diasPendientes.dias);
+        }
+      } else {
+        if (estamento === 'docente' && decreto === '1279') {
+          const ultimoHabil = addBusinessDays(inicio, 15, window.FESTIVOS_COLOMBIA);
+          const primerCalendario = new Date(ultimoHabil);
+          primerCalendario.setDate(primerCalendario.getDate() + 1);
+          fechaFinCalculada = addDays(primerCalendario, 15);
+        } else if (estamento === 'docente' && decreto === '115') {
+          fechaFinCalculada = addDays(inicio, 30);
+        } else if (estamento === 'administrativo') {
+          fechaFinCalculada = addBusinessDays(inicio, 15, window.FESTIVOS_COLOMBIA);
+        } else if (estamento === 'trabajador oficial') {
+          fechaFinCalculada = addDays(inicio, 30);
+        }
       }
 
       if (fechaFinCalculada) {
@@ -101,27 +103,25 @@ document.addEventListener('DOMContentLoaded', function() {
         if (fechaFin._flatpickr) {
           fechaFin._flatpickr.setDate(fechaFin.value, true, 'd/m/Y');
         }
-        calcularDias();
       }
     }
 
     if (window.flatpickr) {
       if (fechaInicio._flatpickr) {
-        fechaInicio._flatpickr.config.onChange.push(calcularDias);
         fechaInicio._flatpickr.config.onChange.push(calcularFechaFinAutomatico);
-      }
-      if (fechaFin._flatpickr) {
-        fechaFin._flatpickr.config.onChange.push(calcularDias);
       }
     }
 
-    fechaInicio.addEventListener('change', calcularDias);
-    fechaFin.addEventListener('change', calcularDias);
+    if (periodoVacacional) {
+      periodoVacacional.addEventListener('change', calcularFechaFinAutomatico);
+    }
 
-    if (tipoHabiles) tipoHabiles.addEventListener('change', calcularDias);
-    if (tipoCalendario) tipoCalendario.addEventListener('change', calcularDias);
+    if (disfruteDiasPendientes) {
+      disfruteDiasPendientes.addEventListener('change', calcularFechaFinAutomatico);
+    }
+
     if (fechaInicio.value && fechaFin.value) {
-      calcularDias();
+      calcularFechaFinAutomatico();
     }
   }
 }); 

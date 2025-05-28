@@ -97,6 +97,7 @@ class SolicitudVacaciones(models.Model):
 
     codigo_sabs = models.CharField(max_length=50, unique=True)
     fecha_elaboracion = models.DateField(auto_now_add=True)
+    fecha_solicitud = models.DateField(verbose_name="Fecha de solicitud", auto_now_add=True)
     fecha_inicio_vacaciones = models.DateField()
     fecha_fin_vacaciones = models.DateField()
     total_dias_solicitados = models.IntegerField()
@@ -110,12 +111,38 @@ class SolicitudVacaciones(models.Model):
     funcionario = models.ForeignKey(Funcionario, on_delete=models.CASCADE)
     estado_solicitud = models.CharField(max_length=20, choices=ESTADOS, default='pendiente')
 
+    def _obtener_siguiente_dia_habil(self, fecha):
+        """Retorna el siguiente día hábil a partir de una fecha dada."""
+        festivos = holidays.Colombia(years=[fecha.year])
+        siguiente_dia = fecha
+        
+        while (siguiente_dia.weekday() >= 5 or  # Es sábado (5) o domingo (6)
+               siguiente_dia in festivos):      # Es festivo
+            siguiente_dia += timedelta(days=1)
+        
+        return siguiente_dia
+
+    def _calcular_fecha_minima_inicio(self):
+        """Calcula la fecha mínima permitida para iniciar vacaciones."""
+        fecha_minima = self.fecha_elaboracion + timedelta(days=15)
+        return self._obtener_siguiente_dia_habil(fecha_minima)
+
     def clean(self):
         errores = {}
 
         # Validación de antigüedad o días pendientes
         if not self.funcionario.puede_solicitar_vacaciones():
             errores['funcionario'] = "El funcionario no cumple con la antigüedad mínima ni tiene días pendientes."
+
+        # Validación de fecha mínima de inicio
+        if self.fecha_inicio_vacaciones:
+            fecha_minima = self._calcular_fecha_minima_inicio()
+            if self.fecha_inicio_vacaciones < fecha_minima:
+                errores['fecha_inicio_vacaciones'] = (
+                    f"La fecha de inicio debe ser al menos 15 días después de la fecha de solicitud "
+                    f"({self.fecha_elaboracion.strftime('%d/%m/%Y')}). "
+                    f"La fecha mínima permitida es {fecha_minima.strftime('%d/%m/%Y')}."
+                )
 
         # Validación de cruce de fechas con otras solicitudes en curso
         solicitudes = SolicitudVacaciones.objects.filter(
