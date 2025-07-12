@@ -1,4 +1,4 @@
-from datetime import timedelta, datetime
+from datetime import date, datetime, timedelta
 from django.db import models
 from django.core.exceptions import ValidationError
 from usuarios.models import Funcionario, CustomUser
@@ -96,14 +96,17 @@ class SolicitudVacaciones(models.Model):
     ]
 
     codigo_sabs = models.CharField(max_length=50, unique=True)
+    fecha_solicitud = models.DateField(auto_now_add=True, verbose_name="Fecha de solicitud")
     fecha_elaboracion = models.DateField(auto_now_add=True)
-    fecha_solicitud = models.DateField(verbose_name="Fecha de solicitud", auto_now_add=True)
     fecha_inicio_vacaciones = models.DateField()
     fecha_fin_vacaciones = models.DateField()
     total_dias_solicitados = models.IntegerField()
-    quincena_pago = models.IntegerField(choices=[(1, 'Primera'), (2, 'Segunda')])
-    mes_pago = models.IntegerField()
-    anio_pago = models.IntegerField()
+    fecha_pago = models.DateField(
+        verbose_name="Fecha de pago", 
+        help_text="Fecha automática calculada según el calendario de pagos",
+        null=True,
+        blank=True
+    )
     observaciones = models.TextField(blank=True, null=True)
     disfrute_dias_pendientes = models.BooleanField(default=False)
 
@@ -122,10 +125,83 @@ class SolicitudVacaciones(models.Model):
         
         return siguiente_dia
 
-    def _calcular_fecha_minima_inicio(self):
-        """Calcula la fecha mínima permitida para iniciar vacaciones."""
-        fecha_minima = self.fecha_elaboracion + timedelta(days=15)
+    def _calcular_fecha_minima_inicio_vacaciones_nuevas(self):
+        """
+        Calcula la fecha mínima permitida para iniciar vacaciones nuevas
+        según el calendario de pagos y plazos administrativos.
+        """
+        
+        hoy = date.today()
+        estamento = self.funcionario.estamento.nombre.lower()
+        decreto = (self.funcionario.decreto_resolucion or '').strip()
+        
+        # Calcular fechas de pago según estamento
+        if estamento == 'docente':
+            # Docentes: pago el día 30 de cada mes
+            # Plazo máximo: día 10 del mes para salir el 1º del mes siguiente
+            if hoy.day <= 10:
+                # Si estamos antes del día 10, puede salir el 1º del mes siguiente
+                fecha_salida = date(hoy.year, hoy.month + 1, 1) if hoy.month < 12 else date(hoy.year + 1, 1, 1)
+            else:
+                # Si estamos después del día 10, debe esperar hasta el 1º del mes siguiente al próximo
+                if hoy.month == 12:
+                    fecha_salida = date(hoy.year + 1, 2, 1)
+                elif hoy.month == 11:
+                    fecha_salida = date(hoy.year + 1, 1, 1)
+                else:
+                    fecha_salida = date(hoy.year, hoy.month + 2, 1)
+        else:
+            # Administrativos y trabajadores oficiales: pago quincenal (15 y 30)
+            # Plazo máximo: día 3 para salir el 16, día 17 para salir el 1º del mes siguiente
+            if hoy.day <= 3:
+                # Puede salir el 16 del mes actual
+                fecha_salida = date(hoy.year, hoy.month, 16)
+            elif hoy.day <= 17:
+                # Puede salir el 1º del mes siguiente
+                fecha_salida = date(hoy.year, hoy.month + 1, 1) if hoy.month < 12 else date(hoy.year + 1, 1, 1)
+            else:
+                # Debe esperar hasta el 16 del mes siguiente
+                if hoy.month == 12:
+                    fecha_salida = date(hoy.year + 1, 1, 16)
+                else:
+                    fecha_salida = date(hoy.year, hoy.month + 1, 16)
+        
+        # Asegurar que la fecha de salida sea un día hábil
+        return self._obtener_siguiente_dia_habil(fecha_salida)
+
+    def _calcular_fecha_minima_inicio_dias_pendientes(self):
+        """
+        Calcula la fecha mínima permitida para iniciar vacaciones por días pendientes.
+        Permite solicitar con un día de anticipación.
+        """
+        
+        hoy = date.today()
+        # Para días pendientes, permite solicitar con un día de anticipación
+        fecha_minima = hoy + timedelta(days=1)
         return self._obtener_siguiente_dia_habil(fecha_minima)
+
+    def _calcular_fecha_minima_inicio(self):
+        """
+        Calcula la fecha mínima permitida para iniciar vacaciones
+        según si son vacaciones nuevas o por días pendientes.
+        """
+        if self.disfrute_dias_pendientes:
+            return self._calcular_fecha_minima_inicio_dias_pendientes()
+        else:
+            return self._calcular_fecha_minima_inicio_vacaciones_nuevas()
+
+    def _validar_fecha_inicio_es_habil(self, fecha):
+        """
+        Valida que la fecha de inicio no sea sábado, domingo o festivo.
+        """
+        if fecha.weekday() >= 5:  # Sábado (5) o domingo (6)
+            return False, "La fecha de inicio no puede ser sábado o domingo."
+        
+        festivos = holidays.Colombia(years=[fecha.year])
+        if fecha in festivos:
+            return False, "La fecha de inicio no puede ser un festivo."
+        
+        return True, None
 
     def clean(self):
         errores = {}
@@ -136,13 +212,34 @@ class SolicitudVacaciones(models.Model):
 
         # Validación de fecha mínima de inicio
         if self.fecha_inicio_vacaciones:
-            fecha_minima = self._calcular_fecha_minima_inicio()
-            if self.fecha_inicio_vacaciones < fecha_minima:
-                errores['fecha_inicio_vacaciones'] = (
-                    f"La fecha de inicio debe ser al menos 15 días después de la fecha de solicitud "
-                    f"({self.fecha_elaboracion.strftime('%d/%m/%Y')}). "
-                    f"La fecha mínima permitida es {fecha_minima.strftime('%d/%m/%Y')}."
-                )
+            # Validar que la fecha de inicio sea un día hábil
+            es_habil, mensaje_error = self._validar_fecha_inicio_es_habil(self.fecha_inicio_vacaciones)
+            if not es_habil:
+                errores['fecha_inicio_vacaciones'] = mensaje_error
+            else:
+                # Validar plazo mínimo según tipo de vacaciones
+                fecha_minima = self._calcular_fecha_minima_inicio()
+                if self.fecha_inicio_vacaciones < fecha_minima:
+                    if self.disfrute_dias_pendientes:
+                        errores['fecha_inicio_vacaciones'] = (
+                            f"Para vacaciones por días pendientes, la fecha de inicio debe ser al menos "
+                            f"un día después de la fecha de solicitud. "
+                            f"La fecha mínima permitida es {fecha_minima.strftime('%d/%m/%Y')}."
+                        )
+                    else:
+                        estamento = self.funcionario.estamento.nombre.lower()
+                        if estamento == 'docente':
+                            errores['fecha_inicio_vacaciones'] = (
+                                f"Para docentes, las solicitudes deben presentarse máximo hasta el día 10 del mes "
+                                f"para salir a vacaciones el 1º del mes siguiente. "
+                                f"La fecha mínima permitida es {fecha_minima.strftime('%d/%m/%Y')}."
+                            )
+                        else:
+                            errores['fecha_inicio_vacaciones'] = (
+                                f"Para administrativos y trabajadores oficiales, las solicitudes deben presentarse "
+                                f"máximo hasta el día 3 del mes para salir el 16, o hasta el día 17 para salir "
+                                f"el 1º del mes siguiente. La fecha mínima permitida es {fecha_minima.strftime('%d/%m/%Y')}."
+                            )
 
         # Validación de cruce de fechas con otras solicitudes en curso
         solicitudes = SolicitudVacaciones.objects.filter(
@@ -242,7 +339,57 @@ class SolicitudVacaciones(models.Model):
     def save(self, *args, **kwargs):
         if not self.codigo_sabs:
             self.codigo_sabs = generar_codigo_sabs('VAC', datetime.now().year)
+        
+        # Calcular automáticamente la fecha de pago si no está establecida
+        if not self.fecha_pago:
+            self.fecha_pago = self._calcular_fecha_pago_automatica()
+        
         super().save(*args, **kwargs)
+
+    def _calcular_fecha_pago_automatica(self):
+        """
+        Calcula automáticamente la fecha de pago según el tipo de funcionario
+        y la fecha de solicitud, siguiendo las reglas establecidas.
+        """
+        hoy = date.today()
+        estamento = self.funcionario.estamento.nombre.lower()
+        decreto = (self.funcionario.decreto_resolucion or '').strip()
+        
+        if estamento == 'docente':
+            # Docentes: pago mensual el día 30
+            # Si la solicitud se hace antes del día 10, el pago es el 30 del mes actual
+            # Si se hace después del día 10, el pago es el 30 del mes siguiente
+            if hoy.day <= 10:
+                # Pago el 30 del mes actual
+                if hoy.month == 12:
+                    # Diciembre: pago el 30 de diciembre
+                    fecha_pago = date(hoy.year, 12, 30)
+                else:
+                    fecha_pago = date(hoy.year, hoy.month, 30)
+            else:
+                # Pago el 30 del mes siguiente
+                if hoy.month == 12:
+                    # Diciembre: pago el 30 de enero del año siguiente
+                    fecha_pago = date(hoy.year + 1, 1, 30)
+                else:
+                    fecha_pago = date(hoy.year, hoy.month + 1, 30)
+        else:
+            # Administrativos y trabajadores oficiales: pago quincenal (15 y 30)
+            if hoy.day <= 3:
+                # Pago el 15 del mes actual
+                fecha_pago = date(hoy.year, hoy.month, 15)
+            elif hoy.day <= 18:
+                # Pago el 30 del mes actual
+                fecha_pago = date(hoy.year, hoy.month, 30)
+            else:
+                # Pago el 15 del mes siguiente
+                if hoy.month == 12:
+                    # Diciembre: pago el 15 de enero del año siguiente
+                    fecha_pago = date(hoy.year + 1, 1, 15)
+                else:
+                    fecha_pago = date(hoy.year, hoy.month + 1, 15)
+        
+        return fecha_pago
 
 # -----------------------------------------
 # MODELO: DiasPendientesVacaciones

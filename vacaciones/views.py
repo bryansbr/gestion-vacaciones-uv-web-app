@@ -5,13 +5,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from django.utils.timezone import now
 from datetime import date
+from .models import PeriodoVacacional, SolicitudVacaciones, generar_codigo_sabs, ReintegroVacaciones
 from .forms import PeriodoVacacionalForm, SolicitudVacacionesForm
-from .models import (
-    PeriodoVacacional,
-    SolicitudVacaciones,
-    ReintegroVacaciones,
-    generar_codigo_sabs
-)
 import holidays
 import json
 
@@ -69,7 +64,9 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
 
     def get_initial(self):
         initial = super().get_initial()
+        initial['fecha_solicitud'] = now().date()
         initial['codigo_sabs'] = generar_codigo_sabs('VAC', now().year)
+
         return initial
 
     def get_context_data(self, **kwargs):
@@ -106,6 +103,25 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
             })
         
         context['reintegros_pendientes'] = json.dumps(reintegros_data)
+        context['tiene_reintegros_pendientes'] = len(reintegros_data) > 0
+        
+        # Calcular información sobre plazos de solicitud
+        hoy = date.today()
+        estamento = funcionario.estamento.nombre.lower()
+        
+        if estamento == 'docente':
+            if hoy.day <= 10:
+                context['plazo_solicitud'] = f"Recuerde. Por reglamentación, si realiza la solicitud hoy deberá esperar hasta el 1º del mes siguiente para disfrutar sus vacaciones."
+            else:
+                context['plazo_solicitud'] = f"Recuerde. Por reglamentación, si realiza la solicitud hoy deberá esperar hasta el 1º del mes subsiguiente para disfrutar sus vacaciones."
+        # ---------- PENDIENTE DE REVISIÓN ----------
+        else:
+            if hoy.day <= 3:
+                context['plazo_solicitud'] = f"Puede solicitar vacaciones hasta el día 3 para salir el 16 del mes actual"
+            elif hoy.day <= 17:
+                context['plazo_solicitud'] = f"Puede solicitar vacaciones hasta el día 17 para salir el 1º del mes siguiente"
+            else:
+                context['plazo_solicitud'] = f"Debe esperar hasta el 16 del mes siguiente para solicitar vacaciones"
         
         return context
 

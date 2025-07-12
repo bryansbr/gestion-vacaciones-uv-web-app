@@ -8,9 +8,25 @@
         {% if form.instance.pk %}Editar{% else %}Registrar{% endif %} solicitud de vacaciones
     </h2>
 
+    <!-- Información sobre plazos de solicitud - ¡OJO! REVISAR -->
+    {% if plazo_solicitud %}
+    <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <h3 class="text-lg font-semibold text-blue-800 mb-2">Información sobre su solicitud</h3>
+        <p class="text-blue-700 mb-3">{{ plazo_solicitud }}</p>
+        
+        {% if tiene_reintegros_pendientes %}
+        <div class="mt-3 p-3 bg-green-50 border border-green-200 rounded">
+            <p class="text-green-700 text-sm">
+                <strong>Opción disponible:</strong> Tiene días pendientes por reintegros aprobados. 
+                Puede marcarlos en "Disfrute de días pendientes" para solicitar con mayor flexibilidad.
+            </p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <form method="post" class="space-y-6">
         {% csrf_token %}
-        
         <!-- Campos del funcionario -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
             <div class="mb-4">
@@ -30,7 +46,7 @@
                 {% render_field form.facultad_dependencia class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-500 cursor-not-allowed" disabled="disabled" %}
             </div>
             <div class="mb-4 md:col-span-1 flex flex-col">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Días a los que tiene derecho</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Días a los que tiene derecho (estamento)</label>
                 {% render_field form.dias_derecho class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-700" %}
             </div>
             <div class="mb-4 md:col-span-1 flex flex-col justify-start">
@@ -46,26 +62,54 @@
                     </label>
                 </div>
             </div>
-            <div class="mb-4">
+            <div class="mb-4 md:col-span-1 flex flex-col">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Días pendientes</label>
                 {% render_field form.dias_pendientes class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-700" %}
             </div>
+            <div class="mb-4 md:col-span-1 flex flex-col">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Periodos pendientes</label>
+                {% render_field form.periodos_pendientes class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-700" %}
+            </div>
         </div>
 
-        <!-- Resto de los campos del formulario -->
+        <!-- Campo Código SABS -->
+        <div class="mb-4">
+            <label for="{{ form.codigo_sabs.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                {{ form.codigo_sabs.label }}
+            </label>
+            {% render_field form.codigo_sabs class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-500 cursor-not-allowed" disabled="disabled" %}
+        </div>
+
+        <!-- Campo Fecha de solicitud -->
+        <div class="mb-4">
+            <label for="{{ form.fecha_solicitud.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                {{ form.fecha_solicitud.label }}
+            </label>
+            {% render_field form.fecha_solicitud class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-500 cursor-not-allowed" disabled="disabled" %}
+        </div>
+
+        <!-- Campo Periodo vacacional -->
+        <div class="mb-4">
+            <label for="{{ form.periodo_vacacional.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                {{ form.periodo_vacacional.label }}
+            </label>
+            {% render_field form.periodo_vacacional class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
+            {% if form.periodo_vacacional.help_text %}
+                <p class="text-sm text-gray-500">{{ form.periodo_vacacional.help_text }}</p>
+            {% endif %}
+            {% if form.periodo_vacacional.errors %}
+                <p class="text-sm text-red-600 mt-1">{{ form.periodo_vacacional.errors|first }}</p>
+            {% endif %}
+        </div>
+
+        <!-- Resto de los campos -->
         {% for field in form %}
-            {% if field.name != 'numero_identificacion' and field.name != 'nombre_funcionario' and field.name != 'estamento' and field.name != 'facultad_dependencia' and field.name != 'dias_derecho' and field.name != 'dias_pendientes' and field.name != 'tipo_habiles' and field.name != 'tipo_calendario' %}
+            {% if field.name not in 'numero_identificacion nombre_funcionario estamento facultad_dependencia dias_derecho dias_pendientes periodos_pendientes tipo_habiles tipo_calendario fecha_solicitud codigo_sabs periodo_vacacional' %}
                 <div class="mb-4">
                     <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
                         {{ field.label }}
                     </label>
-                    {% if field.name == 'codigo_sabs' %}
-                        {% render_field field class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-500 cursor-not-allowed" disabled="disabled" %}
-                    {% elif field|field_type == "Textarea" %}
-                        {% render_field field class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[120px]" %}
-                    {% else %}
-                        {% render_field field class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
-                    {% endif %}
+                    {% render_field field class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
                     {% if field.help_text %}
                         <p class="text-sm text-gray-500">{{ field.help_text }}</p>
                     {% endif %}

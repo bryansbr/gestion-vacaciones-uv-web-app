@@ -41,7 +41,7 @@ class PeriodoVacacionalAdmin(admin.ModelAdmin):
 class SolicitudVacacionesAdmin(admin.ModelAdmin):
     list_display = ('codigo_sabs', 'funcionario', 'fecha_inicio_vacaciones', 'fecha_fin_vacaciones', 'estado_solicitud')
     search_fields = ('codigo_sabs', 'funcionario__nombre', 'funcionario__apellido')
-    list_filter = ('estado_solicitud', 'mes_pago', 'anio_pago')
+    list_filter = ('estado_solicitud',)
     ordering = ('-fecha_elaboracion',)
 
 @admin.register(DiasPendientesVacaciones)

@@ -16,7 +16,7 @@
                         <th class="px-4 py-2 border">Código</th>
                         <th class="px-4 py-2 border">Periodo</th>
                         <th class="px-4 py-2 border">Días</th>
-                        <th class="px-4 py-2 border">Pago</th>
+                        <th class="px-4 py-2 border">Fecha de pago</th>
                         <th class="px-4 py-2 border">Estado</th>
                         <th class="px-4 py-2 border">Fecha creación</th>
                         <th class="px-4 py-2 border">Acciones</th>
@@ -35,8 +35,7 @@
                                 {{ solicitud.get_tipo_dias_solicitados_display }}
                             </td>
                             <td class="px-4 py-2 border">
-                                Quincena {{ solicitud.quincena_pago }},
-                                {{ solicitud.mes_pago }}/{{ solicitud.anio_pago }}
+                                {{ solicitud.fecha_pago|date:"d/m/Y" }}
                             </td>
                             <td class="px-4 py-2 border font-medium text-indigo-600">{{ solicitud.get_estado_solicitud_display }}</td>
                             <td class="px-4 py-2 border">{{ solicitud.fecha_elaboracion|date:"d/m/Y" }}</td>
