@@ -11,7 +11,7 @@ import holidays
 import json
 
 # -----------------------------------------
-# MODELO: PeriodoVacacional
+# VISTA: PeriodoVacacional
 # -----------------------------------------
 class PeriodoVacacionalListView(LoginRequiredMixin, ListView):
     model = PeriodoVacacional
@@ -48,7 +48,7 @@ class PeriodoVacacionalDeleteView(LoginRequiredMixin, DeleteView):
         return super().delete(request, *args, **kwargs)
 
 # -----------------------------------------
-# MODELO: SolicitudVacaciones
+# VISTA: Crear SolicitudVacaciones
 # -----------------------------------------
 class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
     model = SolicitudVacaciones
@@ -66,7 +66,6 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         initial = super().get_initial()
         initial['fecha_solicitud'] = now().date()
         initial['codigo_sabs'] = generar_codigo_sabs('VAC', now().year)
-
         return initial
 
     def get_context_data(self, **kwargs):
@@ -78,19 +77,18 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
             festivos += [d.strftime('%d/%m/%Y') for d in holidays.Colombia(years=[y]).keys()]
         
         context['festivos_colombia'] = json.dumps(festivos)
-        
+
         funcionario = self.request.user.funcionario
         context['funcionario_estamento'] = funcionario.estamento.nombre.lower()
         context['funcionario_decreto'] = (funcionario.decreto_resolucion or '').strip()
-        
-        # Obtener reintegros aprobados con días pendientes
+
+        # Reintegros aprobados con días pendientes
         reintegros_pendientes = ReintegroVacaciones.objects.filter(
             funcionario=funcionario,
             estado_solicitud='aprobado',
             dias_pendientes__gt=0
-        ).order_by('-fecha_elaboracion')
-        
-        # Preparar datos de reintegros para el frontend
+        ).order_by('-fecha_solicitud')
+
         reintegros_data = []
         for reintegro in reintegros_pendientes:
             reintegros_data.append({
@@ -101,32 +99,54 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
                 'fecha_disfrute_desde': reintegro.fecha_disfrute_desde.strftime('%d/%m/%Y'),
                 'fecha_disfrute_hasta': reintegro.fecha_disfrute_hasta.strftime('%d/%m/%Y')
             })
-        
+
         context['reintegros_pendientes'] = json.dumps(reintegros_data)
         context['tiene_reintegros_pendientes'] = len(reintegros_data) > 0
-        
-        # Calcular información sobre plazos de solicitud
+
+        form = context.get('form')
+
+        if hasattr(form, 'periodos_acumulados') and form.periodos_acumulados:
+            context['periodos_acumulados'] = form.periodos_acumulados
+            context['periodo_mas_antiguo'] = form.periodo_mas_antiguo
+            context['periodo_mas_reciente'] = form.periodo_mas_reciente
+            context['periodo_mas_antiguo_habilitado'] = form.periodo_mas_antiguo_habilitado
+            context['periodo_mas_reciente_habilitado'] = form.periodo_mas_reciente_habilitado
+
         hoy = date.today()
         estamento = funcionario.estamento.nombre.lower()
-        
+
         if estamento == 'docente':
             if hoy.day <= 10:
-                context['plazo_solicitud'] = f"Recuerde. Por reglamentación, si realiza la solicitud hoy deberá esperar hasta el 1º del mes siguiente para disfrutar sus vacaciones."
+                context['plazo_solicitud'] = (
+                    "Recuerde. Por reglamentación, si realiza la solicitud hoy deberá esperar "
+                    "hasta el día 1º del mes siguiente para disfrutar sus vacaciones."
+                )
             else:
-                context['plazo_solicitud'] = f"Recuerde. Por reglamentación, si realiza la solicitud hoy deberá esperar hasta el 1º del mes subsiguiente para disfrutar sus vacaciones."
-        # ---------- PENDIENTE DE REVISIÓN ----------
+                context['plazo_solicitud'] = (
+                    "Recuerde. Por reglamentación, si realiza la solicitud hoy deberá esperar "
+                    "hasta el día 1º del mes subsiguiente para disfrutar sus vacaciones."
+                )
         else:
             if hoy.day <= 3:
-                context['plazo_solicitud'] = f"Puede solicitar vacaciones hasta el día 3 para salir el 16 del mes actual"
+                context['plazo_solicitud'] = "Puede solicitar vacaciones hasta el día 3 para salir el 16 del mes actual"
             elif hoy.day <= 17:
-                context['plazo_solicitud'] = f"Puede solicitar vacaciones hasta el día 17 para salir el 1º del mes siguiente"
+                context['plazo_solicitud'] = "Puede solicitar vacaciones hasta el día 17 para salir el 1º del mes siguiente"
             else:
-                context['plazo_solicitud'] = f"Debe esperar hasta el 16 del mes siguiente para solicitar vacaciones"
-        
+                context['plazo_solicitud'] = "Debe esperar hasta el 16 del mes siguiente para solicitar vacaciones"
+
         return context
 
-    def form_valid(self, form):
+    def post(self, request, *args, **kwargs):
+        self.object = None
+        form = self.get_form()
+
         form.instance.funcionario = self.request.user.funcionario
+
+        if form.is_valid():
+            return self.form_valid(form)
+        return self.form_invalid(form)
+
+    def form_valid(self, form):
         messages.success(self.request, "Solicitud registrada correctamente.")
         return super().form_valid(form)
     
@@ -136,7 +156,7 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
     context_object_name = "solicitudes"
 
     def get_queryset(self):
-        return SolicitudVacaciones.objects.filter(funcionario=self.request.user.funcionario).order_by('-fecha_elaboracion')
+        return SolicitudVacaciones.objects.filter(funcionario=self.request.user.funcionario).order_by('-fecha_solicitud')
 
 class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
     model = SolicitudVacaciones

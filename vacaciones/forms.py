@@ -57,6 +57,7 @@ class SolicitudVacacionesForm(forms.ModelForm):
         'readonly': 'readonly'
     }))
     fecha_solicitud = forms.DateField(
+        label='Fecha de solicitud',
         required=False,
         disabled=True,
         widget=forms.DateInput(attrs={
@@ -76,7 +77,14 @@ class SolicitudVacacionesForm(forms.ModelForm):
 
     class Meta:
         model = SolicitudVacaciones
-        exclude = ['estado_solicitud', 'fecha_elaboracion', 'funcionario', 'total_dias_solicitados']
+        exclude = ['estado_solicitud', 'fecha_elaboracion', 'funcionario', 'total_dias_solicitados', 'tiene_dias_pendientes']
+        labels = {
+            'codigo_sabs': 'Código SABS',
+            'periodo_vacacional': 'Periodo(s) vacacional(es)',
+            'fecha_inicio_vacaciones': 'Fecha de inicio vacaciones',
+            'fecha_fin_vacaciones': 'Fecha de fin vacaciones',
+            'fecha_pago': 'Fecha de pago vacaciones',
+        }
         widgets = {
             'fecha_inicio_vacaciones': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
             'fecha_fin_vacaciones': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
@@ -87,7 +95,6 @@ class SolicitudVacacionesForm(forms.ModelForm):
             }),
             'observaciones': forms.Textarea(attrs={'class': 'form-textarea'}),
             'periodo_vacacional': forms.Select(attrs={'class': 'form-select'}),
-            'disfrute_dias_pendientes': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
             'codigo_sabs': forms.TextInput(attrs={'class': 'form-input', 'readonly': 'readonly'}),
             'numero_identificacion': forms.TextInput(attrs={
                 'class': 'form-input bg-gray-100 cursor-not-allowed',
@@ -117,23 +124,33 @@ class SolicitudVacacionesForm(forms.ModelForm):
         if 'instance' in kwargs and kwargs['instance']:
             funcionario = kwargs['instance'].funcionario
         else:
-            # Obtener el funcionario del usuario actual
             User = get_user_model()
             user = User.objects.get(id=kwargs.get('initial', {}).get('user_id'))
             funcionario = user.funcionario
 
-        # Filtrar periodos vacacionales solo del funcionario logueado
-        periodos_funcionario = PeriodoVacacional.objects.filter(funcionario=funcionario).order_by('-fecha_inicio_periodo')
+        periodos_funcionario = PeriodoVacacional.objects.filter(funcionario=funcionario).order_by('fecha_inicio_periodo')
         self.fields['periodo_vacacional'].queryset = periodos_funcionario
 
-        # Establecer los valores iniciales para los campos del funcionario
+        self.periodos_acumulados = None
+        self.periodo_mas_antiguo = None
+        self.periodo_mas_reciente = None
+        self.periodo_mas_antiguo_habilitado = True
+        self.periodo_mas_reciente_habilitado = True
+
+        if periodos_funcionario.count() == 2:
+            self.periodos_acumulados = list(periodos_funcionario)
+            self.periodo_mas_antiguo = self.periodos_acumulados[0]
+            self.periodo_mas_reciente = self.periodos_acumulados[1]
+            self.periodo_mas_antiguo_habilitado = self.periodo_mas_antiguo.dias_pendientes_periodo > 0
+            self.periodo_mas_reciente_habilitado = not self.periodo_mas_antiguo_habilitado
+
         self.initial.update({
             'numero_identificacion': funcionario.numero_identificacion,
             'nombre_funcionario': f"{funcionario.nombre} {funcionario.apellido}",
             'estamento': funcionario.estamento.nombre,
             'facultad_dependencia': funcionario.facultad_dependencia.nombre,
         })
-        # Calcular días a los que tiene derecho según estamento y decreto/resolución
+
         estamento_nombre = funcionario.estamento.nombre.lower()
         decreto = (funcionario.decreto_resolucion or '').strip()
 
@@ -180,14 +197,12 @@ class SolicitudVacacionesForm(forms.ModelForm):
             if hoy.day <= 10:
                 # Pago el 30 del mes actual
                 if hoy.month == 12:
-                    # Diciembre: pago el 30 de diciembre
                     fecha_pago = date(hoy.year, 12, 30)
                 else:
                     fecha_pago = date(hoy.year, hoy.month, 30)
             else:
                 # Pago el 30 del mes siguiente
                 if hoy.month == 12:
-                    # Diciembre: pago el 30 de enero del año siguiente
                     fecha_pago = date(hoy.year + 1, 1, 30)
                 else:
                     fecha_pago = date(hoy.year, hoy.month + 1, 30)
@@ -202,16 +217,15 @@ class SolicitudVacacionesForm(forms.ModelForm):
             else:
                 # Pago el 15 del mes siguiente
                 if hoy.month == 12:
-                    # Diciembre: pago el 15 de enero del año siguiente
                     fecha_pago = date(hoy.year + 1, 1, 15)
                 else:
                     fecha_pago = date(hoy.year, hoy.month + 1, 15)
         
         self.initial['fecha_pago'] = fecha_pago
 
-        # Calcular cantidad de periodos pendientes
         periodos_pendientes_count = PeriodoVacacional.objects.filter(
             funcionario=funcionario,
             dias_pendientes_periodo__gt=0
         ).count()
+        
         self.initial['periodos_pendientes'] = periodos_pendientes_count
