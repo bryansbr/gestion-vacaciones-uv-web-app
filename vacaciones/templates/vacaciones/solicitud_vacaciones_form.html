@@ -8,6 +8,19 @@
         {% if form.instance.pk %}Editar{% else %}Registrar{% endif %} solicitud de vacaciones
     </h2>
 
+    <!-- Alerta cuando no hay periodos vacacionales -->
+    {% if not tiene_periodos_vacacionales %}
+    <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+        <h3 class="text-lg font-semibold text-red-800 mb-2">Atención</h3>
+        <p class="text-red-700 mb-3">
+            Actualmente no tienes periodos vacacionales registrados. Por lo tanto, no puedes solicitar vacaciones.
+        </p>
+        <p class="text-red-600 text-sm">
+            Contacte al administrador del sistema para que registre su periodo vacacional correspondiente.
+        </p>
+    </div>
+    {% endif %}
+
     <!-- Información sobre plazos de solicitud - ¡OJO! REVISAR -->
     {% if plazo_solicitud %}
     <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -25,7 +38,13 @@
     </div>
     {% endif %}
 
-    <form method="post" class="space-y-6">
+    <div 
+        {% if festivos_colombia %}data-festivos-colombia="{{ festivos_colombia|safe }}"{% endif %}
+        data-funcionario-estamento="{{ funcionario_estamento|escapejs }}"
+        data-funcionario-decreto="{{ funcionario_decreto|escapejs }}"
+        {% if reintegros_pendientes %}data-reintegros-pendientes="{{ reintegros_pendientes|safe }}"{% endif %}
+    >
+    <form method="post" class="space-y-6" {% if not tiene_periodos_vacacionales %}id="form-disabled"{% endif %}>
         {% csrf_token %}
         <!-- Campos del funcionario -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
@@ -93,7 +112,19 @@
             <label for="{{ form.periodo_vacacional.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
                 {{ form.periodo_vacacional.label }}
             </label>
-            {% render_field form.periodo_vacacional class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
+            {% if periodos_acumulados %}
+                <select name="periodo_vacacional" id="id_periodo_vacacional" data-periodo-antiguo="{{ periodo_mas_antiguo.pk }}" class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">---------</option>
+                    <option value="{{ periodo_mas_antiguo.pk }}" {% if form.initial.periodo_vacacional == periodo_mas_antiguo.pk %}selected{% endif %} {% if not periodo_mas_antiguo_habilitado %}disabled{% endif %}>
+                        {{ periodo_mas_antiguo }}
+                    </option>
+                    <option value="{{ periodo_mas_reciente.pk }}" {% if form.initial.periodo_vacacional == periodo_mas_reciente.pk %}selected{% endif %} {% if not periodo_mas_reciente_habilitado %}disabled{% endif %}>
+                        {{ periodo_mas_reciente }}
+                    </option>
+                </select>
+            {% else %}
+                {% render_field form.periodo_vacacional class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
+            {% endif %}
             {% if form.periodo_vacacional.help_text %}
                 <p class="text-sm text-gray-500">{{ form.periodo_vacacional.help_text }}</p>
             {% endif %}
@@ -101,6 +132,20 @@
                 <p class="text-sm text-red-600 mt-1">{{ form.periodo_vacacional.errors|first }}</p>
             {% endif %}
         </div>
+
+        {% if periodos_acumulados %}
+        <div id="modal-alerta-periodos" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50" style="width:100vw;height:100vh;top:0;left:0;">
+          <div class="bg-white p-6 rounded shadow-lg max-w-md w-full relative">
+            <h2 class=" flex justify-center mt-4 text-lg font-bold mb-2">Atención</h2>
+            <p>
+              Tiene dos (2) periodos vacacionales acumulados. Debe solicitar primero el más antiguo, de lo contrario, perderá el derecho a este según la normativa vigente.
+            </p>
+            <div class="flex justify-center mt-4">
+              <button id="cerrar-modal-periodos" type="button" class="bg-blue-500 text-white px-4 py-2 rounded">Entendido</button>
+            </div>
+          </div>
+        </div>
+        {% endif %}
 
         <!-- Resto de los campos -->
         {% for field in form %}
@@ -121,28 +166,40 @@
         {% endfor %}
 
         <div class="pt-4">
-            <button type="submit" class="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white px-6 py-3 rounded-md shadow-md hover:from-purple-600 hover:to-blue-600 transition">
-                {% if form.instance.pk %}Guardar cambios{% else %}Enviar solicitud{% endif %}
-            </button>
+            {% if tiene_periodos_vacacionales %}
+                <button type="submit" class="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white px-6 py-3 rounded-md shadow-md hover:from-purple-600 hover:to-blue-600 transition">
+                    {% if form.instance.pk %}Guardar cambios{% else %}Enviar solicitud{% endif %}
+                </button>
+            {% else %}
+                <button type="button" disabled class="w-full bg-gray-400 text-gray-600 px-6 py-3 rounded-md shadow-md cursor-not-allowed">
+                    {% if form.instance.pk %}Guardar cambios{% else %}Enviar solicitud{% endif %}
+                </button>
+            {% endif %}
             <a href="{% url 'vacaciones:solicitud_vacaciones_list' %}" class="block mt-4 text-center text-gray-600 hover:underline">
                 Cancelar
             </a>
         </div>
     </form>
+    </div>
 </div>
 {% endblock %}
 
 {% block extra_scripts %}
     {{ block.super }}
-    {% if festivos_colombia %}
-      <script id="festivos-colombia-json" type="application/json">{{ festivos_colombia|safe }}</script>
+    
+    <!-- Script para manejar variables globales -->
+    <script src="{% static 'js/variables_globales.js' %}"></script>
+    
+    <!-- Script para deshabilitar formulario cuando no hay periodos vacacionales -->
+    {% if not tiene_periodos_vacacionales %}
+    <script src="{% static 'js/validacion_formulario.js' %}"></script>
     {% endif %}
-    <script type="text/javascript">
-      window.FESTIVOS_COLOMBIA = JSON.parse(document.getElementById('festivos-colombia-json').textContent);
-      window.FUNCIONARIO_ESTAMENTO = "{{ funcionario_estamento|escapejs }}";
-      window.FUNCIONARIO_DECRETO = "{{ funcionario_decreto|escapejs }}";
-      window.REINTEGROS_PENDIENTES = "{{ reintegros_pendientes|safe }}";
-    </script>
+    
+    <!-- Script para manejar periodos acumulados -->
+    {% if periodos_acumulados %}
+    <script src="{% static 'js/periodos_acumulados.js' %}"></script>
+    {% endif %}
+    
     <link rel="stylesheet" href="{% static 'css/datepicker_icon.css' %}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>

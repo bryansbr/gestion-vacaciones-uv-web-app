@@ -82,6 +82,18 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         context['funcionario_estamento'] = funcionario.estamento.nombre.lower()
         context['funcionario_decreto'] = (funcionario.decreto_resolucion or '').strip()
 
+        # Verificar si el funcionario tiene periodos vacacionales
+        periodos_vacacionales = PeriodoVacacional.objects.filter(funcionario=funcionario)
+        context['tiene_periodos_vacacionales'] = periodos_vacacionales.exists()
+        
+        # Si no tiene periodos, no mostrar reintegros ni otros datos
+        if not context['tiene_periodos_vacacionales']:
+            context['reintegros_pendientes'] = json.dumps([])
+            context['tiene_reintegros_pendientes'] = False
+            context['periodos_acumulados'] = None
+            context['plazo_solicitud'] = None
+            return context
+
         # Reintegros aprobados con días pendientes
         reintegros_pendientes = ReintegroVacaciones.objects.filter(
             funcionario=funcionario,
@@ -140,7 +152,15 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         self.object = None
         form = self.get_form()
 
-        form.instance.funcionario = self.request.user.funcionario
+        # Verificar si el funcionario tiene periodos vacacionales antes de procesar el formulario
+        funcionario = self.request.user.funcionario
+        periodos_vacacionales = PeriodoVacacional.objects.filter(funcionario=funcionario)
+        
+        if not periodos_vacacionales.exists():
+            messages.error(request, "No puede crear una solicitud de vacaciones sin tener periodos vacacionales registrados.")
+            return self.form_invalid(form)
+
+        form.instance.funcionario = funcionario
 
         if form.is_valid():
             return self.form_valid(form)
