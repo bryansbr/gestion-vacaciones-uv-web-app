@@ -21,24 +21,6 @@ class PeriodoVacacionalForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        fecha_inicio = cleaned_data.get('fecha_inicio_periodo')
-        fecha_fin = cleaned_data.get('fecha_fin_periodo')
-        dias_disfrutados = cleaned_data.get('dias_disfrutados_periodo')
-        funcionario = cleaned_data.get('funcionario')
-
-        periodo = PeriodoVacacional(
-            fecha_inicio_periodo=fecha_inicio,
-            fecha_fin_periodo=fecha_fin,
-            dias_disfrutados_periodo=dias_disfrutados,
-            funcionario=funcionario
-        )
-
-        try:
-            periodo.clean()
-        except forms.ValidationError as e:
-            for error in e.error_list:
-                self.add_error(None, error.message)
-
         return cleaned_data
 
 class SolicitudVacacionesForm(forms.ModelForm):
@@ -74,10 +56,32 @@ class SolicitudVacacionesForm(forms.ModelForm):
             'readonly': 'readonly'
         })
     )
+    tiene_dias_pendientes = forms.BooleanField(
+        label='Disfrute de días pendientes',
+        required=False,
+        help_text='Marque esta opción si desea solicitar vacaciones por días pendientes de reintegros aprobados'
+    )
+    codigo_sabs = forms.CharField(
+        label='Código SABS',
+        required=False,
+        disabled=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-input bg-gray-100 cursor-not-allowed',
+            'readonly': 'readonly',
+            'disabled': 'disabled'
+        })
+    )
 
     class Meta:
         model = SolicitudVacaciones
-        exclude = ['estado_solicitud', 'fecha_elaboracion', 'funcionario', 'total_dias_solicitados', 'tiene_dias_pendientes']
+        fields = [
+            'periodo_vacacional',
+            'fecha_inicio_vacaciones',
+            'fecha_fin_vacaciones',
+            'fecha_pago',
+            'observaciones',
+            'tiene_dias_pendientes'
+        ]
         labels = {
             'codigo_sabs': 'Código SABS',
             'periodo_vacacional': 'Periodo(s) vacacional(es)',
@@ -95,7 +99,11 @@ class SolicitudVacacionesForm(forms.ModelForm):
             }),
             'observaciones': forms.Textarea(attrs={'class': 'form-textarea'}),
             'periodo_vacacional': forms.Select(attrs={'class': 'form-select'}),
-            'codigo_sabs': forms.TextInput(attrs={'class': 'form-input', 'readonly': 'readonly'}),
+            'codigo_sabs': forms.TextInput(attrs={
+                'class': 'form-input bg-gray-100cursor-not-allowed',
+                'readonly': 'readonly',
+                'disabled': 'disabled'
+            }),
             'numero_identificacion': forms.TextInput(attrs={
                 'class': 'form-input bg-gray-100 cursor-not-allowed',
                 'readonly': 'readonly',
@@ -229,3 +237,7 @@ class SolicitudVacacionesForm(forms.ModelForm):
         ).count()
         
         self.initial['periodos_pendientes'] = periodos_pendientes_count
+
+    def clean(self):
+        cleaned_data = super().clean()
+        return cleaned_data

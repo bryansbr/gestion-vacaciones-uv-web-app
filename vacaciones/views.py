@@ -4,11 +4,12 @@ from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from django.utils.timezone import now
-from datetime import date
+from datetime import date, datetime
 from .models import PeriodoVacacional, SolicitudVacaciones, generar_codigo_sabs, ReintegroVacaciones
 from .forms import PeriodoVacacionalForm, SolicitudVacacionesForm
 import holidays
 import json
+import pytz
 
 # -----------------------------------------
 # VISTA: PeriodoVacacional
@@ -64,8 +65,10 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
 
     def get_initial(self):
         initial = super().get_initial()
-        initial['fecha_solicitud'] = now().date()
-        initial['codigo_sabs'] = generar_codigo_sabs('VAC', now().year)
+        colombia_tz = pytz.timezone('America/Bogota')
+        hoy_colombia = datetime.now(colombia_tz).date()
+        initial['fecha_solicitud'] = hoy_colombia
+        initial['codigo_sabs'] = generar_codigo_sabs('VAC', hoy_colombia.year)
         return initial
 
     def get_context_data(self, **kwargs):
@@ -99,7 +102,7 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
             funcionario=funcionario,
             estado_solicitud='aprobado',
             dias_pendientes__gt=0
-        ).order_by('-fecha_solicitud')
+        )
 
         reintegros_data = []
         for reintegro in reintegros_pendientes:
@@ -114,6 +117,10 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
 
         context['reintegros_pendientes'] = json.dumps(reintegros_data)
         context['tiene_reintegros_pendientes'] = len(reintegros_data) > 0
+        
+        # Inicializar el campo tiene_dias_pendientes si hay reintegros pendientes
+        if context['tiene_reintegros_pendientes']:
+            context['form'].initial['tiene_dias_pendientes'] = False
 
         form = context.get('form')
 
@@ -161,14 +168,42 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
             return self.form_invalid(form)
 
         form.instance.funcionario = funcionario
+        
+        # Asignar la fecha de solicitud (hoy en Colombia UTC-5)
+        colombia_tz = pytz.timezone('America/Bogota')
+        hoy_colombia = datetime.now(colombia_tz).date()
+        form.instance.fecha_solicitud = hoy_colombia
+        
+        # Determinar si tiene días pendientes basado en reintegros aprobados
+        reintegros_pendientes = ReintegroVacaciones.objects.filter(
+            funcionario=funcionario,
+            estado_solicitud='aprobado',
+            dias_pendientes__gt=0
+        )
+        
+        # Usar el valor del formulario si está presente, sino calcular automáticamente
+        if 'tiene_dias_pendientes' in request.POST:
+            form.instance.tiene_dias_pendientes = request.POST.get('tiene_dias_pendientes') == 'on'
+        else:
+            form.instance.tiene_dias_pendientes = reintegros_pendientes.exists()
 
+        # Asignar el código SABS si viene del formulario, sino se generará automáticamente
+        if 'codigo_sabs' in request.POST and request.POST.get('codigo_sabs'):
+            form.instance.codigo_sabs = request.POST.get('codigo_sabs')
+        
         if form.is_valid():
             return self.form_valid(form)
         return self.form_invalid(form)
 
     def form_valid(self, form):
-        messages.success(self.request, "Solicitud registrada correctamente.")
-        return super().form_valid(form)
+        try:
+            # Guardar la instancia
+            self.object = form.save()
+            messages.success(self.request, "Solicitud registrada correctamente.")
+            return super().form_valid(form)
+        except Exception as e:
+            messages.error(self.request, f"Error al guardar la solicitud: {e}")
+            return self.form_invalid(form)
     
 class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
     model = SolicitudVacaciones

@@ -44,8 +44,8 @@ class SolicitudVacacionesViewSet(viewsets.ModelViewSet):
         'funcionario__nombre',
         'funcionario__apellido',
     ]
-    ordering_fields = ['fecha_elaboracion', 'fecha_inicio_vacaciones', 'total_dias_solicitados']
-    ordering = ['-fecha_elaboracion']
+    ordering_fields = ['fecha_solicitud', 'fecha_inicio_vacaciones', 'total_dias_solicitados']
+    ordering = ['-fecha_solicitud']
 
 class ReintegroVacacionesViewSet(viewsets.ModelViewSet):
     """
@@ -62,5 +62,5 @@ class ReintegroVacacionesViewSet(viewsets.ModelViewSet):
         'funcionario__nombre',
         'funcionario__apellido',
     ]
-    ordering_fields = ['fecha_elaboracion', 'fecha_reintegro', 'dias_disfrutados']
-    ordering = ['-fecha_elaboracion']
+    ordering_fields = ['fecha_solicitud', 'fecha_reintegro', 'dias_disfrutados']
+    ordering = ['-fecha_solicitud']

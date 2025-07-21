@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const tipoHabiles = document.getElementById('id_tipo_habiles');
     const tipoCalendario = document.getElementById('id_tipo_calendario');
     const periodoVacacional = document.getElementById('id_periodo_vacacional');
-    const disfruteDiasPendientes = document.getElementById('id_disfrute_dias_pendientes');
+    const disfruteDiasPendientes = document.getElementById('id_tiene_dias_pendientes');
 
     const reintegrosPendientes = window.REINTEGROS_PENDIENTES || [];
 

@@ -30,13 +30,13 @@ class SolicitudVacacionesSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'codigo_sabs',
-            'fecha_elaboracion',
+            'fecha_solicitud',
             'fecha_inicio_vacaciones',
             'fecha_fin_vacaciones',
             'total_dias_solicitados',
             'fecha_pago',
             'observaciones',
-            'disfrute_dias_pendientes',
+            'tiene_dias_pendientes',
             'periodo_vacacional',
             'funcionario',
             'estado_solicitud',
@@ -66,7 +66,7 @@ class ReintegroVacacionesSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'codigo_sabs',
-            'fecha_elaboracion',
+            'fecha_solicitud',
             'fecha_reintegro',
             'motivo_reintegro',
             'observaciones',
@@ -81,4 +81,4 @@ class ReintegroVacacionesSerializer(serializers.ModelSerializer):
             'funcionario',
             'estado_solicitud',
         ]
-        read_only_fields = ('fecha_elaboracion', 'estado_solicitud')
+        read_only_fields = ('fecha_solicitud', 'estado_solicitud')
