@@ -225,6 +225,90 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
         kwargs['initial']['user_id'] = self.request.user.id
         return kwargs
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        years = [date.today().year, date.today().year + 1]
+        festivos = []
+
+        for y in years:
+            festivos += [d.strftime('%d/%m/%Y') for d in holidays.Colombia(years=[y]).keys()]
+        
+        context['festivos_colombia'] = json.dumps(festivos)
+
+        funcionario = self.request.user.funcionario
+        context['funcionario_estamento'] = funcionario.estamento.nombre.lower()
+        context['funcionario_decreto'] = (funcionario.decreto_resolucion or '').strip()
+
+        # Verificar si el funcionario tiene periodos vacacionales
+        periodos_vacacionales = PeriodoVacacional.objects.filter(funcionario=funcionario)
+        context['tiene_periodos_vacacionales'] = periodos_vacacionales.exists()
+        
+        # Si no tiene periodos, no mostrar reintegros ni otros datos
+        if not context['tiene_periodos_vacacionales']:
+            context['reintegros_pendientes'] = json.dumps([])
+            context['tiene_reintegros_pendientes'] = False
+            context['periodos_acumulados'] = None
+            context['plazo_solicitud'] = None
+            return context
+
+        # Reintegros aprobados con días pendientes
+        reintegros_pendientes = ReintegroVacaciones.objects.filter(
+            funcionario=funcionario,
+            estado_solicitud='aprobado',
+            dias_pendientes__gt=0
+        )
+
+        reintegros_data = []
+        for reintegro in reintegros_pendientes:
+            reintegros_data.append({
+                'id': reintegro.id,
+                'dias_pendientes': reintegro.dias_pendientes,
+                'tipo_dias': reintegro.tipo_dias_pendientes,
+                'periodo_vacacional_id': reintegro.periodo_vacacional_id,
+                'fecha_disfrute_desde': reintegro.fecha_disfrute_desde.strftime('%d/%m/%Y'),
+                'fecha_disfrute_hasta': reintegro.fecha_disfrute_hasta.strftime('%d/%m/%Y')
+            })
+
+        context['reintegros_pendientes'] = json.dumps(reintegros_data)
+        context['tiene_reintegros_pendientes'] = len(reintegros_data) > 0
+        
+        # Inicializar el campo tiene_dias_pendientes si hay reintegros pendientes
+        if context['tiene_reintegros_pendientes']:
+            context['form'].initial['tiene_dias_pendientes'] = False
+
+        form = context.get('form')
+
+        if hasattr(form, 'periodos_acumulados') and form.periodos_acumulados:
+            context['periodos_acumulados'] = form.periodos_acumulados
+            context['periodo_mas_antiguo'] = form.periodo_mas_antiguo
+            context['periodo_mas_reciente'] = form.periodo_mas_reciente
+            context['periodo_mas_antiguo_habilitado'] = form.periodo_mas_antiguo_habilitado
+            context['periodo_mas_reciente_habilitado'] = form.periodo_mas_reciente_habilitado
+
+        hoy = date.today()
+        estamento = funcionario.estamento.nombre.lower()
+
+        if estamento == 'docente':
+            if hoy.day <= 10:
+                context['plazo_solicitud'] = (
+                    "Recuerde. Por reglamentación, si realiza la solicitud hoy deberá esperar "
+                    "hasta el día 1º del mes siguiente para disfrutar sus vacaciones."
+                )
+            else:
+                context['plazo_solicitud'] = (
+                    "Recuerde. Por reglamentación, si realiza la solicitud hoy deberá esperar "
+                    "hasta el día 1º del mes subsiguiente para disfrutar sus vacaciones."
+                )
+        else:
+            if hoy.day <= 3:
+                context['plazo_solicitud'] = "Puede solicitar vacaciones hasta el día 3 para salir el 16 del mes actual"
+            elif hoy.day <= 17:
+                context['plazo_solicitud'] = "Puede solicitar vacaciones hasta el día 17 para salir el 1º del mes siguiente"
+            else:
+                context['plazo_solicitud'] = "Debe esperar hasta el 16 del mes siguiente para solicitar vacaciones"
+
+        return context
+
     def get_queryset(self):
         return SolicitudVacaciones.objects.filter(
             funcionario=self.request.user.funcionario,
