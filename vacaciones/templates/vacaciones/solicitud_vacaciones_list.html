@@ -38,7 +38,7 @@
                                 {{ solicitud.fecha_pago|date:"d/m/Y" }}
                             </td>
                             <td class="px-4 py-2 border font-medium text-indigo-600">{{ solicitud.get_estado_solicitud_display }}</td>
-                            <td class="px-4 py-2 border">{{ solicitud.fecha_elaboracion|date:"d/m/Y" }}</td>
+                            <td class="px-4 py-2 border">{{ solicitud.fecha_solicitud|date:"d/m/Y" }}</td>
                             <td class="px-4 py-2 border">
                                 {% if solicitud.estado_solicitud == 'pendiente' %}
                                     <a href="{% url 'vacaciones:solicitud_vacaciones_update' solicitud.id %}" class="text-blue-600 hover:underline mr-3">Editar</a>

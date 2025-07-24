@@ -41,7 +41,7 @@ class SolicitudVacacionesSerializer(serializers.ModelSerializer):
             'funcionario',
             'estado_solicitud',
         ]
-        read_only_fields = ['fecha_elaboracion', 'estado_solicitud']
+        read_only_fields = ['fecha_solicitud', 'estado_solicitud']
 
     def validate(self, data):
         """
