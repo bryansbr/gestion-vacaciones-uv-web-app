@@ -95,6 +95,7 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
             context['tiene_reintegros_pendientes'] = False
             context['periodos_acumulados'] = None
             context['plazo_solicitud'] = None
+            context['mostrar_alerta_periodos_acumulados'] = False
             return context
 
         # Reintegros aprobados con días pendientes
@@ -122,14 +123,51 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         if context['tiene_reintegros_pendientes']:
             context['form'].initial['tiene_dias_pendientes'] = False
 
+        # Verificar si el funcionario tiene una solicitud activa (sin reintegro asociado)
+        solicitudes_activas = SolicitudVacaciones.objects.filter(
+            funcionario=funcionario,
+            estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
+        )
+        
+        # Una solicitud se considera "culminada" si tiene un reintegro asociado
+        solicitudes_sin_reintegro = []
+        for solicitud in solicitudes_activas:
+            # Verificar si existe un reintegro asociado a esta solicitud
+            tiene_reintegro = ReintegroVacaciones.objects.filter(
+                solicitud_vacaciones=solicitud,
+                estado_solicitud='aprobado'
+            ).exists()
+            
+            if not tiene_reintegro:
+                solicitudes_sin_reintegro.append(solicitud)
+        
+        context['puede_crear_solicitud'] = len(solicitudes_sin_reintegro) == 0
+        context['solicitud_activa'] = solicitudes_sin_reintegro[0] if solicitudes_sin_reintegro else None
+
         form = context.get('form')
 
+        # Lógica para determinar si mostrar alerta de periodos acumulados
+        context['mostrar_alerta_periodos_acumulados'] = False
+        
         if hasattr(form, 'periodos_acumulados') and form.periodos_acumulados:
             context['periodos_acumulados'] = form.periodos_acumulados
             context['periodo_mas_antiguo'] = form.periodo_mas_antiguo
             context['periodo_mas_reciente'] = form.periodo_mas_reciente
             context['periodo_mas_antiguo_habilitado'] = form.periodo_mas_antiguo_habilitado
             context['periodo_mas_reciente_habilitado'] = form.periodo_mas_reciente_habilitado
+            
+            # Solo mostrar alerta de periodos acumulados si:
+            # 1. No hay solicitud activa pendiente
+            # 2. No se ha hecho ninguna solicitud sobre los periodos acumulados
+            if context['puede_crear_solicitud']:
+                # Verificar si ya se ha hecho alguna solicitud sobre los periodos acumulados
+                solicitudes_periodos_acumulados = SolicitudVacaciones.objects.filter(
+                    funcionario=funcionario,
+                    periodo_vacacional__in=[form.periodo_mas_antiguo, form.periodo_mas_reciente]
+                ).exists()
+                
+                # Solo mostrar la alerta si no se ha hecho ninguna solicitud sobre los periodos acumulados
+                context['mostrar_alerta_periodos_acumulados'] = not solicitudes_periodos_acumulados
 
         hoy = date.today()
         estamento = funcionario.estamento.nombre.lower()
@@ -165,6 +203,26 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         
         if not periodos_vacacionales.exists():
             messages.error(request, "No puede crear una solicitud de vacaciones sin tener periodos vacacionales registrados.")
+            return self.form_invalid(form)
+
+        # Verificar si ya tiene una solicitud activa sin reintegro asociado
+        solicitudes_activas = SolicitudVacaciones.objects.filter(
+            funcionario=funcionario,
+            estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
+        )
+        
+        solicitudes_sin_reintegro = []
+        for solicitud in solicitudes_activas:
+            tiene_reintegro = ReintegroVacaciones.objects.filter(
+                solicitud_vacaciones=solicitud,
+                estado_solicitud='aprobado'
+            ).exists()
+            
+            if not tiene_reintegro:
+                solicitudes_sin_reintegro.append(solicitud)
+        
+        if solicitudes_sin_reintegro:
+            messages.error(request, "Ya tiene una solicitud de vacaciones activa. Debe culminar el disfrute del periodo actual antes de crear una nueva solicitud.")
             return self.form_invalid(form)
 
         form.instance.funcionario = funcionario
@@ -249,6 +307,7 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
             context['tiene_reintegros_pendientes'] = False
             context['periodos_acumulados'] = None
             context['plazo_solicitud'] = None
+            context['mostrar_alerta_periodos_acumulados'] = False
             return context
 
         # Reintegros aprobados con días pendientes
@@ -276,8 +335,32 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
         if context['tiene_reintegros_pendientes']:
             context['form'].initial['tiene_dias_pendientes'] = False
 
+        # Verificar si el funcionario tiene una solicitud activa (sin reintegro asociado)
+        solicitudes_activas = SolicitudVacaciones.objects.filter(
+            funcionario=funcionario,
+            estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
+        )
+        
+        # Una solicitud se considera "culminada" si tiene un reintegro asociado
+        solicitudes_sin_reintegro = []
+        for solicitud in solicitudes_activas:
+            # Verificar si existe un reintegro asociado a esta solicitud
+            tiene_reintegro = ReintegroVacaciones.objects.filter(
+                solicitud_vacaciones=solicitud,
+                estado_solicitud='aprobado'
+            ).exists()
+            
+            if not tiene_reintegro:
+                solicitudes_sin_reintegro.append(solicitud)
+        
+        context['puede_crear_solicitud'] = len(solicitudes_sin_reintegro) == 0
+        context['solicitud_activa'] = solicitudes_sin_reintegro[0] if solicitudes_sin_reintegro else None
+
         form = context.get('form')
 
+        # Lógica para determinar si mostrar alerta de periodos acumulados
+        context['mostrar_alerta_periodos_acumulados'] = False
+        
         if hasattr(form, 'periodos_acumulados') and form.periodos_acumulados:
             context['periodos_acumulados'] = form.periodos_acumulados
             context['periodo_mas_antiguo'] = form.periodo_mas_antiguo

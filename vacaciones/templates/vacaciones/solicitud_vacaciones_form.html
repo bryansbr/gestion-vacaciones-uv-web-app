@@ -10,7 +10,12 @@
 
     <!-- Alerta cuando no hay periodos vacacionales -->
     {% if not tiene_periodos_vacacionales %}
-    <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+    <div id="alerta-sin-periodos" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg relative">
+        <button type="button" onclick="cerrarAlerta('alerta-sin-periodos')" class="absolute top-2 right-2 text-red-400 hover:text-red-600 focus:outline-none focus:text-red-600">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+            </svg>
+        </button>
         <h3 class="text-lg font-semibold text-red-800 mb-2">¡Atención!</h3>
         <p class="text-red-700 mb-3">
             Actualmente no tiene periodos vacacionales registrados, por lo tanto, no puede solicitar vacaciones. Contacte al administrador del sistema para que registre su(s) periodo(s) vacacional(es).
@@ -18,9 +23,29 @@
     </div>
     {% endif %}
 
-    <!-- Información sobre plazos de solicitud - ¡OJO! REVISAR -->
+    <!-- Alerta cuando ya tiene una solicitud activa -->
+    {% if not puede_crear_solicitud and solicitud_activa %}
+    <div id="alerta-solicitud-activa" class="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg relative">
+        <button type="button" onclick="cerrarAlerta('alerta-solicitud-activa')" class="absolute top-2 right-2 text-orange-400 hover:text-orange-600 focus:outline-none focus:text-orange-600">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+            </svg>
+        </button>
+        <h3 class="text-lg font-semibold text-orange-800 mb-2">¡Atención!</h3>
+        <p class="text-orange-700 mb-3">
+            Ya tiene una solicitud de vacaciones activa ({{ solicitud_activa.codigo_sabs }}). Debe culminar el disfrute del periodo actual antes de crear una nueva solicitud.
+        </p>
+    </div>
+    {% endif %}
+
+    <!-- Información sobre plazos de solicitud -->
     {% if plazo_solicitud %}
-    <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+    <div id="alerta-plazo-solicitud" class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg relative">
+        <button type="button" onclick="cerrarAlerta('alerta-plazo-solicitud')" class="absolute top-2 right-2 text-blue-400 hover:text-blue-600 focus:outline-none focus:text-blue-600">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+            </svg>
+        </button>
         <h3 class="text-lg font-semibold text-blue-800 mb-2">Información sobre su solicitud</h3>
         <p class="text-blue-700 mb-3">{{ plazo_solicitud }}</p>
         
@@ -146,10 +171,10 @@
         </div>
         {% endif %}
 
-        {% if periodos_acumulados %}
+        {% if mostrar_alerta_periodos_acumulados %}
         <div id="modal-alerta-periodos" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50" style="width:100vw;height:100vh;top:0;left:0;">
           <div class="bg-white p-6 rounded shadow-lg max-w-md w-full relative">
-            <h2 class=" flex justify-center mt-4 text-lg font-bold mb-2">Atención</h2>
+            <h2 class=" flex justify-center mt-4 text-lg font-bold mb-2">¡Atención!</h2>
             <p>
               Tiene dos (2) periodos vacacionales acumulados. Debe solicitar primero el más antiguo, de lo contrario, perderá el derecho a este según la normativa vigente.
             </p>
@@ -174,6 +199,20 @@
         </div>
         {% endif %}
 
+        {% if not puede_crear_solicitud and solicitud_activa %}
+        <div id="modal-alerta-solicitud-activa" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50" style="width:100vw;height:100vh;top:0;left:0;">
+          <div class="bg-white p-6 rounded shadow-lg max-w-md w-full relative">
+            <h2 class="flex justify-center mt-4 text-lg font-bold mb-2 text-orange-600">¡Atención!</h2>
+            <p class="text-gray-700 mb-4">
+              Ya tiene una solicitud de vacaciones activa ({{ solicitud_activa.codigo_sabs }}). Debe culminar el disfrute del periodo actual antes de crear una nueva solicitud.
+            </p>
+            <div class="flex justify-center mt-4">
+              <button id="cerrar-modal-solicitud-activa" type="button" class="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 transition">Entendido</button>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
         <!-- Resto de los campos -->
         {% for field in form %}
             {% if field.name not in 'numero_identificacion nombre_funcionario estamento facultad_dependencia dias_derecho dias_pendientes periodos_pendientes tipo_habiles tipo_calendario fecha_solicitud codigo_sabs periodo_vacacional tiene_dias_pendientes' %}
@@ -193,7 +232,7 @@
         {% endfor %}
 
         <div class="pt-4">
-            {% if tiene_periodos_vacacionales %}
+            {% if tiene_periodos_vacacionales and puede_crear_solicitud %}
                 <button type="submit" id=submit-btn class="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white px-6 py-3 rounded-md shadow-md hover:from-purple-600 hover:to-blue-600 transition">
                     {% if form.instance.pk %}Guardar cambios{% else %}Enviar solicitud{% endif %}
                 </button>
@@ -231,52 +270,21 @@
     <script src="{% static 'js/periodos_acumulados.js' %}"></script>
     {% endif %}
     
+    <!-- Script para manejar alertas del formulario -->
+    <script src="{% static 'js/alertas_formulario.js' %}"></script>
+    
     <!-- Script para manejar solicitud de vacaciones -->
     <script src="{% static 'js/solicitud_vacaciones.js' %}"></script>
     
     <!-- Script para manejar datepicker -->
     <script src="{% static 'js/datepicker_vacaciones.js' %}"></script>
     
+    <!-- Script para manejar animación de carga -->
+    <script src="{% static 'js/animacion_carga.js' %}"></script>
+    
     <link rel="stylesheet" href="{% static 'css/datepicker_icon.css' %}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="{% static 'js/datepicker_vacaciones.js' %}"></script>
     <script src="{% static 'js/solicitud_vacaciones.js' %}"></script>
-    
-    <!-- Script para manejar animación de carga -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const form = document.querySelector('form');
-            const submitBtn = document.getElementById('submit-btn');
-            const loadingSpinner = document.getElementById('loading-spinner');
-            
-            if (form && submitBtn && loadingSpinner) {
-                form.addEventListener('submit', function(e) {
-                    // Solo mostrar la animación de carga
-                    submitBtn.style.display = 'none';
-                    loadingSpinner.classList.remove('hidden');
-                    
-                    // No deshabilitar campos para evitar problemas con CSRF
-                    // El formulario se enviará normalmente
-                });
-            }
-
-            // Manejar el modal de alerta sin periodos vacacionales
-            const modalSinPeriodos = document.getElementById('modal-alerta-sin-periodos');
-            const cerrarModalSinPeriodos = document.getElementById('cerrar-modal-sin-periodos');
-            
-            if (modalSinPeriodos && cerrarModalSinPeriodos) {
-                cerrarModalSinPeriodos.addEventListener('click', function() {
-                    modalSinPeriodos.style.display = 'none';
-                });
-                
-                // También cerrar al hacer clic fuera del modal
-                modalSinPeriodos.addEventListener('click', function(e) {
-                    if (e.target === modalSinPeriodos) {
-                        modalSinPeriodos.style.display = 'none';
-                    }
-                });
-            }
-        });
-    </script>
 {% endblock %}
