@@ -16,7 +16,7 @@ urlpatterns = [
     # -----------------------------------------
     # MODELO: PeriodoVacacional
     # -----------------------------------------
-    path('periodos-vacacionales/', PeriodoVacacionalListView.as_view(), name="periodo_vacacional_list"),
+    path('periodos-vacacionales/', PeriodoVacacionalListView.as_view(), name="periodo-vacacional-list"),
     path('periodos-vacacionales/crear/', PeriodoVacacionalCreateView.as_view(), name="periodo_vacacional_create"),
     path('periodos-vacacionales/<int:pk>/editar/', PeriodoVacacionalUpdateView.as_view(), name="periodo_vacacional_update"),
     path('periodos-vacacionales/<int:pk>/eliminar/', PeriodoVacacionalDeleteView.as_view(), name="periodo_vacacional_delete"),
@@ -24,7 +24,7 @@ urlpatterns = [
     # -----------------------------------------
     # MODELO: SolicitudVacaciones
     # -----------------------------------------
-    path('solicitudes-vacaciones/', SolicitudVacacionesListView.as_view(), name="solicitud_vacaciones_list"),
+    path('solicitudes-vacaciones/', SolicitudVacacionesListView.as_view(), name="solicitud-vacaciones-list"),
     path('solicitudes-vacaciones/crear/', SolicitudVacacionesCreateView.as_view(), name="solicitud_vacaciones_create"),
     path('solicitudes-vacaciones/<int:pk>/editar/', SolicitudVacacionesUpdateView.as_view(), name="solicitud_vacaciones_update"),
     path('solicitudes-vacaciones/<int:pk>/eliminar/', SolicitudVacacionesDeleteView.as_view(), name="solicitud_vacaciones_delete"),

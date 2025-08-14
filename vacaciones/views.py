@@ -16,14 +16,14 @@ import pytz
 # -----------------------------------------
 class PeriodoVacacionalListView(LoginRequiredMixin, ListView):
     model = PeriodoVacacional
-    template_name = "vacaciones/periodo_vacacional_list.html"
+    template_name = "vacaciones/periodo-vacacional-list.html"
     context_object_name = "periodos"
 
 class PeriodoVacacionalCreateView(LoginRequiredMixin, CreateView):
     model = PeriodoVacacional
     form_class = PeriodoVacacionalForm
-    template_name = "vacaciones/periodo_vacacional_form.html"
-    success_url = reverse_lazy("vacaciones:periodo_vacacional_list")
+    template_name = "vacaciones/periodo-vacacional-form.html"
+    success_url = reverse_lazy("vacaciones:periodo-vacacional-list")
 
     def form_valid(self, form):
         messages.success(self.request, "Periodo vacacional creado correctamente.")
@@ -32,8 +32,8 @@ class PeriodoVacacionalCreateView(LoginRequiredMixin, CreateView):
 class PeriodoVacacionalUpdateView(LoginRequiredMixin, UpdateView):
     model = PeriodoVacacional
     form_class = PeriodoVacacionalForm
-    template_name = "vacaciones/periodo_vacacional_form.html"
-    success_url = reverse_lazy("vacaciones:periodo_vacacional_list")
+    template_name = "vacaciones/periodo-vacacional-form.html"
+    success_url = reverse_lazy("vacaciones:periodo-vacacional-list")
 
     def form_valid(self, form):
         messages.success(self.request, "Periodo vacacional actualizado correctamente.")
@@ -41,8 +41,8 @@ class PeriodoVacacionalUpdateView(LoginRequiredMixin, UpdateView):
 
 class PeriodoVacacionalDeleteView(LoginRequiredMixin, DeleteView):
     model = PeriodoVacacional
-    template_name = "vacaciones/periodo_vacacional_confirm_delete.html"
-    success_url = reverse_lazy("vacaciones:periodo_vacacional_list")
+    template_name = "vacaciones/periodo-vacacional-confirm-delete.html"
+    success_url = reverse_lazy("vacaciones:periodo-vacacional-list")
 
     def delete(self, request, *args, **kwargs):
         messages.success(request, "Periodo vacacional eliminado correctamente.")
@@ -54,8 +54,8 @@ class PeriodoVacacionalDeleteView(LoginRequiredMixin, DeleteView):
 class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
     model = SolicitudVacaciones
     form_class = SolicitudVacacionesForm
-    template_name = "vacaciones/solicitud_vacaciones_form.html"
-    success_url = reverse_lazy("vacaciones:solicitud_vacaciones_list")
+    template_name = "vacaciones/solicitud-vacaciones-form.html"
+    success_url = reverse_lazy("vacaciones:solicitud-vacaciones-list")
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -265,7 +265,7 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
     
 class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
     model = SolicitudVacaciones
-    template_name = "vacaciones/solicitud_vacaciones_list.html"
+    template_name = "vacaciones/solicitud-vacaciones-list.html"
     context_object_name = "solicitudes"
 
     def get_queryset(self):
@@ -274,8 +274,8 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
 class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
     model = SolicitudVacaciones
     form_class = SolicitudVacacionesForm
-    template_name = "vacaciones/solicitud_vacaciones_form.html"
-    success_url = reverse_lazy("vacaciones:solicitud_vacaciones_list")
+    template_name = "vacaciones/solicitud-vacaciones-form.html"
+    success_url = reverse_lazy("vacaciones:solicitud-vacaciones-list")
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -404,8 +404,8 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
 
 class SolicitudVacacionesDeleteView(LoginRequiredMixin, DeleteView):
     model = SolicitudVacaciones
-    template_name = "vacaciones/solicitud_vacaciones_confirm_delete.html"
-    success_url = reverse_lazy("vacaciones:solicitud_vacaciones_list")
+    template_name = "vacaciones/solicitud-vacaciones-confirm-delete.html"
+    success_url = reverse_lazy("vacaciones:solicitud-vacaciones-list")
 
     def get_queryset(self):
         return SolicitudVacaciones.objects.filter(
@@ -426,4 +426,4 @@ def solicitud_vacaciones_create(request):
         
     festivos_json = json.dumps(festivos)
 
-    return render(request, 'vacaciones/solicitud_vacaciones_form.html', {'festivos_colombia': festivos_json})
+    return render(request, 'vacaciones/solicitud-vacaciones-form.html', {'festivos_colombia': festivos_json})
