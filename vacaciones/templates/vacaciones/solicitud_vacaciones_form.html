@@ -258,33 +258,31 @@
     {{ block.super }}
     
     <!-- Script para manejar variables globales -->
-    <script src="{% static 'js/variables_globales.js' %}"></script>
+    <script src="{% static 'js/utils/variables-globales.js' %}"></script>
     
     <!-- Script para deshabilitar formulario cuando no hay periodos vacacionales -->
     {% if not tiene_periodos_vacacionales %}
-    <script src="{% static 'js/validacion_formulario.js' %}"></script>
+    <script src="{% static 'js/componentes/formularios/validacion-formulario.js' %}"></script>
     {% endif %}
     
     <!-- Script para manejar periodos acumulados -->
     {% if periodos_acumulados %}
-    <script src="{% static 'js/periodos_acumulados.js' %}"></script>
+    <script src="{% static 'js/componentes/vacaciones/periodos-acumulados.js' %}"></script>
     {% endif %}
     
     <!-- Script para manejar alertas del formulario -->
-    <script src="{% static 'js/alertas_formulario.js' %}"></script>
+    <script src="{% static 'js/componentes/vacaciones/alertas-solicitudes-vacaciones.js' %}"></script>
     
     <!-- Script para manejar solicitud de vacaciones -->
-    <script src="{% static 'js/solicitud_vacaciones.js' %}"></script>
+    <script src="{% static 'vacaciones/static/js/solicitud-vacaciones.js' %}"></script>
     
     <!-- Script para manejar datepicker -->
-    <script src="{% static 'js/datepicker_vacaciones.js' %}"></script>
+    <script src="{% static 'vacaciones/static/js/datepicker-vacaciones.js' %}"></script>
     
     <!-- Script para manejar animación de carga -->
-    <script src="{% static 'js/animacion_carga.js' %}"></script>
+    <script src="{% static 'js/componentes/formularios/animacion-carga.js' %}"></script>
     
     <link rel="stylesheet" href="{% static 'css/datepicker_icon.css' %}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="{% static 'js/datepicker_vacaciones.js' %}"></script>
-    <script src="{% static 'js/solicitud_vacaciones.js' %}"></script>
 {% endblock %}

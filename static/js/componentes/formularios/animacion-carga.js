@@ -10,4 +10,4 @@ document.addEventListener('DOMContentLoaded', function() {
             loadingSpinner.classList.remove('hidden');
         });
     }
-});
+}); 

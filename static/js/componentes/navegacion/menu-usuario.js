@@ -20,4 +20,4 @@ if (userMenuToggle && userMenuDropdown) {
       userMenuDropdown.classList.add('hidden');
     }
   });
-}
+} 

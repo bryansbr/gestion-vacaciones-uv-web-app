@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', function() {
             input.classList.add('bg-gray-100', 'cursor-not-allowed');
         });
         
-        // Deshabilitar también los campos que ya están deshabilitados pero con estilos diferentes
         const disabledInputs = form.querySelectorAll('input[disabled], select[disabled], textarea[disabled]');
         disabledInputs.forEach(function(input) {
             input.classList.add('bg-gray-100', 'cursor-not-allowed');
