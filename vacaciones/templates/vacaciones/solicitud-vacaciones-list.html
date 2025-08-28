@@ -9,9 +9,17 @@
 <div class="max-w-6xl mx-auto p-6 bg-white rounded-md shadow-md mt-8">
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-bold text-gray-700">Mis solicitudes de vacaciones</h2>
-        <a href="{% url 'vacaciones:solicitud_vacaciones_create' %}" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md">
-            Crear
-        </a>
+        {% if puede_crear_solicitud %}
+            <a href="{% url 'vacaciones:solicitud_vacaciones_create' %}" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200">
+                Crear
+            </a>
+        {% else %}
+            <div class="tooltip-container">
+                <button title="No puedes crear una nueva solicitud mientras tengas una solicitud activa." disabled class="btn-disabled bg-gray-400 text-white font-semibold py-2 px-4 rounded-md">
+                    Crear
+                </button>
+            </div>
+        {% endif %}
     </div>
 
     {% if solicitudes %}

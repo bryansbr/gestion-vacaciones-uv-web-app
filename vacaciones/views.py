@@ -271,6 +271,34 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         return SolicitudVacaciones.objects.filter(funcionario=self.request.user.funcionario).order_by('-fecha_solicitud')
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        funcionario = self.request.user.funcionario
+        
+        # Verificar si el funcionario tiene una solicitud activa (sin reintegro asociado)
+        solicitudes_activas = SolicitudVacaciones.objects.filter(
+            funcionario=funcionario,
+            estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
+        )
+        
+        # Una solicitud se considera "culminada" si tiene un reintegro asociado
+        solicitudes_sin_reintegro = []
+        for solicitud in solicitudes_activas:
+            # Verificar si existe un reintegro asociado a esta solicitud
+            tiene_reintegro = ReintegroVacaciones.objects.filter(
+                solicitud_vacaciones=solicitud,
+                estado_solicitud='aprobado'
+            ).exists()
+            
+            if not tiene_reintegro:
+                solicitudes_sin_reintegro.append(solicitud)
+        
+        context['puede_crear_solicitud'] = len(solicitudes_sin_reintegro) == 0
+        context['solicitud_activa'] = solicitudes_sin_reintegro[0] if solicitudes_sin_reintegro else None
+        
+        return context
+
 class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
     model = SolicitudVacaciones
     form_class = SolicitudVacacionesForm

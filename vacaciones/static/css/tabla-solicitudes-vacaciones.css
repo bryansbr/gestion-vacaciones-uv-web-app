@@ -89,3 +89,17 @@
     text-align: center !important;
     margin: 0 auto !important;
 }
+
+/* Estilos para el botón deshabilitado */
+.btn-disabled {
+    background-color: #9ca3af !important;
+    color: #ffffff !important;
+    cursor: not-allowed !important;
+    opacity: 0.6 !important;
+    transition: all 0.2s ease-in-out !important;
+}
+
+.btn-disabled:hover {
+    background-color: #9ca3af !important;
+    transform: none !important;
+}
