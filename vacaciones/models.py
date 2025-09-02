@@ -411,7 +411,9 @@ class SolicitudVacaciones(models.Model):
             else:
                 self.total_dias_solicitados = (self.fecha_fin_vacaciones - self.fecha_inicio_vacaciones).days + 1
         if not self.codigo_sabs:
-            self.codigo_sabs = generar_codigo_sabs('VAC', datetime.now().year)
+            # Usar el año de la fecha de solicitud para generar el código
+            anio_codigo = self.fecha_solicitud.year if self.fecha_solicitud else datetime.now().year
+            self.codigo_sabs = generar_codigo_sabs('VAC', anio_codigo)
             
         # Calcular automáticamente la fecha de pago si no está establecida
         if not self.fecha_pago:
@@ -533,7 +535,9 @@ class ReintegroVacaciones(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.codigo_sabs:
-            self.codigo_sabs = generar_codigo_sabs('REI', datetime.now().year)
+            # Usar el año de la fecha de solicitud para generar el código
+            anio_codigo = self.fecha_solicitud.year if self.fecha_solicitud else datetime.now().year
+            self.codigo_sabs = generar_codigo_sabs('REI', anio_codigo)
         super().save(*args, **kwargs)
 
 # -----------------------------------------
@@ -587,19 +591,26 @@ def generar_codigo_sabs(tipo, anio):
     else:
         modelo = ReintegroVacaciones
     
+    # Buscar el último código del año actual
     ultimo_codigo = modelo.objects.filter(
-        codigo_sabs__startswith=f"{tipo}-{anio}-"
+        codigo_sabs__startswith=f"{tipo}{anio}"
     ).order_by('-codigo_sabs').first()
     
     if ultimo_codigo:
         try:
-            numero_str = ultimo_codigo.codigo_sabs.split('-')[-1].lstrip('0')
-            consecutivo = int(numero_str) + 1 if numero_str else 1
-        except (ValueError, IndexError):
+            # Extraer el número consecutivo del código
+            codigo_completo = ultimo_codigo.codigo_sabs
+            # El formato es VAC20250001, REI20250001, etc.
+            # Extraer solo los números después del año
+            numero_str = codigo_completo[len(f"{tipo}{anio}"):]
+            if numero_str.isdigit():
+                consecutivo = int(numero_str) + 1
+            else:
+                consecutivo = 1
+        except (ValueError, IndexError, AttributeError):
             consecutivo = 1
     else:
         consecutivo = 1
     
-    padding = max(4, len(str(consecutivo)))
-    
-    return f"{tipo}{anio}{str(consecutivo).zfill(padding)}"
+    # Formatear con 4 dígitos
+    return f"{tipo}{anio}{str(consecutivo).zfill(4)}"

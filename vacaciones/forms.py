@@ -83,7 +83,6 @@ class SolicitudVacacionesForm(forms.ModelForm):
             'tiene_dias_pendientes'
         ]
         labels = {
-            'codigo_sabs': 'Código SABS',
             'periodo_vacacional': 'Periodo(s) vacacional(es)',
             'fecha_inicio_vacaciones': 'Fecha de inicio vacaciones',
             'fecha_fin_vacaciones': 'Fecha de fin vacaciones',
@@ -99,11 +98,6 @@ class SolicitudVacacionesForm(forms.ModelForm):
             }),
             'observaciones': forms.Textarea(attrs={'class': 'form-textarea'}),
             'periodo_vacacional': forms.Select(attrs={'class': 'form-select'}),
-            'codigo_sabs': forms.TextInput(attrs={
-                'class': 'form-input bg-gray-100cursor-not-allowed',
-                'readonly': 'readonly',
-                'disabled': 'disabled'
-            }),
             'numero_identificacion': forms.TextInput(attrs={
                 'class': 'form-input bg-gray-100 cursor-not-allowed',
                 'readonly': 'readonly',

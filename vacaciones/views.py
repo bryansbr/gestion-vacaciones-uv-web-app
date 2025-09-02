@@ -244,10 +244,6 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
             form.instance.tiene_dias_pendientes = request.POST.get('tiene_dias_pendientes') == 'on'
         else:
             form.instance.tiene_dias_pendientes = reintegros_pendientes.exists()
-
-        # Asignar el código SABS si viene del formulario, sino se generará automáticamente
-        if 'codigo_sabs' in request.POST and request.POST.get('codigo_sabs'):
-            form.instance.codigo_sabs = request.POST.get('codigo_sabs')
         
         if form.is_valid():
             return self.form_valid(form)
