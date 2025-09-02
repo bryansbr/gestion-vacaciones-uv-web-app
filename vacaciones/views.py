@@ -359,26 +359,10 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
         if context['tiene_reintegros_pendientes']:
             context['form'].initial['tiene_dias_pendientes'] = False
 
-        # Verificar si el funcionario tiene una solicitud activa (sin reintegro asociado)
-        solicitudes_activas = SolicitudVacaciones.objects.filter(
-            funcionario=funcionario,
-            estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
-        )
-        
-        # Una solicitud se considera "culminada" si tiene un reintegro asociado
-        solicitudes_sin_reintegro = []
-        for solicitud in solicitudes_activas:
-            # Verificar si existe un reintegro asociado a esta solicitud
-            tiene_reintegro = ReintegroVacaciones.objects.filter(
-                solicitud_vacaciones=solicitud,
-                estado_solicitud='aprobado'
-            ).exists()
-            
-            if not tiene_reintegro:
-                solicitudes_sin_reintegro.append(solicitud)
-        
-        context['puede_crear_solicitud'] = len(solicitudes_sin_reintegro) == 0
-        context['solicitud_activa'] = solicitudes_sin_reintegro[0] if solicitudes_sin_reintegro else None
+        # EN MODO EDICIÓN: No se ejecutan validaciones de solicitud activa
+        # Estas validaciones solo aplican para creación de nuevas solicitudes
+        context['puede_crear_solicitud'] = True  # Siempre True en edición
+        context['solicitud_activa'] = None  # No hay solicitud activa en edición
 
         form = context.get('form')
 
@@ -392,27 +376,9 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
             context['periodo_mas_antiguo_habilitado'] = form.periodo_mas_antiguo_habilitado
             context['periodo_mas_reciente_habilitado'] = form.periodo_mas_reciente_habilitado
 
-        hoy = date.today()
-        estamento = funcionario.estamento.nombre.lower()
-
-        if estamento == 'docente':
-            if hoy.day <= 10:
-                context['plazo_solicitud'] = (
-                    "Recuerde. Por reglamentación, si realiza la solicitud hoy deberá esperar "
-                    "hasta el día 1º del mes siguiente para disfrutar sus vacaciones."
-                )
-            else:
-                context['plazo_solicitud'] = (
-                    "Recuerde. Por reglamentación, si realiza la solicitud hoy deberá esperar "
-                    "hasta el día 1º del mes subsiguiente para disfrutar sus vacaciones."
-                )
-        else:
-            if hoy.day <= 3:
-                context['plazo_solicitud'] = "Puede solicitar vacaciones hasta el día 3 para salir el 16 del mes actual"
-            elif hoy.day <= 17:
-                context['plazo_solicitud'] = "Puede solicitar vacaciones hasta el día 17 para salir el 1º del mes siguiente"
-            else:
-                context['plazo_solicitud'] = "Debe esperar hasta el 16 del mes siguiente para solicitar vacaciones"
+        # EN MODO EDICIÓN: No se muestran alertas de plazo de solicitud
+        # Estas alertas solo aplican para creación de nuevas solicitudes
+        context['plazo_solicitud'] = None
 
         return context
 

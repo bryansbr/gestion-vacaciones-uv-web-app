@@ -38,16 +38,6 @@ class SolicitudVacacionesForm(forms.ModelForm):
         'class': 'form-input bg-gray-100',
         'readonly': 'readonly'
     }))
-    fecha_solicitud = forms.DateField(
-        label='Fecha de solicitud',
-        required=False,
-        disabled=True,
-        widget=forms.DateInput(attrs={
-            'class': 'form-input bg-gray-100 cursor-not-allowed',
-            'readonly': 'readonly',
-            'disabled': 'disabled'
-        })
-    )
     periodos_pendientes = forms.CharField(
         required=False,
         disabled=True,
@@ -61,16 +51,6 @@ class SolicitudVacacionesForm(forms.ModelForm):
         required=False,
         help_text='Marque esta opción si desea solicitar vacaciones por días pendientes de reintegros aprobados'
     )
-    codigo_sabs = forms.CharField(
-        label='Código SABS',
-        required=False,
-        disabled=True,
-        widget=forms.TextInput(attrs={
-            'class': 'form-input bg-gray-100 cursor-not-allowed',
-            'readonly': 'readonly',
-            'disabled': 'disabled'
-        })
-    )
 
     class Meta:
         model = SolicitudVacaciones
@@ -80,13 +60,17 @@ class SolicitudVacacionesForm(forms.ModelForm):
             'fecha_fin_vacaciones',
             'fecha_pago',
             'observaciones',
-            'tiene_dias_pendientes'
+            'tiene_dias_pendientes',
+            'codigo_sabs',
+            'fecha_solicitud'
         ]
         labels = {
             'periodo_vacacional': 'Periodo(s) vacacional(es)',
             'fecha_inicio_vacaciones': 'Fecha de inicio vacaciones',
             'fecha_fin_vacaciones': 'Fecha de fin vacaciones',
             'fecha_pago': 'Fecha de pago vacaciones',
+            'codigo_sabs': 'Código SABS',
+            'fecha_solicitud': 'Fecha de solicitud',
         }
         widgets = {
             'fecha_inicio_vacaciones': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
@@ -98,6 +82,16 @@ class SolicitudVacacionesForm(forms.ModelForm):
             }),
             'observaciones': forms.Textarea(attrs={'class': 'form-textarea'}),
             'periodo_vacacional': forms.Select(attrs={'class': 'form-select'}),
+            'codigo_sabs': forms.TextInput(attrs={
+                'class': 'form-input bg-gray-100 cursor-not-allowed',
+                'readonly': 'readonly',
+                'disabled': 'disabled'
+            }),
+            'fecha_solicitud': forms.DateInput(attrs={
+                'class': 'form-input bg-gray-100 cursor-not-allowed',
+                'readonly': 'readonly',
+                'disabled': 'disabled'
+            }),
             'numero_identificacion': forms.TextInput(attrs={
                 'class': 'form-input bg-gray-100 cursor-not-allowed',
                 'readonly': 'readonly',
