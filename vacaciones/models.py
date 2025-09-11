@@ -44,21 +44,26 @@ class PeriodoVacacional(models.Model):
         return total
 
     def contar_dias_por_regimen(self):
-        inicio, fin = self.fecha_inicio_periodo, self.fecha_fin_periodo
-        
-        if not inicio or not fin:
-            return 0
-
-        festivos = holidays.Colombia(years=range(inicio.year, fin.year + 1))
+        """
+        Calcula los días de vacaciones que otorga este periodo según el estamento del funcionario.
+        NO calcula días entre fechas, sino los días de vacaciones a los que tiene derecho.
+        """
         estamento = self.funcionario.estamento.nombre.lower()
         decreto = (self.funcionario.decreto_resolucion or '').strip()
 
-        if estamento == 'docente' and decreto == '1279':
-            return self._calcular_dias_docente_1279(inicio, fin, festivos)
-        elif estamento == 'docente' and decreto == '115':
-            return (fin - inicio).days + 1
-        
-        return self._calcular_dias_generico(inicio, fin, festivos)
+        if estamento == 'docente':
+            if decreto == '1279':
+                return 30  # 15 días hábiles + 15 días calendario
+            elif decreto == '115':
+                return 30  # 30 días calendario
+            else:
+                return 0   # Sin decreto válido
+        elif estamento == 'administrativo':
+            return 15  # 15 días hábiles
+        elif estamento == 'trabajador oficial':
+            return 30  # 30 días calendario
+        else:
+            return 0   # Estamento no reconocido
 
     def clean(self):
         if self.fecha_inicio_periodo > self.fecha_fin_periodo:
