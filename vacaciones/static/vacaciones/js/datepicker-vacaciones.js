@@ -12,9 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
   function obtenerSiguienteDiaHabil(fecha) {
     let siguienteDia = new Date(fecha);
     
-    while (siguienteDia.getDay() === 0 ||
-           siguienteDia.getDay() === 6 ||
-           esFestivo(siguienteDia)) {
+    while (siguienteDia.getDay() === 0 || siguienteDia.getDay() === 6 || esFestivo(siguienteDia)) {
       siguienteDia.setDate(siguienteDia.getDate() + 1);
     }
     
@@ -88,28 +86,43 @@ document.addEventListener('DOMContentLoaded', function() {
   };
 
   try {
-    flatpickr("#id_fecha_inicio_vacaciones", {
-      dateFormat: "Y-m-d",
-      allowInput: true,
-      minDate: fechaMinimaInicio,
-      locale: localeConfig,
-      disable: [
-        function(date) {
-          return date.getDay() === 0 || date.getDay() === 6 || esFestivo(date);
-        }
-      ]
-    });
+    // Configurar Flatpickr para fecha de inicio
+    const fechaInicioInput = document.getElementById('id_fecha_inicio_vacaciones');
+    
+    if (fechaInicioInput) {
+      // Asegurar que no tenga type="date"
+      fechaInicioInput.removeAttribute('type');
+      
+      flatpickr(fechaInicioInput, {
+        dateFormat: "d/m/Y",
+        allowInput: true,
+        minDate: fechaMinimaInicio,
+        locale: localeConfig,
+        disable: [
+          function(date) {
+            return date.getDay() === 0 || date.getDay() === 6 || esFestivo(date);
+          }
+        ]
+      });
+      fechaInicioInput.classList.add('input-fecha');
+    }
 
-    flatpickr("#id_fecha_fin_vacaciones", {
-      dateFormat: "Y-m-d",
-      allowInput: true,
-      locale: localeConfig
-    });
-
-    document.getElementById('id_fecha_inicio_vacaciones').classList.add('input-fecha');
-    document.getElementById('id_fecha_fin_vacaciones').classList.add('input-fecha');
+    // Configurar Flatpickr para fecha de fin
+    const fechaFinInput = document.getElementById('id_fecha_fin_vacaciones');
+    
+    if (fechaFinInput) {
+      // Asegurar que no tenga type="date"
+      fechaFinInput.removeAttribute('type');
+      
+      flatpickr(fechaFinInput, {
+        dateFormat: "d/m/Y",
+        allowInput: true,
+        locale: localeConfig
+      });
+      fechaFinInput.classList.add('input-fecha');
+    }
   } catch (error) {
-
+    // Fallback: usar input type="date" si Flatpickr falla
     const inputs = document.querySelectorAll('#id_fecha_inicio_vacaciones, #id_fecha_fin_vacaciones');
     inputs.forEach(input => {
       input.type = 'date';

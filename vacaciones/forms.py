@@ -73,8 +73,8 @@ class SolicitudVacacionesForm(forms.ModelForm):
             'fecha_solicitud': 'Fecha de solicitud',
         }
         widgets = {
-            'fecha_inicio_vacaciones': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
-            'fecha_fin_vacaciones': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+            'fecha_inicio_vacaciones': forms.TextInput(attrs={'class': 'form-input flatpickr-input', 'placeholder': 'Seleccionar fecha'}),
+            'fecha_fin_vacaciones': forms.TextInput(attrs={'class': 'form-input flatpickr-input', 'placeholder': 'Seleccionar fecha'}),
             'fecha_pago': forms.DateInput(attrs={
                 'class': 'form-input bg-gray-100 cursor-not-allowed',
                 'readonly': 'readonly',
