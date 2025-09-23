@@ -88,7 +88,7 @@ class PeriodoVacacional(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Del {self.fecha_inicio_periodo.strftime('%d-%m-%Y')} al {self.fecha_fin_periodo.strftime('%d-%m-%Y')}"
+        return f"Del {self.fecha_inicio_periodo.strftime('%d/%m/%Y')} al {self.fecha_fin_periodo.strftime('%d/%m/%Y')}"
 
     class Meta:
         verbose_name = "Periodo vacacional"
