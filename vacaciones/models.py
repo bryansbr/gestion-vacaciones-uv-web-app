@@ -3,6 +3,13 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from usuarios.models import Funcionario, CustomUser
 import holidays
+from .utils import (
+    calcular_plazo_limite_solicitud, 
+    calcular_fecha_salida_y_pago_fuera_plazo,
+    puede_solicitar_vacaciones_hoy,
+    es_dia_habil,
+    obtener_ultimo_dia_del_mes
+)
 
 # -----------------------------------------
 # MODELO: PeriodoVacacional
@@ -138,46 +145,28 @@ class SolicitudVacaciones(models.Model):
     def _calcular_fecha_minima_inicio_vacaciones_nuevas(self):
         """
         Calcula la fecha mínima permitida para iniciar vacaciones nuevas
-        según el calendario de pagos y plazos administrativos.
+        según el calendario de pagos y plazos administrativos actualizados.
         """
-        
         hoy = date.today()
         estamento = self.funcionario.estamento.nombre.lower()
         decreto = (self.funcionario.decreto_resolucion or '').strip()
         
-        # Calcular fechas de pago según estamento
-        if estamento == 'docente':
-            # Docentes: pago el día 30 de cada mes
-            # Plazo máximo: día 10 del mes para salir el 1º del mes siguiente
-            if hoy.day <= 10:
-                # Si estamos antes del día 10, puede salir el 1º del mes siguiente
-                fecha_salida = date(hoy.year, hoy.month + 1, 1) if hoy.month < 12 else date(hoy.year + 1, 1, 1)
-            else:
-                # Si estamos después del día 10, debe esperar hasta el 1º del mes siguiente al próximo
-                if hoy.month == 12:
-                    fecha_salida = date(hoy.year + 1, 2, 1)
-                elif hoy.month == 11:
-                    fecha_salida = date(hoy.year + 1, 1, 1)
-                else:
-                    fecha_salida = date(hoy.year, hoy.month + 2, 1)
-        else:
-            # Administrativos y trabajadores oficiales: pago quincenal (15 y 30)
-            # Plazo máximo: día 3 para salir el 16, día 17 para salir el 1º del mes siguiente
-            if hoy.day <= 3:
-                # Puede salir el 16 del mes actual
-                fecha_salida = date(hoy.year, hoy.month, 16)
-            elif hoy.day <= 17:
-                # Puede salir el 1º del mes siguiente
-                fecha_salida = date(hoy.year, hoy.month + 1, 1) if hoy.month < 12 else date(hoy.year + 1, 1, 1)
-            else:
-                # Debe esperar hasta el 16 del mes siguiente
-                if hoy.month == 12:
-                    fecha_salida = date(hoy.year + 1, 1, 16)
-                else:
-                    fecha_salida = date(hoy.year, hoy.month + 1, 16)
+        # Usar la nueva lógica de plazos límite
+        fecha_limite, mensaje_explicativo, fecha_salida_str = calcular_plazo_limite_solicitud(estamento, decreto)
         
-        # Asegurar que la fecha de salida sea un día hábil
-        return self._obtener_siguiente_dia_habil(fecha_salida)
+        # Convertir la fecha de salida de string a date
+        fecha_salida_parts = fecha_salida_str.split('/')
+        fecha_salida = date(int(fecha_salida_parts[2]), int(fecha_salida_parts[1]), int(fecha_salida_parts[0]))
+        
+        # Si estamos dentro del plazo límite, usar la fecha de salida calculada
+        if hoy <= fecha_limite:
+            return fecha_salida
+        else:
+            # Si estamos fuera del plazo, calcular según las reglas de fuera de plazo
+            fecha_salida_fuera_str, fecha_pago_fuera_str, mensaje_fuera = calcular_fecha_salida_y_pago_fuera_plazo(estamento, decreto)
+            fecha_salida_fuera_parts = fecha_salida_fuera_str.split('/')
+            fecha_salida_fuera = date(int(fecha_salida_fuera_parts[2]), int(fecha_salida_fuera_parts[1]), int(fecha_salida_fuera_parts[0]))
+            return fecha_salida_fuera
 
     def _calcular_fecha_minima_inicio_dias_pendientes(self):
         """
@@ -253,34 +242,39 @@ class SolicitudVacaciones(models.Model):
         if not self.funcionario.puede_solicitar_vacaciones():
             errores['funcionario'] = "El funcionario no cumple con la antigüedad mínima ni tiene días pendientes."
 
-        if self.fecha_inicio_vacaciones:
-            es_habil, mensaje_error = self._validar_fecha_inicio_es_habil(self.fecha_inicio_vacaciones)
+        # Validación de plazos límite para solicitudes nuevas
+        if self.fecha_inicio_vacaciones and not self.tiene_dias_pendientes:
+            puede_solicitar, mensaje_plazo = puede_solicitar_vacaciones_hoy(
+                self.funcionario.estamento.nombre.lower(),
+                self.funcionario.decreto_resolucion
+            )
             
-            if not es_habil:
-                errores['fecha_inicio_vacaciones'] = mensaje_error
+            if not puede_solicitar:
+                errores['fecha_inicio_vacaciones'] = mensaje_plazo
+            else:
+                # Validar que la fecha de inicio sea hábil
+                if not es_dia_habil(self.fecha_inicio_vacaciones):
+                    errores['fecha_inicio_vacaciones'] = "La fecha de inicio debe ser un día hábil (no puede ser fin de semana ni festivo)."
+                else:
+                    fecha_minima = self._calcular_fecha_minima_inicio()
+                    if self.fecha_inicio_vacaciones < fecha_minima:
+                        errores['fecha_inicio_vacaciones'] = (
+                            f"La fecha de inicio debe ser al menos {fecha_minima.strftime('%d/%m/%Y')}. "
+                            f"{mensaje_plazo}"
+                        )
+
+        # Validación adicional para días pendientes
+        if self.fecha_inicio_vacaciones and self.tiene_dias_pendientes:
+            if not es_dia_habil(self.fecha_inicio_vacaciones):
+                errores['fecha_inicio_vacaciones'] = "La fecha de inicio debe ser un día hábil (no puede ser fin de semana ni festivo)."
             else:
                 fecha_minima = self._calcular_fecha_minima_inicio()
                 if self.fecha_inicio_vacaciones < fecha_minima:
-                    if self.tiene_dias_pendientes:
-                        errores['fecha_inicio_vacaciones'] = (
-                            f"Para vacaciones por días pendientes, la fecha de inicio debe ser al menos "
-                            f"un día después de la fecha de solicitud. "
-                            f"La fecha mínima permitida es {fecha_minima.strftime('%d/%m/%Y')}."
-                        )
-                    else:
-                        estamento = self.funcionario.estamento.nombre.lower()
-                        if estamento == 'docente':
-                            errores['fecha_inicio_vacaciones'] = (
-                                f"Para docentes, las solicitudes deben presentarse máximo hasta el día 10 del mes "
-                                f"para salir a vacaciones el 1º del mes siguiente. "
-                                f"La fecha mínima permitida es {fecha_minima.strftime('%d/%m/%Y')}."
-                            )
-                        else:
-                            errores['fecha_inicio_vacaciones'] = (
-                                f"Para administrativos y trabajadores oficiales, las solicitudes deben presentarse "
-                                f"máximo hasta el día 3 del mes para salir el 16, o hasta el día 17 para salir "
-                                f"el 1º del mes siguiente. La fecha mínima permitida es {fecha_minima.strftime('%d/%m/%Y')}."
-                            )
+                    errores['fecha_inicio_vacaciones'] = (
+                        f"Para vacaciones por días pendientes, la fecha de inicio debe ser al menos "
+                        f"un día después de la fecha de solicitud. "
+                        f"La fecha mínima permitida es {fecha_minima.strftime('%d/%m/%Y')}."
+                    )
 
         solicitudes = SolicitudVacaciones.objects.filter(
             funcionario=self.funcionario,
@@ -429,41 +423,28 @@ class SolicitudVacaciones(models.Model):
     def _calcular_fecha_pago_automatica(self):
         """
         Calcula automáticamente la fecha de pago según el tipo de funcionario
-        y la fecha de solicitud, siguiendo las reglas establecidas.
+        y la fecha de solicitud, siguiendo las reglas establecidas actualizadas.
         """
         hoy = date.today()
         estamento = self.funcionario.estamento.nombre.lower()
         decreto = (self.funcionario.decreto_resolucion or '').strip()
         
-        if estamento == 'docente':
-            # Docentes: pago mensual el día 30
-            # Si la solicitud se hace antes del día 10, el pago es el 30 del mes actual
-            # Si se hace después del día 10, el pago es el 30 del mes siguiente
-            if hoy.day <= 10:
-                if hoy.month == 12:
-                    fecha_pago = date(hoy.year, 12, 30)
-                else:
-                    fecha_pago = date(hoy.year, hoy.month, 30)
-            else:
-                # Pago el 30 del mes siguiente
-                if hoy.month == 12:
-                    fecha_pago = date(hoy.year + 1, 1, 30)
-                else:
-                    fecha_pago = date(hoy.year, hoy.month + 1, 30)
-        else:
-            # Administrativos y trabajadores oficiales: pago quincenal (15 y 30)
-            if hoy.day <= 3:
-                # Pago el 15 del mes actual
+        # Usar la nueva lógica de plazos límite
+        fecha_limite, mensaje_explicativo, fecha_salida_str = calcular_plazo_limite_solicitud(estamento, decreto)
+        
+        if hoy <= fecha_limite:
+            # Dentro del plazo límite - usar reglas normales
+            if estamento == 'docente' or estamento == 'trabajador oficial':
+                # Pago el día 30 del mes actual (o último día del mes)
+                fecha_pago = obtener_ultimo_dia_del_mes(hoy.year, hoy.month)
+            else:  # administrativo
+                # Pago el día 15 del mes actual
                 fecha_pago = date(hoy.year, hoy.month, 15)
-            elif hoy.day <= 18:
-                # Pago el 30 del mes actual
-                fecha_pago = date(hoy.year, hoy.month, 30)
-            else:
-                # Pago el 15 del mes siguiente
-                if hoy.month == 12:
-                    fecha_pago = date(hoy.year + 1, 1, 15)
-                else:
-                    fecha_pago = date(hoy.year, hoy.month + 1, 15)
+        else:
+            # Fuera del plazo límite - usar reglas especiales
+            fecha_salida_fuera_str, fecha_pago_fuera_str, mensaje_fuera = calcular_fecha_salida_y_pago_fuera_plazo(estamento, decreto)
+            fecha_pago_parts = fecha_pago_fuera_str.split('/')
+            fecha_pago = date(int(fecha_pago_parts[2]), int(fecha_pago_parts[1]), int(fecha_pago_parts[0]))
         
         return fecha_pago
 

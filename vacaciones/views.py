@@ -7,6 +7,7 @@ from django.utils.timezone import now
 from datetime import date, datetime
 from .models import PeriodoVacacional, SolicitudVacaciones, generar_codigo_sabs, ReintegroVacaciones
 from .forms import PeriodoVacacionalForm, SolicitudVacacionesForm
+from .utils import puede_solicitar_vacaciones_hoy, calcular_plazo_limite_solicitud
 import holidays
 import json
 import pytz
@@ -89,12 +90,20 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         periodos_vacacionales = PeriodoVacacional.objects.filter(funcionario=funcionario)
         context['tiene_periodos_vacacionales'] = periodos_vacacionales.exists()
         
+        # Verificar si puede solicitar vacaciones según los nuevos plazos límite
+        puede_solicitar_hoy, mensaje_plazo = puede_solicitar_vacaciones_hoy(
+            funcionario.estamento.nombre.lower(),
+            funcionario.decreto_resolucion
+        )
+        context['puede_solicitar_hoy'] = puede_solicitar_hoy
+        context['mensaje_plazo'] = mensaje_plazo
+        
         # Si no tiene periodos, no mostrar reintegros ni otros datos
         if not context['tiene_periodos_vacacionales']:
             context['reintegros_pendientes'] = json.dumps([])
             context['tiene_reintegros_pendientes'] = False
             context['periodos_acumulados'] = None
-            context['plazo_solicitud'] = None
+            context['plazo_solicitud'] = mensaje_plazo
             context['mostrar_alerta_periodos_acumulados'] = False
             return context
 
@@ -141,6 +150,7 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
             if not tiene_reintegro:
                 solicitudes_sin_reintegro.append(solicitud)
         
+        # Solo verificar solicitudes activas, NO plazos límite para el botón Crear
         context['puede_crear_solicitud'] = len(solicitudes_sin_reintegro) == 0
         context['solicitud_activa'] = solicitudes_sin_reintegro[0] if solicitudes_sin_reintegro else None
 
@@ -169,27 +179,8 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
                 # Solo mostrar la alerta si no se ha hecho ninguna solicitud sobre los periodos acumulados
                 context['mostrar_alerta_periodos_acumulados'] = not solicitudes_periodos_acumulados
 
-        hoy = date.today()
-        estamento = funcionario.estamento.nombre.lower()
-
-        if estamento == 'docente':
-            if hoy.day <= 10:
-                context['plazo_solicitud'] = (
-                    "Recuerde. Por reglamentación, si realiza la solicitud hoy deberá esperar "
-                    "hasta el día 1º del mes siguiente para disfrutar sus vacaciones."
-                )
-            else:
-                context['plazo_solicitud'] = (
-                    "Recuerde. Por reglamentación, si realiza la solicitud hoy deberá esperar "
-                    "hasta el día 1º del mes subsiguiente para disfrutar sus vacaciones."
-                )
-        else:
-            if hoy.day <= 3:
-                context['plazo_solicitud'] = "Puede solicitar vacaciones hasta el día 3 para salir el 16 del mes actual"
-            elif hoy.day <= 17:
-                context['plazo_solicitud'] = "Puede solicitar vacaciones hasta el día 17 para salir el 1º del mes siguiente"
-            else:
-                context['plazo_solicitud'] = "Debe esperar hasta el 16 del mes siguiente para solicitar vacaciones"
+        # Usar el mensaje de plazo calculado por la nueva lógica
+        context['plazo_solicitud'] = mensaje_plazo
 
         return context
 
@@ -224,6 +215,9 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         if solicitudes_sin_reintegro:
             messages.error(request, "Ya tiene una solicitud de vacaciones activa. Debe culminar el disfrute del periodo actual antes de crear una nueva solicitud.")
             return self.form_invalid(form)
+
+        # Las reglas de negocio se aplicarán automáticamente según la fecha de solicitud
+        # No se bloquea la creación, solo se informa sobre las consecuencias
 
         form.instance.funcionario = funcionario
         
@@ -290,8 +284,16 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
             if not tiene_reintegro:
                 solicitudes_sin_reintegro.append(solicitud)
         
+        # Verificar plazos límite
+        puede_solicitar_hoy, mensaje_plazo = puede_solicitar_vacaciones_hoy(
+            funcionario.estamento.nombre.lower(),
+            funcionario.decreto_resolucion
+        )
+        
+        # Solo verificar solicitudes activas, NO plazos límite para el botón Crear
         context['puede_crear_solicitud'] = len(solicitudes_sin_reintegro) == 0
         context['solicitud_activa'] = solicitudes_sin_reintegro[0] if solicitudes_sin_reintegro else None
+        context['mensaje_plazo'] = mensaje_plazo
         
         return context
 
