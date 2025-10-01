@@ -1,14 +1,17 @@
 // Script para configurar variables globales desde Django
-document.addEventListener('DOMContentLoaded', function() {
+(function() {
+    'use strict';
+    
     // Función para configurar variables globales
     function configurarVariablesGlobales() {
         // Obtener variables desde atributos de datos del div contenedor
-        const container = document.querySelector('div[data-funcionario-estamento]');
+        const container = document.getElementById('variables-container') || document.querySelector('div[data-funcionario-estamento]');
         
         if (container) {
             // Configurar festivos de Colombia
             if (container.hasAttribute('data-festivos-colombia')) {
                 const festivosAttr = container.getAttribute('data-festivos-colombia');
+                
                 if (festivosAttr && festivosAttr.trim() !== '' && festivosAttr !== '[]') {
                     try {
                         window.FESTIVOS_COLOMBIA = JSON.parse(festivosAttr);
@@ -31,31 +34,53 @@ document.addEventListener('DOMContentLoaded', function() {
                 try {
                     window.REINTEGROS_PENDIENTES = JSON.parse(container.getAttribute('data-reintegros-pendientes'));
                 } catch (e) {
-                    console.warn('Error parseando reintegros pendientes:', e);
                     window.REINTEGROS_PENDIENTES = [];
                 }
             } else {
                 window.REINTEGROS_PENDIENTES = [];
             }
+            
+            // Marcar que las variables están listas
+            window.VARIABLES_GLOBALES_LISTAS = true;
+            
+            // Disparar evento personalizado para notificar que las variables están listas
+            const event = new CustomEvent('variablesGlobalesListas');
+            document.dispatchEvent(event);
+            
+            return true;
         } else {
             // Valores por defecto si no se encuentra el contenedor
             window.FESTIVOS_COLOMBIA = [];
             window.FUNCIONARIO_ESTAMENTO = '';
             window.FUNCIONARIO_DECRETO = '';
             window.REINTEGROS_PENDIENTES = [];
+            window.VARIABLES_GLOBALES_LISTAS = true;
+            
+            // Disparar evento de todas formas
+            const event = new CustomEvent('variablesGlobalesListas');
+            document.dispatchEvent(event);
+            
+            return false;
         }
-        
-        // Marcar que las variables están listas
-        window.VARIABLES_GLOBALES_LISTAS = true;
-        
-        // Disparar evento personalizado para notificar que las variables están listas
-        const event = new CustomEvent('variablesGlobalesListas');
-        document.dispatchEvent(event);
     }
     
-    // Configurar inmediatamente
-    configurarVariablesGlobales();
+    // Función para esperar a que el DOM esté listo
+    function ready(fn) {
+        if (document.readyState !== 'loading') {
+            fn();
+        } else {
+            document.addEventListener('DOMContentLoaded', fn);
+        }
+    }
     
-    // También configurar después de un pequeño delay por si acaso
-    setTimeout(configurarVariablesGlobales, 100);
-}); 
+    // Inicializar
+    ready(function() {
+        // Configurar inmediatamente
+        if (!configurarVariablesGlobales()) {
+            // Si no se pudo configurar, intentar de nuevo con delays
+            setTimeout(configurarVariablesGlobales, 100);
+            setTimeout(configurarVariablesGlobales, 500);
+            setTimeout(configurarVariablesGlobales, 1000);
+        }
+    });
+})(); 

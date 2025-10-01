@@ -61,10 +61,11 @@
     {% endif %}
 
     <div 
-        {% if festivos_colombia %}data-festivos-colombia="{{ festivos_colombia|safe }}"{% endif %}
+        data-festivos-colombia='{{ festivos_colombia|safe }}'
         data-funcionario-estamento="{{ funcionario_estamento|escapejs }}"
         data-funcionario-decreto="{{ funcionario_decreto|escapejs }}"
-        {% if reintegros_pendientes %}data-reintegros-pendientes="{{ reintegros_pendientes|safe }}"{% endif %}
+        data-reintegros-pendientes='{{ reintegros_pendientes|default:"[]"|safe }}'
+        id="variables-container"
     >
     <form method="post" class="space-y-6" {% if not tiene_periodos_vacacionales %}id="form-disabled"{% endif %}>
         {% csrf_token %}
@@ -233,7 +234,7 @@
 
         <div class="pt-4">
             {% if tiene_periodos_vacacionales and puede_crear_solicitud %}
-                <button type="submit" id=submit-btn class="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white px-6 py-3 rounded-md shadow-md hover:from-purple-600 hover:to-blue-600 transition">
+                <button type="submit" id="submit-btn" disabled class="w-full bg-gray-400 text-white px-6 py-3 rounded-md shadow-md cursor-not-allowed transition">
                     {% if form.instance.pk %}Guardar cambios{% else %}Enviar solicitud{% endif %}
                 </button>
                 <div id="loading-spinner" class="hidden w-full flex items-center justify-center py-3">
@@ -280,6 +281,7 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     
     <script src="{% static 'vacaciones/js/datepicker-vacaciones.js' %}"></script>
+    
     <!-- Script para manejar solicitud de vacaciones -->
     <script src="{% static 'vacaciones/js/solicitud-vacaciones.js' %}"></script>
     
