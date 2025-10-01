@@ -346,6 +346,9 @@
                     
                     // Actualizar estado del botón
                     actualizarEstadoBoton();
+                } else {
+                    // Si se borra la fecha, actualizar estado del botón
+                    actualizarEstadoBoton();
                 }
             }
         };
@@ -373,6 +376,9 @@
                     validarFechaFin(fecha);
                     
                     // Actualizar estado del botón
+                    actualizarEstadoBoton();
+                } else {
+                    // Si se borra la fecha, actualizar estado del botón
                     actualizarEstadoBoton();
                 }
             }
@@ -434,6 +440,31 @@
         const periodoVacacional = document.getElementById('id_periodo_vacacional');
         if (periodoVacacional) {
             periodoVacacional.addEventListener('change', actualizarEstadoBoton);
+        }
+        
+        // Agregar event listeners para detectar cuando se borra el valor manualmente
+        if (fechaInicio) {
+            fechaInicio.addEventListener('input', function() {
+                if (!this.value || this.value.trim() === '') {
+                    actualizarEstadoBoton();
+                }
+            });
+            
+            fechaInicio.addEventListener('keyup', function() {
+                actualizarEstadoBoton();
+            });
+        }
+        
+        if (fechaFin) {
+            fechaFin.addEventListener('input', function() {
+                if (!this.value || this.value.trim() === '') {
+                    actualizarEstadoBoton();
+                }
+            });
+            
+            fechaFin.addEventListener('keyup', function() {
+                actualizarEstadoBoton();
+            });
         }
         
         // Inicializar estado del botón al cargar
@@ -529,6 +560,31 @@
         const periodoVacacional = document.getElementById('id_periodo_vacacional');
         if (periodoVacacional) {
             periodoVacacional.addEventListener('change', actualizarEstadoBoton);
+        }
+        
+        // Agregar event listeners para detectar cuando se borra el valor manualmente
+        if (fechaInicio) {
+            fechaInicio.addEventListener('input', function() {
+                if (!this.value || this.value.trim() === '') {
+                    actualizarEstadoBoton();
+                }
+            });
+            
+            fechaInicio.addEventListener('keyup', function() {
+                actualizarEstadoBoton();
+            });
+        }
+        
+        if (fechaFin) {
+            fechaFin.addEventListener('input', function() {
+                if (!this.value || this.value.trim() === '') {
+                    actualizarEstadoBoton();
+                }
+            });
+            
+            fechaFin.addEventListener('keyup', function() {
+                actualizarEstadoBoton();
+            });
         }
         
         actualizarEstadoBoton();

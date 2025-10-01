@@ -293,7 +293,10 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
         # Solo verificar solicitudes activas, NO plazos límite para el botón Crear
         context['puede_crear_solicitud'] = len(solicitudes_sin_reintegro) == 0
         context['solicitud_activa'] = solicitudes_sin_reintegro[0] if solicitudes_sin_reintegro else None
-        context['mensaje_plazo'] = mensaje_plazo
+        
+        # No mostrar mensaje de plazo en la lista de solicitudes
+        # El mensaje de plazo solo se muestra en el formulario de creación
+        context['mensaje_plazo'] = None
         
         return context
 
