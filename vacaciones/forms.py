@@ -84,13 +84,11 @@ class SolicitudVacacionesForm(forms.ModelForm):
             'periodo_vacacional': forms.Select(attrs={'class': 'form-select'}),
             'codigo_sabs': forms.TextInput(attrs={
                 'class': 'form-input bg-gray-100 cursor-not-allowed',
-                'readonly': 'readonly',
-                'disabled': 'disabled'
+                'readonly': 'readonly'
             }),
             'fecha_solicitud': forms.DateInput(attrs={
                 'class': 'form-input bg-gray-100 cursor-not-allowed',
-                'readonly': 'readonly',
-                'disabled': 'disabled'
+                'readonly': 'readonly'
             }),
             'numero_identificacion': forms.TextInput(attrs={
                 'class': 'form-input bg-gray-100 cursor-not-allowed',

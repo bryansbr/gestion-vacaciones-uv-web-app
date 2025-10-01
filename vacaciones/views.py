@@ -186,15 +186,16 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
 
     def post(self, request, *args, **kwargs):
         self.object = None
-        form = self.get_form()
-
-        # Verificar si el funcionario tiene periodos vacacionales antes de procesar el formulario
+        
+        # Obtener el funcionario ANTES de crear el formulario
         funcionario = self.request.user.funcionario
+        
+        # Verificar si el funcionario tiene periodos vacacionales antes de procesar el formulario
         periodos_vacacionales = PeriodoVacacional.objects.filter(funcionario=funcionario)
         
         if not periodos_vacacionales.exists():
             messages.error(request, "No puede crear una solicitud de vacaciones sin tener periodos vacacionales registrados.")
-            return self.form_invalid(form)
+            return self.form_invalid(self.get_form())
 
         # Verificar si ya tiene una solicitud activa sin reintegro asociado
         solicitudes_activas = SolicitudVacaciones.objects.filter(
@@ -214,11 +215,10 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         
         if solicitudes_sin_reintegro:
             messages.error(request, "Ya tiene una solicitud de vacaciones activa. Debe culminar el disfrute del periodo actual antes de crear una nueva solicitud.")
-            return self.form_invalid(form)
+            return self.form_invalid(self.get_form())
 
-        # Las reglas de negocio se aplicarán automáticamente según la fecha de solicitud
-        # No se bloquea la creación, solo se informa sobre las consecuencias
-
+        # Asignar el funcionario a la instancia ANTES de obtener el formulario
+        form = self.get_form()
         form.instance.funcionario = funcionario
         
         # Asignar la fecha de solicitud (hoy en Colombia UTC-5)
