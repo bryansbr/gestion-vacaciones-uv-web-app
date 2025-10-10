@@ -23,21 +23,34 @@ class PeriodoVacacionalForm(forms.ModelForm):
         cleaned_data = super().clean()
         return cleaned_data
 
+
 class SolicitudVacacionesForm(forms.ModelForm):
     numero_identificacion = forms.CharField(required=False, disabled=True)
     nombre_funcionario = forms.CharField(required=False, disabled=True)
     estamento = forms.CharField(required=False, disabled=True)
     facultad_dependencia = forms.CharField(required=False, disabled=True)
-    dias_derecho = forms.IntegerField(label='Días a los que tiene derecho', required=False, disabled=True, widget=forms.NumberInput(attrs={
-        'class': 'form-input bg-gray-100',
-        'readonly': 'readonly'
-    }))
+
+    dias_derecho = forms.IntegerField(
+        label='Días a los que tiene derecho',
+        required=False,
+        disabled=True,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-input bg-gray-100',
+            'readonly': 'readonly'
+        })
+    )
     tipo_habiles = forms.BooleanField(label='Hábiles', required=False, disabled=True)
     tipo_calendario = forms.BooleanField(label='Calendario', required=False, disabled=True)
-    dias_pendientes = forms.IntegerField(label='Días pendientes', required=False, disabled=True, widget=forms.NumberInput(attrs={
-        'class': 'form-input bg-gray-100',
-        'readonly': 'readonly'
-    }))
+
+    dias_pendientes = forms.IntegerField(
+        label='Días pendientes',
+        required=False,
+        disabled=True,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-input bg-gray-100',
+            'readonly': 'readonly'
+        })
+    )
     periodos_pendientes = forms.CharField(
         required=False,
         disabled=True,
@@ -50,6 +63,17 @@ class SolicitudVacacionesForm(forms.ModelForm):
         label='Disfrute de días pendientes',
         required=False,
         help_text='Marque esta opción si desea solicitar vacaciones por días pendientes de reintegros aprobados'
+    )
+
+    fecha_inicio_vacaciones = forms.DateField(
+        widget=forms.DateInput(format='%d/%m/%Y', attrs={'class': 'form-input flatpickr-input', 'placeholder': 'Seleccionar fecha', 'autocomplete': 'off'}),
+        input_formats=['%d/%m/%Y', '%Y-%m-%d'],
+        required=True
+    )
+    fecha_fin_vacaciones = forms.DateField(
+        widget=forms.DateInput(format='%d/%m/%Y', attrs={'class': 'form-input flatpickr-input', 'placeholder': 'Seleccionar fecha', 'autocomplete': 'off'}),
+        input_formats=['%d/%m/%Y', '%Y-%m-%d'],
+        required=True
     )
 
     class Meta:
@@ -73,8 +97,6 @@ class SolicitudVacacionesForm(forms.ModelForm):
             'fecha_solicitud': 'Fecha de solicitud',
         }
         widgets = {
-            'fecha_inicio_vacaciones': forms.TextInput(attrs={'class': 'form-input flatpickr-input', 'placeholder': 'Seleccionar fecha'}),
-            'fecha_fin_vacaciones': forms.TextInput(attrs={'class': 'form-input flatpickr-input', 'placeholder': 'Seleccionar fecha'}),
             'fecha_pago': forms.DateInput(attrs={
                 'class': 'form-input bg-gray-100 cursor-not-allowed',
                 'readonly': 'readonly',
@@ -174,28 +196,22 @@ class SolicitudVacacionesForm(forms.ModelForm):
             self.initial['tipo_habiles'] = False
             self.initial['tipo_calendario'] = False
         self.initial['dias_derecho'] = dias_derecho
-        
-        # Calcular días pendientes de periodos anteriores
+
         dias_pendientes = 0
         if hasattr(funcionario, 'periodos_vacacionales'):
             dias_pendientes = sum(p.dias_pendientes_periodo for p in funcionario.periodos_vacacionales.all())
         self.initial['dias_pendientes'] = dias_pendientes
 
-        # Calcular automáticamente la fecha de pago
         hoy = date.today()
-        
+
         if estamento_nombre == 'docente':
             # Docentes: pago mensual el día 30
-            # Si la solicitud se hace antes del día 10, el pago es el 30 del mes actual
-            # Si se hace después del día 10, el pago es el 30 del mes siguiente
             if hoy.day <= 10:
-                # Pago el 30 del mes actual
                 if hoy.month == 12:
                     fecha_pago = date(hoy.year, 12, 30)
                 else:
                     fecha_pago = date(hoy.year, hoy.month, 30)
             else:
-                # Pago el 30 del mes siguiente
                 if hoy.month == 12:
                     fecha_pago = date(hoy.year + 1, 1, 30)
                 else:
@@ -203,26 +219,29 @@ class SolicitudVacacionesForm(forms.ModelForm):
         else:
             # Administrativos y trabajadores oficiales: pago quincenal (15 y 30)
             if hoy.day <= 3:
-                # Pago el 15 del mes actual
                 fecha_pago = date(hoy.year, hoy.month, 15)
             elif hoy.day <= 18:
-                # Pago el 30 del mes actual
                 fecha_pago = date(hoy.year, hoy.month, 30)
             else:
-                # Pago el 15 del mes siguiente
                 if hoy.month == 12:
                     fecha_pago = date(hoy.year + 1, 1, 15)
                 else:
                     fecha_pago = date(hoy.year, hoy.month + 1, 15)
-        
+
         self.initial['fecha_pago'] = fecha_pago
 
         periodos_pendientes_count = PeriodoVacacional.objects.filter(
             funcionario=funcionario,
             dias_pendientes_periodo__gt=0
         ).count()
-        
+
         self.initial['periodos_pendientes'] = periodos_pendientes_count
+
+        if self.instance and self.instance.pk:
+            if self.instance.fecha_inicio_vacaciones:
+                self.fields['fecha_inicio_vacaciones'].initial = self.instance.fecha_inicio_vacaciones.strftime('%d/%m/%Y')
+            if self.instance.fecha_fin_vacaciones:
+                self.fields['fecha_fin_vacaciones'].initial = self.instance.fecha_fin_vacaciones.strftime('%d/%m/%Y')
 
     def clean(self):
         cleaned_data = super().clean()
