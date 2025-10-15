@@ -8,6 +8,7 @@ from .views import (
     SolicitudVacacionesCreateView,
     SolicitudVacacionesUpdateView,
     SolicitudVacacionesDeleteView,
+    SolicitudVacacionesPDFView,
 )
 
 app_name = "vacaciones"
@@ -28,6 +29,7 @@ urlpatterns = [
     path('solicitudes-vacaciones/crear/', SolicitudVacacionesCreateView.as_view(), name="solicitud_vacaciones_create"),
     path('solicitudes-vacaciones/<int:pk>/editar/', SolicitudVacacionesUpdateView.as_view(), name="solicitud_vacaciones_update"),
     path('solicitudes-vacaciones/<int:pk>/eliminar/', SolicitudVacacionesDeleteView.as_view(), name="solicitud_vacaciones_delete"),
+    path('solicitudes/<int:pk>/pdf/', SolicitudVacacionesPDFView.as_view(), name="solicitud_vacaciones_pdf"),
 
     # Rutas API REST
     path('api/', include('vacaciones.urls_api')),

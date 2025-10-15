@@ -1,10 +1,15 @@
-from django.shortcuts import render
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView
-from django.urls import reverse_lazy
+from datetime import date, datetime
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
-from django.utils.timezone import now
-from datetime import date, datetime
+from django.http import Http404, HttpResponse
+from django.shortcuts import render
+from django.template.loader import render_to_string
+from django.templatetags.static import static
+from django.utils.timezone import now, localdate
+from django.urls import reverse_lazy
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView
+from django.views import View
+from weasyprint import HTML
 from .models import PeriodoVacacional, SolicitudVacaciones, generar_codigo_sabs, ReintegroVacaciones
 from .forms import PeriodoVacacionalForm, SolicitudVacacionesForm
 from .utils import puede_solicitar_vacaciones_hoy, calcular_plazo_limite_solicitud
@@ -141,7 +146,6 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         # Una solicitud se considera "culminada" si tiene un reintegro asociado
         solicitudes_sin_reintegro = []
         for solicitud in solicitudes_activas:
-            # Verificar si existe un reintegro asociado a esta solicitud
             tiene_reintegro = ReintegroVacaciones.objects.filter(
                 solicitud_vacaciones=solicitud,
                 estado_solicitud='aprobado'
@@ -166,38 +170,26 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
             context['periodo_mas_antiguo_habilitado'] = form.periodo_mas_antiguo_habilitado
             context['periodo_mas_reciente_habilitado'] = form.periodo_mas_reciente_habilitado
             
-            # Solo mostrar alerta de periodos acumulados si:
-            # 1. No hay solicitud activa pendiente
-            # 2. No se ha hecho ninguna solicitud sobre los periodos acumulados
             if context['puede_crear_solicitud']:
-                # Verificar si ya se ha hecho alguna solicitud sobre los periodos acumulados
                 solicitudes_periodos_acumulados = SolicitudVacaciones.objects.filter(
                     funcionario=funcionario,
                     periodo_vacacional__in=[form.periodo_mas_antiguo, form.periodo_mas_reciente]
                 ).exists()
-                
-                # Solo mostrar la alerta si no se ha hecho ninguna solicitud sobre los periodos acumulados
                 context['mostrar_alerta_periodos_acumulados'] = not solicitudes_periodos_acumulados
 
-        # Usar el mensaje de plazo calculado por la nueva lógica
         context['plazo_solicitud'] = mensaje_plazo
-
+        
         return context
 
     def post(self, request, *args, **kwargs):
         self.object = None
-        
-        # Obtener el funcionario ANTES de crear el formulario
         funcionario = self.request.user.funcionario
-        
-        # Verificar si el funcionario tiene periodos vacacionales antes de procesar el formulario
         periodos_vacacionales = PeriodoVacacional.objects.filter(funcionario=funcionario)
         
         if not periodos_vacacionales.exists():
             messages.error(request, "No puede crear una solicitud de vacaciones sin tener periodos vacacionales registrados.")
             return self.form_invalid(self.get_form())
 
-        # Verificar si ya tiene una solicitud activa sin reintegro asociado
         solicitudes_activas = SolicitudVacaciones.objects.filter(
             funcionario=funcionario,
             estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
@@ -217,23 +209,19 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
             messages.error(request, "Ya tiene una solicitud de vacaciones activa. Debe culminar el disfrute del periodo actual antes de crear una nueva solicitud.")
             return self.form_invalid(self.get_form())
 
-        # Asignar el funcionario a la instancia ANTES de obtener el formulario
         form = self.get_form()
         form.instance.funcionario = funcionario
         
-        # Asignar la fecha de solicitud (hoy en Colombia UTC-5)
         colombia_tz = pytz.timezone('America/Bogota')
         hoy_colombia = datetime.now(colombia_tz).date()
         form.instance.fecha_solicitud = hoy_colombia
         
-        # Determinar si tiene días pendientes basado en reintegros aprobados
         reintegros_pendientes = ReintegroVacaciones.objects.filter(
             funcionario=funcionario,
             estado_solicitud='aprobado',
             dias_pendientes__gt=0
         )
         
-        # Usar el valor del formulario si está presente, sino calcular automáticamente
         if 'tiene_dias_pendientes' in request.POST:
             form.instance.tiene_dias_pendientes = request.POST.get('tiene_dias_pendientes') == 'on'
         else:
@@ -245,7 +233,6 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
 
     def form_valid(self, form):
         try:
-            # Guardar la instancia
             self.object = form.save()
             messages.success(self.request, "Solicitud registrada correctamente.")
             return super().form_valid(form)
@@ -263,19 +250,16 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
         funcionario = self.request.user.funcionario
         
-        # Verificar si el funcionario tiene una solicitud activa (sin reintegro asociado)
         solicitudes_activas = SolicitudVacaciones.objects.filter(
             funcionario=funcionario,
             estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
         )
         
-        # Una solicitud se considera "culminada" si tiene un reintegro asociado
         solicitudes_sin_reintegro = []
+        
         for solicitud in solicitudes_activas:
-            # Verificar si existe un reintegro asociado a esta solicitud
             tiene_reintegro = ReintegroVacaciones.objects.filter(
                 solicitud_vacaciones=solicitud,
                 estado_solicitud='aprobado'
@@ -284,18 +268,13 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
             if not tiene_reintegro:
                 solicitudes_sin_reintegro.append(solicitud)
         
-        # Verificar plazos límite
         puede_solicitar_hoy, mensaje_plazo = puede_solicitar_vacaciones_hoy(
             funcionario.estamento.nombre.lower(),
             funcionario.decreto_resolucion
         )
         
-        # Solo verificar solicitudes activas, NO plazos límite para el botón Crear
         context['puede_crear_solicitud'] = len(solicitudes_sin_reintegro) == 0
         context['solicitud_activa'] = solicitudes_sin_reintegro[0] if solicitudes_sin_reintegro else None
-        
-        # No mostrar mensaje de plazo en la lista de solicitudes
-        # El mensaje de plazo solo se muestra en el formulario de creación
         context['mensaje_plazo'] = None
         
         return context
@@ -330,7 +309,6 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
         periodos_vacacionales = PeriodoVacacional.objects.filter(funcionario=funcionario)
         context['tiene_periodos_vacacionales'] = periodos_vacacionales.exists()
         
-        # Si no tiene periodos, no mostrar reintegros ni otros datos
         if not context['tiene_periodos_vacacionales']:
             context['reintegros_pendientes'] = json.dumps([])
             context['tiene_reintegros_pendientes'] = False
@@ -339,7 +317,6 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
             context['mostrar_alerta_periodos_acumulados'] = False
             return context
 
-        # Reintegros aprobados con días pendientes
         reintegros_pendientes = ReintegroVacaciones.objects.filter(
             funcionario=funcionario,
             estado_solicitud='aprobado',
@@ -360,18 +337,14 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
         context['reintegros_pendientes'] = json.dumps(reintegros_data)
         context['tiene_reintegros_pendientes'] = len(reintegros_data) > 0
         
-        # Inicializar el campo tiene_dias_pendientes si hay reintegros pendientes
         if context['tiene_reintegros_pendientes']:
             context['form'].initial['tiene_dias_pendientes'] = False
 
-        # EN MODO EDICIÓN: No se ejecutan validaciones de solicitud activa
-        # Estas validaciones solo aplican para creación de nuevas solicitudes
-        context['puede_crear_solicitud'] = True  # Siempre True en edición
-        context['solicitud_activa'] = None  # No hay solicitud activa en edición
+        context['puede_crear_solicitud'] = True
+        context['solicitud_activa'] = None
 
         form = context.get('form')
 
-        # Lógica para determinar si mostrar alerta de periodos acumulados
         context['mostrar_alerta_periodos_acumulados'] = False
         
         if hasattr(form, 'periodos_acumulados') and form.periodos_acumulados:
@@ -381,10 +354,8 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
             context['periodo_mas_antiguo_habilitado'] = form.periodo_mas_antiguo_habilitado
             context['periodo_mas_reciente_habilitado'] = form.periodo_mas_reciente_habilitado
 
-        # EN MODO EDICIÓN: No se muestran alertas de plazo de solicitud
-        # Estas alertas solo aplican para creación de nuevas solicitudes
         context['plazo_solicitud'] = None
-
+        
         return context
 
     def get_queryset(self):
@@ -422,3 +393,109 @@ def solicitud_vacaciones_create(request):
     festivos_json = json.dumps(festivos)
 
     return render(request, 'vacaciones/solicitud-vacaciones-form.html', {'festivos_colombia': festivos_json})
+
+
+# ==========================================================
+# PDF - WeasyPrint
+# ==========================================================
+class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
+    """Genera el PDF de la solicitud con WeasyPrint."""
+
+    def _split_fecha(self, f):
+        if not f:
+            return {"dia": "", "mes": "", "anio": ""}
+        return {"dia": f.day, "mes": f.month, "anio": f.year}
+
+    def _quincena(self, f):
+        if not f:
+            return {"q": "", "mes": "", "anio": ""}
+        q = 1 if f.day <= 15 else 2
+        return {"q": q, "mes": f.month, "anio": f.year}
+
+    def get(self, request, pk):
+        # Cargar solicitud
+        try:
+            solicitud = SolicitudVacaciones.objects.select_related(
+                "funcionario", "periodo_vacacional"
+            ).get(pk=pk)
+        except SolicitudVacaciones.DoesNotExist:
+            raise Http404("Solicitud no encontrada")
+
+        # -------- FIX DE AUTORIZACIÓN --------
+        owner_id = solicitud.funcionario_id
+        user_funcionario_id = None
+        if hasattr(request.user, "funcionario") and request.user.funcionario is not None:
+            user_funcionario_id = request.user.funcionario.pk
+
+        if not (
+            request.user.is_staff
+            or request.user.is_superuser
+            or user_funcionario_id == owner_id
+        ):
+            # Mantener 404 para no filtrar existencia
+            raise Http404("No autorizado")
+        # -------------------------------------
+
+        funcionario = solicitud.funcionario
+        periodo = solicitud.periodo_vacacional
+
+        # Fechas
+        f_elab = self._split_fecha(solicitud.fecha_solicitud or date.today())
+        f_inicio_periodo = self._split_fecha(getattr(periodo, "fecha_inicio_periodo", None))
+        f_fin_periodo = self._split_fecha(getattr(periodo, "fecha_fin_periodo", None))
+        f_inicio_disfrute = self._split_fecha(solicitud.fecha_inicio_vacaciones)
+        f_fin_disfrute = self._split_fecha(solicitud.fecha_fin_vacaciones)
+        f_pago = self._quincena(solicitud.fecha_pago)
+
+        # Tipo de días
+        estamento = funcionario.estamento.nombre.lower()
+        decreto = (funcionario.decreto_resolucion or "").strip()
+        es_habiles, es_calendario = False, False
+        if estamento == "docente":
+            if decreto == "1279":
+                es_habiles, es_calendario = True, True
+            elif decreto == "115":
+                es_habiles, es_calendario = False, True
+        elif estamento == "administrativo":
+            es_habiles, es_calendario = True, False
+        elif estamento == "trabajador oficial":
+            es_habiles, es_calendario = False, True
+
+        logo_url = request.build_absolute_uri(
+            static("vacaciones/img/logosimbolo_univalle_negro.png")
+        )
+
+        context = {
+            "logo_url": logo_url,
+            "pie_pagina": "F-01-MP-10-04-01 V-04-2014  |  Elaborado por: División de Recursos Humanos",
+
+            "fecha_elaboracion": f_elab,
+            "numero_identificacion": funcionario.numero_identificacion,
+            "nombre_funcionario": f"{funcionario.nombre} {funcionario.apellido}",
+            "estamento": funcionario.estamento.nombre,
+            "facultad_dependencia": funcionario.facultad_dependencia.nombre,
+            "codigo_sabs": solicitud.codigo_sabs,
+
+            "periodo_desde": f_inicio_periodo,
+            "periodo_hasta": f_fin_periodo,
+
+            "dias_derecho": getattr(solicitud, "dias_derecho", None) or 30,
+            "es_habiles": es_habiles,
+            "es_calendario": es_calendario,
+
+            "pago": f_pago,
+            "disfrute_desde": f_inicio_disfrute,
+            "disfrute_hasta": f_fin_disfrute,
+
+            "solicitado_por": f"{funcionario.nombre} {funcionario.apellido}",
+        }
+
+        html_string = render_to_string("vacaciones/pdf/solicitud-vacaciones.html", context)
+        base_url = request.build_absolute_uri("/")  # resuelve static/imagenes
+        pdf_bytes = HTML(string=html_string, base_url=base_url).write_pdf()
+
+        filename = f"{solicitud.codigo_sabs or 'solicitud'}.pdf"
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = f'inline; filename="{filename}"'
+
+        return response
