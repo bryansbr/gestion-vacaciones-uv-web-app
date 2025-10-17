@@ -16,6 +16,7 @@ from .utils import puede_solicitar_vacaciones_hoy, calcular_plazo_limite_solicit
 import holidays
 import json
 import pytz
+import urllib.parse
 
 # -----------------------------------------
 # VISTA: PeriodoVacacional
@@ -494,8 +495,12 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
         base_url = request.build_absolute_uri("/")  # resuelve static/imagenes
         pdf_bytes = HTML(string=html_string, base_url=base_url).write_pdf()
 
-        filename = f"{solicitud.codigo_sabs or 'solicitud'}.pdf"
+        file_stem = f"{solicitud.codigo_sabs}_{solicitud.funcionario.numero_identificacion}".replace(" ", "")
+        filename = f"{file_stem}.pdf"
+
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
-        response["Content-Disposition"] = f'inline; filename="{filename}"'
+        response["Content-Disposition"] = (
+            f'inline; filename="{filename}"; filename*=UTF-8\'\'{urllib.parse.quote(filename)}'
+        )
 
         return response
