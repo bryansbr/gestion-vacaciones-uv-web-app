@@ -45,6 +45,7 @@
     </tr>
   </table>
 
+  <br>
   <div class="bloque-titulo">INFORMACIÓN PARA DECRETAR VACACIONES DE UN NUEVO PERIODO</div>
   <table class="grid">
     <tr>
@@ -81,6 +82,7 @@
     </tr>
   </table>
 
+  <br>
   <table class="grid">
     <tr>
       <th>QUINCENA EN LA QUE SE SOLICITA EL PAGO DEL VALOR DE LAS VACACIONES</th>
@@ -115,6 +117,7 @@
     </tr>
   </table>
 
+  <br>
   <div class="bloque-titulo">TIEMPO QUE SE ADEUDA POR CONCEPTO DE VACACIONES DECRETADAS</div>
   <table class="grid small">
     <tr>
@@ -132,6 +135,7 @@
     {% endfor %}
   </table>
 
+  <br>
   <div class="bloque-titulo">IMPORTANTE</div>
   <div class="importante">
     EL PRESENTE FORMATO DEBE ESTAR FIRMADO POR TODOS LOS FUNCIONARIOS Y LAS DEPENDENCIAS QUE SE DETALLAN A CONTINUACIÓN:
@@ -144,12 +148,21 @@
       <th>COORDINACIÓN ADMTVA.</th>
       <th>RECURSOS HUMANOS</th>
     </tr>
+
     <tr class="altura-firma">
       <td class="firma">{{ solicitado_por }}</td>
       <td class="firma"></td>
       <td class="firma"></td>
       <td class="firma"></td>
     </tr>
+
+    <tr class="etiquetas-firma">
+      <td class="etiqueta-firma">FIRMA DEL FUNCIONARIO</td>
+      <td class="etiqueta-firma">FIRMA DEL JEFE INMEDIATO</td>
+      <td class="etiqueta-firma">FIRMA DEL COORDINADOR DEL ÁREA</td>
+      <td class="etiqueta-firma">FIRMA AUTORIZADA</td>
+    </tr>
+
     <tr class="nombres">
       <td>NOMBRE: {{ solicitado_por }}</td>
       <td>NOMBRE:</td>

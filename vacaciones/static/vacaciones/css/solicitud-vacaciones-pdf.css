@@ -10,6 +10,7 @@
     color: #000;
   }
   
+  /* Encabezado */
   .encabezado {
     display: grid;
     grid-template-columns: 80px 1fr 170px;
@@ -20,12 +21,8 @@
   
   .logo img { width: 72px; }
   
-  .titulo .subtitulo {
-    font-size: 10px; line-height: 1.2;
-  }
-  .titulo .formato {
-    font-size: 14px; font-weight: bold; margin-top: 4px; text-align: left;
-  }
+  .titulo .subtitulo { font-size: 10px; line-height: 1.2; }
+  .titulo .formato { font-size: 14px; font-weight: bold; margin-top: 4px; text-align: left; }
   
   .fecha-box { border: 1px solid #000; padding: 6px; }
   .fecha-titulo { font-weight: bold; text-align: center; margin-bottom: 4px; }
@@ -36,8 +33,24 @@
     text-align: center;
     gap: 2px;
   }
-  .mini-grid > div { border: 1px solid #000; padding: 2px 0; }
   
+  .mini-grid > div {
+    border: 1px solid #000;
+    height: 24px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.1;
+  }
+
+  .mini-grid .cell {
+    height: 26px;
+    font-size: 12px;
+    font-weight: bold;
+  }
+  
+  /* Tablas principales */
   .tabla { margin-top: 6px; }
   .grid {
     width: 100%; border-collapse: collapse; margin-bottom: 6px;
@@ -47,10 +60,9 @@
   }
   .grid th { background: #efefef; font-weight: bold; text-transform: uppercase; }
   
-  .bloque-titulo {
-    font-weight: bold; margin: 6px 0 2px; text-transform: uppercase;
-  }
+  .bloque-titulo { font-weight: bold; margin: 6px 0 2px; text-transform: uppercase; }
   
+  /* Fechas en cuadriculado */
   .fecha-grid {
     display: grid; grid-template-columns: repeat(3, 1fr);
     text-align: center; gap: 2px; font-size: 10px;
@@ -58,15 +70,19 @@
   .fecha-grid > div { border: 1px solid #000; padding: 2px 0; }
   .fecha-grid .cell { font-size: 12px; font-weight: bold; }
   
+  /* Quincena / Rango */
+  .quincena-grid .cell {
+    font-weight: bold;
+    font-size: 12px; /* opcional, para que coincida con las otras celdas */
+  }
+
   .quincena-grid, .rango-grid {
     display: grid; grid-template-columns: repeat(3, 1fr);
     gap: 2px; text-align: center; padding: 2px;
   }
   .quincena-grid > div, .rango-grid > div { border: 1px solid #000; padding: 2px 0; }
   
-  .rango-grid {
-    grid-template-columns: 1fr 1fr;
-  }
+  .rango-grid { grid-template-columns: 1fr 1fr; }
   .rango-grid > div:nth-child(1),
   .rango-grid > div:nth-child(2) {
     background: #efefef; font-weight: bold; border: 1px solid #000; padding: 4px 0;
@@ -86,19 +102,26 @@
   
   .importante { font-size: 10px; margin: 4px 0 8px; }
   
-  .firmas {
-    width: 100%; border-collapse: collapse; margin-top: 6px;
-  }
-  .firmas th, .firmas td {
-    border: 1px solid #000; padding: 6px; vertical-align: middle;
-  }
-  .firmas th { background: #efefef; }
+  /* Firmas */
+  .firmas { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  .firmas th, .firmas td { border: 1px solid #000; padding: 6px; vertical-align: middle; }
+  .firmas th { background: #efefef; text-align: center; }
   
   .altura-firma td { height: 40px; }
-  .firma { vertical-align: bottom; }
+  .firma { vertical-align: bottom; text-align: center; }
+  
+  /* Fila con leyendas de firma (NUEVO) */
+  .etiquetas-firma td,
+  .etiqueta-firma {
+    font-size: 10px;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 4px 2px;
+  }
   
   .nombres td { font-size: 10px; }
   
+  /* Pie */
   .pie {
     text-align: right;
     margin-top: 8px;
@@ -106,6 +129,6 @@
     color: #333;
   }
   
-  /* Evitar cortes raros en tablas */
+  /* Evitar cortes de tablas en página */
   table, tr, td, th { page-break-inside: avoid; }
   
