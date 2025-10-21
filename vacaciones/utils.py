@@ -1,6 +1,19 @@
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from typing import Tuple, Optional
 import holidays
+import pytz
+
+
+def get_colombia_date_today() -> date:
+    """
+    Obtiene la fecha actual en la zona horaria de Colombia.
+    
+    Returns:
+        Fecha actual en Colombia
+    """
+    colombia_tz = pytz.timezone('America/Bogota')
+    
+    return datetime.now(colombia_tz).date()
 
 
 def obtener_festivos_colombia(year: int) -> set:

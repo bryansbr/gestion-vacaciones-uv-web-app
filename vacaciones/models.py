@@ -465,7 +465,7 @@ class SolicitudVacaciones(models.Model):
                 self.total_dias_solicitados = (self.fecha_fin_vacaciones - self.fecha_inicio_vacaciones).days + 1
 
         if not self.codigo_sabs:
-            anio_codigo = self.fecha_solicitud.year if self.fecha_solicitud else datetime.now().year
+            anio_codigo = self.fecha_solicitud.year if self.fecha_solicitud else date.today().year
             self.codigo_sabs = generar_codigo_sabs('VAC', anio_codigo)
             
         if not self.fecha_pago:
@@ -688,7 +688,7 @@ def generar_codigo_sabs(tipo, anio):
             codigo_completo = ultimo_codigo.codigo_sabs
             numero_str = codigo_completo[len(f"{tipo}{anio}"):]
             consecutivo = int(numero_str) + 1 if numero_str.isdigit() else 1
-        except (ValueError, IndexError, AttributeError):
+        except ValueError:
             consecutivo = 1
     else:
         consecutivo = 1

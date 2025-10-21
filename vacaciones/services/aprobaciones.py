@@ -13,17 +13,15 @@ from ..models import (
 # -----------------------------------------------------------
 # Utilidades
 # -----------------------------------------------------------
-
 ETAPA_HUMANA = {
     'JEFE':  'Jefe Inmediato',
     'COORD': 'Coordinación Administrativa',
     'RRHH':  'División de Recursos Humanos',
 }
 
-# Mapa para el estado_solicitud (global) heredado del modelo existente
 ESTADO_GLOBAL_MAP = {
-    'autorizada': 'aprobado',   # cuando RRHH autoriza
-    'rechazada':  'rechazado',  # cuando RRHH rechaza
+    'autorizada': 'aprobado',
+    'rechazada':  'rechazado',
     'devuelta':   'en_revision',
     'en_progreso': 'en_revision',
     'desconocido': 'en_revision',
@@ -85,6 +83,7 @@ def _registrar_historial(
 
 def _get_etapa_activa_estricta(solicitud: SolicitudVacaciones) -> AprobacionEtapa:
     etapa_activa = solicitud.etapa_activa
+
     if not etapa_activa:
         raise ValidationError("No hay etapa activa para transicionar.")
     return etapa_activa
@@ -92,7 +91,6 @@ def _get_etapa_activa_estricta(solicitud: SolicitudVacaciones) -> AprobacionEtap
 # -----------------------------------------------------------
 # Transiciones (API pública servicio)
 # -----------------------------------------------------------
-
 @transaction.atomic
 def aprobar_etapa(user: CustomUser, solicitud: SolicitudVacaciones, observacion: Optional[str] = None) -> AprobacionEtapa:
     """
@@ -127,7 +125,6 @@ def aprobar_etapa(user: CustomUser, solicitud: SolicitudVacaciones, observacion:
     _refrescar_estado_global(solicitud)
 
     return etapa
-
 
 @transaction.atomic
 def devolver_etapa(user: CustomUser, solicitud: SolicitudVacaciones, observacion: str) -> AprobacionEtapa:
@@ -167,7 +164,6 @@ def devolver_etapa(user: CustomUser, solicitud: SolicitudVacaciones, observacion
 
     return etapa
 
-
 @transaction.atomic
 def autorizar_rrhh(user: CustomUser, solicitud: SolicitudVacaciones, observacion: Optional[str] = None) -> AprobacionEtapa:
     """
@@ -181,7 +177,6 @@ def autorizar_rrhh(user: CustomUser, solicitud: SolicitudVacaciones, observacion
 
     _validar_propietario_o_permiso(user, solicitud, etapa.etapa)
 
-    # Validar que JEFE y COORD estén aprobadas
     req = {a.etapa: a.estado for a in solicitud.aprobaciones.all()}
 
     if not (req.get('JEFE') == 'aprobada' and req.get('COORD') == 'aprobada'):
@@ -208,7 +203,6 @@ def autorizar_rrhh(user: CustomUser, solicitud: SolicitudVacaciones, observacion
 
     _refrescar_estado_global(solicitud)
     return etapa
-
 
 @transaction.atomic
 def rechazar_rrhh(user: CustomUser, solicitud: SolicitudVacaciones, observacion: str) -> AprobacionEtapa:
@@ -249,7 +243,6 @@ def rechazar_rrhh(user: CustomUser, solicitud: SolicitudVacaciones, observacion:
 
     return etapa
 
-
 @transaction.atomic
 def reenviar_funcionario(user: CustomUser, solicitud: SolicitudVacaciones, observacion: Optional[str] = None) -> AprobacionEtapa:
     """
@@ -258,11 +251,10 @@ def reenviar_funcionario(user: CustomUser, solicitud: SolicitudVacaciones, obser
     - La etapa devuelta vuelve a 'pendiente' y se registra observación del reenvío (si llega).
     - No aplica si la solicitud quedó 'rechazada' por RRHH (flujo final).
     """
-    # Valida ownership básico (ajústalo a tu auth real)
+
     if solicitud.funcionario.user_id != user.id and not user.is_superuser:
         raise PermissionDenied("Solo el funcionario dueño puede reenviar su solicitud devuelta.")
 
-    # Busca la etapa devuelta (solo JEFE o COORD)
     devueltas = solicitud.aprobaciones.filter(estado='devuelta', etapa__in=('JEFE', 'COORD'))
     
     if not devueltas.exists():
@@ -273,9 +265,24 @@ def reenviar_funcionario(user: CustomUser, solicitud: SolicitudVacaciones, obser
     etapa.estado = 'pendiente'
 
     if observacion:
-        # concatenar observación del reenvío sin perder la original
+        MAX_OBSERVACION_LENGTH = 2000
         sep = "\n\n--- Reenvío por funcionario ---\n"
-        etapa.observacion = (etapa.observacion or '') + f"{sep}{observacion.strip()}"
+        nueva_observacion = f"{sep}{observacion.strip()}"
+        
+        observacion_actual = etapa.observacion or ''
+        observacion_completa = observacion_actual + nueva_observacion
+        
+        if len(observacion_completa) > MAX_OBSERVACION_LENGTH:
+            espacio_disponible = MAX_OBSERVACION_LENGTH - len(nueva_observacion) - 50  # 50 chars de margen
+            
+            if espacio_disponible > 0:
+                observacion_truncada = observacion_actual[-espacio_disponible:] if observacion_actual else ''
+                etapa.observacion = observacion_truncada + nueva_observacion
+            else:
+                etapa.observacion = nueva_observacion
+        else:
+            etapa.observacion = observacion_completa
+
     etapa.save(update_fields=['estado', 'observacion', 'actualizado_en'])
 
     _registrar_historial(

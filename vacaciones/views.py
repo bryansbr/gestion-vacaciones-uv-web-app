@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date
 from weasyprint import HTML
 
 from django.contrib.auth.decorators import login_required
@@ -19,11 +19,10 @@ from .models import AprobacionEtapa, PeriodoVacacional, SolicitudVacaciones, gen
 from .services.aprobaciones import (
     aprobar_etapa, devolver_etapa, autorizar_rrhh, rechazar_rrhh, reenviar_funcionario
 )
-from .utils import puede_solicitar_vacaciones_hoy, calcular_plazo_limite_solicitud
+from .utils import puede_solicitar_vacaciones_hoy, calcular_plazo_limite_solicitud, get_colombia_date_today
 
 import holidays
 import json
-import pytz
 import urllib.parse
 
 # -----------------------------------------
@@ -80,8 +79,7 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
 
     def get_initial(self):
         initial = super().get_initial()
-        colombia_tz = pytz.timezone('America/Bogota')
-        hoy_colombia = datetime.now(colombia_tz).date()
+        hoy_colombia = get_colombia_date_today()
         initial['fecha_solicitud'] = hoy_colombia
         initial['codigo_sabs'] = generar_codigo_sabs('VAC', hoy_colombia.year)
         return initial
@@ -150,15 +148,15 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         solicitudes_activas = SolicitudVacaciones.objects.filter(
             funcionario=funcionario,
             estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
-        )
+        ).prefetch_related('reintegrovacaciones_set')
         
         # Una solicitud se considera "culminada" si tiene un reintegro asociado
         solicitudes_sin_reintegro = []
         for solicitud in solicitudes_activas:
-            tiene_reintegro = ReintegroVacaciones.objects.filter(
-                solicitud_vacaciones=solicitud,
-                estado_solicitud='aprobado'
-            ).exists()
+            tiene_reintegro = any(
+                reintegro.estado_solicitud == 'aprobado' 
+                for reintegro in solicitud.reintegrovacaciones_set.all()
+            )
             
             if not tiene_reintegro:
                 solicitudes_sin_reintegro.append(solicitud)
@@ -202,14 +200,14 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         solicitudes_activas = SolicitudVacaciones.objects.filter(
             funcionario=funcionario,
             estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
-        )
+        ).prefetch_related('reintegrovacaciones_set')
         
         solicitudes_sin_reintegro = []
         for solicitud in solicitudes_activas:
-            tiene_reintegro = ReintegroVacaciones.objects.filter(
-                solicitud_vacaciones=solicitud,
-                estado_solicitud='aprobado'
-            ).exists()
+            tiene_reintegro = any(
+                reintegro.estado_solicitud == 'aprobado' 
+                for reintegro in solicitud.reintegrovacaciones_set.all()
+            )
             
             if not tiene_reintegro:
                 solicitudes_sin_reintegro.append(solicitud)
@@ -221,8 +219,7 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         form = self.get_form()
         form.instance.funcionario = funcionario
         
-        colombia_tz = pytz.timezone('America/Bogota')
-        hoy_colombia = datetime.now(colombia_tz).date()
+        hoy_colombia = get_colombia_date_today()
         form.instance.fecha_solicitud = hoy_colombia
         
         reintegros_pendientes = ReintegroVacaciones.objects.filter(
@@ -264,15 +261,15 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
         solicitudes_activas = SolicitudVacaciones.objects.filter(
             funcionario=funcionario,
             estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
-        )
+        ).prefetch_related('reintegrovacaciones_set')
         
         solicitudes_sin_reintegro = []
         
         for solicitud in solicitudes_activas:
-            tiene_reintegro = ReintegroVacaciones.objects.filter(
-                solicitud_vacaciones=solicitud,
-                estado_solicitud='aprobado'
-            ).exists()
+            tiene_reintegro = any(
+                reintegro.estado_solicitud == 'aprobado' 
+                for reintegro in solicitud.reintegrovacaciones_set.all()
+            )
             
             if not tiene_reintegro:
                 solicitudes_sin_reintegro.append(solicitud)
