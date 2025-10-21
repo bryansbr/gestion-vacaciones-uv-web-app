@@ -24,14 +24,14 @@
         }
     }
 
-    function esperarFlatpickr(callback, maxAttempts = 50) {
+    function esperarFlatpickr(callback, maxAttempts = 20, intervalMs = 100) {
         let attempts = 0;
         (function check() {
             attempts++;
             if (typeof flatpickr !== 'undefined') {
                 callback();
             } else if (attempts < maxAttempts) {
-                requestAnimationFrame(check);
+                setTimeout(check, intervalMs);
             } else {
                 mostrarErrorFlatpickrNoDisponible();
             }

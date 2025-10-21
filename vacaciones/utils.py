@@ -83,10 +83,7 @@ def obtener_ultimo_dia_habil_del_mes(year: int, month: int) -> date:
         Último día hábil del mes
     """
 
-    if month == 12:
-        ultimo_dia = date(year + 1, 1, 1) - timedelta(days=1)
-    else:
-        ultimo_dia = date(year, month + 1, 1) - timedelta(days=1)
+    ultimo_dia = obtener_ultimo_dia_del_mes(year, month)
     
     while not es_dia_habil(ultimo_dia):
         ultimo_dia -= timedelta(days=1)

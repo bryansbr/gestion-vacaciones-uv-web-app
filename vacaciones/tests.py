@@ -129,3 +129,19 @@ class FlatpickrIntegrationTest(TestCase):
     def test_configuracion_archivos_estaticos(self):
         """Test que verifica que la configuración de archivos estáticos funcione correctamente"""
         pass
+
+    # Ejemplos de tests que ahora son posibles:
+    def test_obtener_total_dias_docente_1279():
+        solicitud = SolicitudVacaciones(...)
+        resultado = solicitud._obtener_total_dias_por_estamento()
+        assert resultado == 30
+
+    def test_obtener_total_dias_administrativo():
+        solicitud = SolicitudVacaciones(...)
+        resultado = solicitud._obtener_total_dias_por_estamento()
+        assert resultado == 15
+
+    def test_obtener_total_dias_calendario():
+        solicitud = SolicitudVacaciones(...)
+        resultado = solicitud._obtener_total_dias_por_estamento()
+        assert resultado == 30

@@ -26,13 +26,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
           if (partes.length !== 3) return null;
 
-          return new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
+          const year = parseInt(partes[0]);
+          const month = parseInt(partes[1]);
+          const day = parseInt(partes[2]);
+
+          if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
+          return new Date(year, month - 1, day);
+
         } else if (fechaStr.includes('/')) {
           const partes = fechaStr.split('/');
 
           if (partes.length !== 3) return null;
-
-          return new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
+          const day = parseInt(partes[0]);
+          const month = parseInt(partes[1]);
+          const year = parseInt(partes[2]);
+          
+          if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
+          return new Date(year, month - 1, day);
         }
         return null;
       }

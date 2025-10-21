@@ -13,7 +13,7 @@ from ..models import (
 # -----------------------------------------------------------
 # Constantes
 # -----------------------------------------------------------
-# Límite máximo para campos de observación para evitar crecimiento descontrolado
+# Límite máximo para campos de observación para evitar crecimiento descontrolado.
 
 MAX_OBSERVACION_LENGTH = 2000
 

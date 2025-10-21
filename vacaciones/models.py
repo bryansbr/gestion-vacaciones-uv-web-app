@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 from django.db import models
 from django.core.exceptions import ValidationError
@@ -287,6 +287,18 @@ class SolicitudVacaciones(models.Model):
         """Calcula el total de días solicitados si no está establecido."""
         if not (self.fecha_inicio_vacaciones and self.fecha_fin_vacaciones and self.total_dias_solicitados is None):
             return
+        
+        self.total_dias_solicitados = self._obtener_total_dias_por_estamento()
+
+    def _obtener_total_dias_por_estamento(self):
+        """
+        Calcula el total de días solicitados según el estamento y decreto del funcionario.
+        
+        Returns:
+            int: Total de días calculados según las reglas del estamento
+        """
+        if not (self.fecha_inicio_vacaciones and self.fecha_fin_vacaciones):
+            return 0
             
         estamento = self.funcionario.estamento.nombre.lower()
         decreto = (self.funcionario.decreto_resolucion or '').strip()
@@ -295,15 +307,19 @@ class SolicitudVacaciones(models.Model):
             festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
             actual = self.fecha_inicio_vacaciones
             habiles_marcados = 0
+            
             while actual <= self.fecha_fin_vacaciones and habiles_marcados < 15:
                 if actual.weekday() < 5 and actual not in festivos:
                     habiles_marcados += 1
                 actual += timedelta(days=1)
             dias_calendario = 0
+           
             while actual <= self.fecha_fin_vacaciones:
                 dias_calendario += 1
                 actual += timedelta(days=1)
-            self.total_dias_solicitados = 15 + dias_calendario
+                
+            return 15 + dias_calendario
+            
         elif estamento == 'administrativo':
             festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
             actual = self.fecha_inicio_vacaciones
@@ -312,9 +328,10 @@ class SolicitudVacaciones(models.Model):
                 if actual.weekday() < 5 and actual not in festivos:
                     dias_habiles += 1
                 actual += timedelta(days=1)
-            self.total_dias_solicitados = dias_habiles
+            return dias_habiles
+            
         else:
-            self.total_dias_solicitados = (self.fecha_fin_vacaciones - self.fecha_inicio_vacaciones).days + 1
+            return (self.fecha_fin_vacaciones - self.fecha_inicio_vacaciones).days + 1
 
     def _validar_funcionario(self, errores):
         """Valida que el funcionario pueda solicitar vacaciones."""
@@ -475,33 +492,7 @@ class SolicitudVacaciones(models.Model):
     def save(self, *args, **kwargs):
         # Calcular automáticamente el total de días solicitados antes de guardar
         if self.fecha_inicio_vacaciones and self.fecha_fin_vacaciones:
-            estamento = self.funcionario.estamento.nombre.lower()
-            decreto = (self.funcionario.decreto_resolucion or '').strip()
-
-            if estamento == 'docente' and decreto == '1279':
-                festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
-                actual = self.fecha_inicio_vacaciones
-                habiles_marcados = 0
-                while actual <= self.fecha_fin_vacaciones and habiles_marcados < 15:
-                    if actual.weekday() < 5 and actual not in festivos:
-                        habiles_marcados += 1
-                    actual += timedelta(days=1)
-                dias_calendario = 0
-                while actual <= self.fecha_fin_vacaciones:
-                    dias_calendario += 1
-                    actual += timedelta(days=1)
-                self.total_dias_solicitados = 15 + dias_calendario
-            elif estamento == 'administrativo':
-                festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
-                actual = self.fecha_inicio_vacaciones
-                dias_habiles = 0
-                while actual <= self.fecha_fin_vacaciones:
-                    if actual.weekday() < 5 and actual not in festivos:
-                        dias_habiles += 1
-                    actual += timedelta(days=1)
-                self.total_dias_solicitados = dias_habiles
-            else:
-                self.total_dias_solicitados = (self.fecha_fin_vacaciones - self.fecha_inicio_vacaciones).days + 1
+            self.total_dias_solicitados = self._obtener_total_dias_por_estamento()
 
         if not self.codigo_sabs:
             anio_codigo = self.fecha_solicitud.year if self.fecha_solicitud else get_colombia_date_today().year
