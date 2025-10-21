@@ -14,7 +14,6 @@ from ..models import (
 # Constantes
 # -----------------------------------------------------------
 # Límite máximo para campos de observación para evitar crecimiento descontrolado
-# TextField no tiene max_length por defecto, pero establecemos un límite razonable
 
 MAX_OBSERVACION_LENGTH = 2000
 
@@ -95,6 +94,33 @@ def _get_etapa_activa_estricta(solicitud: SolicitudVacaciones) -> AprobacionEtap
     if not etapa_activa:
         raise ValidationError("No hay etapa activa para transicionar.")
     return etapa_activa
+
+def _concatenar_observacion_con_limite(observacion_actual: str, nueva_observacion: str, separador: str = "\n\n--- Reenvío por funcionario ---\n") -> str:
+    """
+    Concatena una nueva observación con la observación actual, respetando el límite máximo.
+    
+    Args:
+        observacion_actual: Observación existente
+        nueva_observacion: Nueva observación a agregar
+        separador: Separador entre observaciones
+        
+    Returns:
+        Observación concatenada respetando MAX_OBSERVACION_LENGTH
+    """
+    observacion_actual = observacion_actual or ''
+    nueva_observacion_formateada = f"{separador}{nueva_observacion.strip()}"
+    observacion_completa = observacion_actual + nueva_observacion_formateada
+    
+    if len(observacion_completa) <= MAX_OBSERVACION_LENGTH:
+        return observacion_completa
+    
+    espacio_disponible = MAX_OBSERVACION_LENGTH - len(nueva_observacion_formateada) - 50  # 50 chars de margen
+    
+    if espacio_disponible > 0:
+        observacion_truncada = observacion_actual[-espacio_disponible:] if observacion_actual else ''
+        return observacion_truncada + nueva_observacion_formateada
+    else:
+        return nueva_observacion_formateada
 
 # -----------------------------------------------------------
 # Transiciones (API pública servicio)
@@ -273,22 +299,10 @@ def reenviar_funcionario(user: CustomUser, solicitud: SolicitudVacaciones, obser
     etapa.estado = 'pendiente'
 
     if observacion:
-        sep = "\n\n--- Reenvío por funcionario ---\n"
-        nueva_observacion = f"{sep}{observacion.strip()}"
-        
-        observacion_actual = etapa.observacion or ''
-        observacion_completa = observacion_actual + nueva_observacion
-        
-        if len(observacion_completa) > MAX_OBSERVACION_LENGTH:
-            espacio_disponible = MAX_OBSERVACION_LENGTH - len(nueva_observacion) - 50  # 50 chars de margen
-            
-            if espacio_disponible > 0:
-                observacion_truncada = observacion_actual[-espacio_disponible:] if observacion_actual else ''
-                etapa.observacion = observacion_truncada + nueva_observacion
-            else:
-                etapa.observacion = nueva_observacion
-        else:
-            etapa.observacion = observacion_completa
+        etapa.observacion = _concatenar_observacion_con_limite(
+            etapa.observacion, 
+            observacion
+        )
 
     etapa.save(update_fields=['estado', 'observacion', 'actualizado_en'])
 

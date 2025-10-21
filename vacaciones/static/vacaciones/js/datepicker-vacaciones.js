@@ -28,9 +28,124 @@
         let attempts = 0;
         (function check() {
             attempts++;
-            if (typeof flatpickr !== 'undefined') callback();
-            else if (attempts < maxAttempts) requestAnimationFrame(check);
+            if (typeof flatpickr !== 'undefined') {
+                callback();
+            } else if (attempts < maxAttempts) {
+                requestAnimationFrame(check);
+            } else {
+                mostrarErrorFlatpickrNoDisponible();
+            }
         })();
+    }
+
+    // ----------------- Constantes de configuración -----------------
+    const ERROR_CONFIG = {
+        title: 'Advertencia de inicialización',
+        message: 'El selector de fechas no se pudo inicializar correctamente. Los campos de fecha funcionarán como campos de texto básicos.',
+        iconPath: 'M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z',
+        classes: {
+            container: 'flatpickr-timeout-error bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4',
+            icon: 'h-5 w-5 text-yellow-400',
+            title: 'text-sm font-medium',
+            message: 'mt-2 text-sm'
+        }
+    };
+
+    const FALLBACK_CONFIG = {
+        placeholder: 'dd/mm/aaaa',
+        fallbackClass: 'input-fecha-fallback',
+        selectors: ['input[type="date"]', '.flatpickr-input']
+    };
+
+    // ----------------- Utilidades de creación de elementos -----------------
+    function crearIconoSVG(path, className) {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', className);
+        svg.setAttribute('viewBox', '0 0 20 20');
+        svg.setAttribute('fill', 'currentColor');
+        
+        const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        pathElement.setAttribute('fill-rule', 'evenodd');
+        pathElement.setAttribute('d', path);
+        pathElement.setAttribute('clip-rule', 'evenodd');
+        
+        svg.appendChild(pathElement);
+        return svg;
+    }
+
+    function crearElementoConClases(tagName, className) {
+        const elemento = document.createElement(tagName);
+        if (className) {
+            elemento.className = className;
+        }
+        return elemento;
+    }
+
+    function crearTextoElemento(tagName, texto, className) {
+        const elemento = crearElementoConClases(tagName, className);
+        elemento.textContent = texto;
+        return elemento;
+    }
+
+    // ----------------- Creación de componentes -----------------
+    function crearComponenteIcono() {
+        const iconContainer = crearElementoConClases('div', 'flex-shrink-0');
+        const icono = crearIconoSVG(ERROR_CONFIG.iconPath, ERROR_CONFIG.classes.icon);
+        iconContainer.appendChild(icono);
+        return iconContainer;
+    }
+
+    function crearComponenteContenido() {
+        const contentContainer = crearElementoConClases('div', 'ml-3');
+        
+        const titulo = crearTextoElemento('h3', ERROR_CONFIG.title, ERROR_CONFIG.classes.title);
+        const mensajeContainer = crearElementoConClases('div', ERROR_CONFIG.classes.message);
+        const mensaje = crearTextoElemento('p', ERROR_CONFIG.message);
+        
+        mensajeContainer.appendChild(mensaje);
+        contentContainer.appendChild(titulo);
+        contentContainer.appendChild(mensajeContainer);
+        
+        return contentContainer;
+    }
+
+    function crearBannerError() {
+        const banner = crearElementoConClases('div', ERROR_CONFIG.classes.container);
+        const flexContainer = crearElementoConClases('div', 'flex');
+        
+        flexContainer.appendChild(crearComponenteIcono());
+        flexContainer.appendChild(crearComponenteContenido());
+        banner.appendChild(flexContainer);
+        
+        return banner;
+    }
+
+    // ----------------- Utilidades de inserción -----------------
+    function insertarBannerEnFormulario(banner) {
+        const form = document.querySelector('form');
+        if (form) {
+            form.insertBefore(banner, form.firstChild);
+        } else {
+            document.body.insertBefore(banner, document.body.firstChild);
+        }
+    }
+
+    function convertirCamposAFallback() {
+        const selectores = FALLBACK_CONFIG.selectors.join(', ');
+        const camposFecha = document.querySelectorAll(selectores);
+        
+        camposFecha.forEach(campo => {
+            campo.type = 'text';
+            campo.placeholder = FALLBACK_CONFIG.placeholder;
+            campo.classList.add(FALLBACK_CONFIG.fallbackClass);
+        });
+    }
+
+    // ----------------- Función principal refactorizada -----------------
+    function mostrarErrorFlatpickrNoDisponible() {
+        const banner = crearBannerError();
+        insertarBannerEnFormulario(banner);
+        convertirCamposAFallback();
     }
 
     // ----------------- Fechas y Festivos -----------------

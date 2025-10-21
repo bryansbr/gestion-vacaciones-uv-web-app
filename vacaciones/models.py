@@ -173,11 +173,9 @@ class SolicitudVacaciones(models.Model):
 
     @property
     def etapa_activa(self):
-        # Si hay una devolución (JEFE/COORD), esa es la “activa”
         for a in self.aprobaciones_ordenadas:
             if a.estado == 'devuelta':
                 return a
-        # Si no, la primera pendiente es la activa
         for a in self.aprobaciones_ordenadas:
             if a.estado == 'pendiente':
                 return a
@@ -328,7 +326,6 @@ class SolicitudVacaciones(models.Model):
         if not self.fecha_inicio_vacaciones:
             return
             
-        # Validaciones de plazos y día hábil para vacaciones nuevas
         if not self.tiene_dias_pendientes:
             puede_solicitar, mensaje_plazo = puede_solicitar_vacaciones_hoy(
                 self.funcionario.estamento.nombre.lower(),
@@ -347,7 +344,6 @@ class SolicitudVacaciones(models.Model):
                             f"{mensaje_plazo}"
                         )
 
-        # Validaciones para días pendientes
         if self.tiene_dias_pendientes:
             if not es_dia_habil(self.fecha_inicio_vacaciones):
                 errores['fecha_inicio_vacaciones'] = "La fecha de inicio debe ser un día hábil (no puede ser fin de semana ni festivo)."
@@ -445,17 +441,14 @@ class SolicitudVacaciones(models.Model):
         """Valida la solicitud de vacaciones."""
         errores = {}
         
-        # Calcular total_dias_solicitados si no está establecido
         self._calcular_total_dias_solicitados()
         
-        # Ejecutar todas las validaciones
         self._validar_funcionario(errores)
         self._validar_fechas(errores)
         self._validar_cruces(errores)
         self._validar_dias_solicitados(errores)
         self._validar_periodo_vacacional(errores)
 
-        # Lanzar errores si los hay
         if errores:
             if None in errores:
                 raise ValidationError(list(errores.values()))
@@ -574,7 +567,7 @@ class AprobacionEtapa(models.Model):
 
 
 # ============================================================
-# Señal: Crear etapas por defecto al crear una Solicitud
+# Crear etapas por defecto al crear una Solicitud
 # ============================================================
 @receiver(post_save, sender=SolicitudVacaciones)
 def crear_etapas_por_defecto(sender, instance: SolicitudVacaciones, created, **kwargs):
@@ -665,7 +658,7 @@ class ReintegroVacaciones(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.codigo_sabs:
-            anio_codigo = self.fecha_solicitud.year if self.fecha_solicitud else datetime.now().year
+            anio_codigo = self.fecha_solicitud.year if self.fecha_solicitud else get_colombia_date_today().year
             self.codigo_sabs = generar_codigo_sabs('REI', anio_codigo)
         super().save(*args, **kwargs)
 

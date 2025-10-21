@@ -1,7 +1,6 @@
-import holidays
+from datetime import date
 import json
 import urllib.parse
-from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -15,7 +14,7 @@ from django.urls import reverse_lazy
 from django.utils.timezone import localdate, now
 from django.views import View
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
-
+import holidays
 from weasyprint import HTML
 
 from .forms import PeriodoVacacionalForm, SolicitudVacacionesForm
@@ -233,19 +232,9 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         hoy_colombia = get_colombia_date_today()
         form.instance.fecha_solicitud = hoy_colombia
         
-        reintegros_pendientes = ReintegroVacaciones.objects.filter(
-            funcionario=funcionario,
-            estado_solicitud='aprobado',
-            dias_pendientes__gt=0
-        )
-        
-        if 'tiene_dias_pendientes' in request.POST:
-            form.instance.tiene_dias_pendientes = request.POST.get('tiene_dias_pendientes') == 'on'
-        else:
-            form.instance.tiene_dias_pendientes = reintegros_pendientes.exists()
-        
         if form.is_valid():
             return self.form_valid(form)
+            
         return self.form_invalid(form)
 
     def form_valid(self, form):

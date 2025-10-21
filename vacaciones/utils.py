@@ -1,8 +1,8 @@
-from datetime import date, timedelta, datetime
+from datetime import date, datetime, timedelta
 from typing import NamedTuple, Optional, Tuple
+
 import holidays
 import pytz
-
 
 class PlazoLimiteResult(NamedTuple):
     """Resultado del cálculo de plazo límite para solicitudes de vacaciones."""
@@ -22,7 +22,6 @@ def get_colombia_date_today() -> date:
     
     return datetime.now(colombia_tz).date()
 
-
 def obtener_festivos_colombia(year: int) -> set:
     """
     Obtiene los días festivos de Colombia para un año específico.
@@ -34,7 +33,6 @@ def obtener_festivos_colombia(year: int) -> set:
         Set con las fechas festivas
     """
     return set(holidays.Colombia(years=[year]).keys())
-
 
 def es_dia_habil(fecha: date) -> bool:
     """
@@ -53,7 +51,6 @@ def es_dia_habil(fecha: date) -> bool:
     # Verificar si es festivo
     festivos = obtener_festivos_colombia(fecha.year)
     return fecha not in festivos
-
 
 def obtener_ultimo_dia_del_mes(year: int, month: int) -> date:
     """
@@ -74,7 +71,6 @@ def obtener_ultimo_dia_del_mes(year: int, month: int) -> date:
     
     return ultimo_dia
 
-
 def obtener_ultimo_dia_habil_del_mes(year: int, month: int) -> date:
     """
     Obtiene el último día hábil del mes especificado.
@@ -86,18 +82,16 @@ def obtener_ultimo_dia_habil_del_mes(year: int, month: int) -> date:
     Returns:
         Último día hábil del mes
     """
-    # Obtener el último día del mes
+
     if month == 12:
         ultimo_dia = date(year + 1, 1, 1) - timedelta(days=1)
     else:
         ultimo_dia = date(year, month + 1, 1) - timedelta(days=1)
     
-    # Retroceder hasta encontrar un día hábil
     while not es_dia_habil(ultimo_dia):
         ultimo_dia -= timedelta(days=1)
     
     return ultimo_dia
-
 
 def obtener_ultimo_dia_habil_antes_de(fecha_limite: date) -> date:
     """
@@ -116,7 +110,6 @@ def obtener_ultimo_dia_habil_antes_de(fecha_limite: date) -> date:
     
     return fecha_anterior
 
-
 def calcular_plazo_limite_solicitud(funcionario_estamento: str, funcionario_decreto: Optional[str] = None) -> PlazoLimiteResult:
     """
     Calcula el plazo límite para presentar solicitudes de vacaciones según el tipo de funcionario.
@@ -127,10 +120,19 @@ def calcular_plazo_limite_solicitud(funcionario_estamento: str, funcionario_decr
         
     Returns:
         PlazoLimiteResult con:
-        - fecha_limite: Última fecha hábil para presentar solicitud
-        - mensaje_explicativo: Mensaje explicativo del plazo
-        - fecha_salida: Fecha estimada de salida a vacaciones (formato string)
+        - fecha_limite: Última fecha hábil para presentar solicitud (tipo date)
+        - mensaje_explicativo: Mensaje explicativo del plazo (str)
+        - fecha_salida: Fecha estimada de salida a vacaciones (formato string 'dd/mm/yyyy')
+    
+    Example:
+        >>> calcular_plazo_limite_solicitud('docente', '1279')
+        PlazoLimiteResult(
+            fecha_limite=datetime.date(2024, 6, 14),
+            mensaje_explicativo='Plazo recomendado para solicitar vacaciones: hasta el 14/06/2024. Si solicita antes de esta fecha, podrá salir a vacaciones a partir del 01/07/2024 y recibirá el pago el día 30 o 31 del mes actual.',
+            fecha_salida='01/07/2024'
+        )    
     """
+    
     hoy = get_colombia_date_today()
     estamento = funcionario_estamento.lower()
     decreto = (funcionario_decreto or '').strip()
@@ -202,7 +204,6 @@ def calcular_plazo_limite_solicitud(funcionario_estamento: str, funcionario_decr
         
         return PlazoLimiteResult(fecha_limite, mensaje_explicativo, fecha_salida)
 
-
 def calcular_fecha_salida_y_pago_fuera_plazo(funcionario_estamento: str, funcionario_decreto: Optional[str] = None) -> Tuple[str, str, str]:
     """
     Calcula la fecha de salida y pago cuando la solicitud se hace fuera del plazo límite.
@@ -217,6 +218,7 @@ def calcular_fecha_salida_y_pago_fuera_plazo(funcionario_estamento: str, funcion
         - fecha_pago: Fecha de pago
         - mensaje_explicativo: Mensaje explicativo
     """
+    
     hoy = get_colombia_date_today()
     estamento = funcionario_estamento.lower()
     decreto = (funcionario_decreto or '').strip()
@@ -283,7 +285,6 @@ def calcular_fecha_salida_y_pago_fuera_plazo(funcionario_estamento: str, funcion
         mensaje_explicativo = "Estamento no reconocido. Contacte al administrador."
         return hoy.strftime('%d/%m/%Y'), hoy.strftime('%d/%m/%Y'), mensaje_explicativo
 
-
 def puede_solicitar_vacaciones_hoy(funcionario_estamento: str, funcionario_decreto: Optional[str] = None) -> Tuple[bool, str]:
     """
     Proporciona información sobre los plazos de solicitud de vacaciones.
@@ -298,6 +299,7 @@ def puede_solicitar_vacaciones_hoy(funcionario_estamento: str, funcionario_decre
         - puede_solicitar: Siempre True (se permite solicitar en cualquier momento)
         - mensaje: Mensaje informativo sobre plazos y consecuencias
     """
+    
     hoy = get_colombia_date_today()
     plazo_resultado = calcular_plazo_limite_solicitud(funcionario_estamento, funcionario_decreto)
     

@@ -1,7 +1,9 @@
-from django import forms
-from .models import PeriodoVacacional, SolicitudVacaciones
-from django.contrib.auth import get_user_model
 from datetime import date
+
+from django import forms
+from django.contrib.auth import get_user_model
+
+from .models import PeriodoVacacional, SolicitudVacaciones, ReintegroVacaciones
 
 class PeriodoVacacionalForm(forms.ModelForm):
     class Meta:
@@ -242,6 +244,30 @@ class SolicitudVacacionesForm(forms.ModelForm):
                 self.fields['fecha_inicio_vacaciones'].initial = self.instance.fecha_inicio_vacaciones.strftime('%d/%m/%Y')
             if self.instance.fecha_fin_vacaciones:
                 self.fields['fecha_fin_vacaciones'].initial = self.instance.fecha_fin_vacaciones.strftime('%d/%m/%Y')
+
+    def clean_tiene_dias_pendientes(self):
+        """
+        Limpia y establece el valor de tiene_dias_pendientes basado en la lógica de negocio.
+        Si no se proporciona en el POST, se establece basado en la existencia de reintegros pendientes.
+        """
+        tiene_dias_pendientes = self.cleaned_data.get('tiene_dias_pendientes', False)
+        
+        if 'tiene_dias_pendientes' not in self.data:
+            if 'instance' in self.__dict__ and self.instance and self.instance.funcionario:
+                funcionario = self.instance.funcionario
+            else:
+                User = get_user_model()
+                user = User.objects.get(id=self.initial.get('user_id'))
+                funcionario = user.funcionario
+            
+            reintegros_pendientes = ReintegroVacaciones.objects.filter(
+                funcionario=funcionario,
+                estado_solicitud='aprobado',
+                dias_pendientes__gt=0
+            )
+            tiene_dias_pendientes = reintegros_pendientes.exists()
+        
+        return tiene_dias_pendientes
 
     def clean(self):
         cleaned_data = super().clean()
