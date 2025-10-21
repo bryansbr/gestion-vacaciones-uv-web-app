@@ -259,7 +259,7 @@ def reenviar_funcionario(user: CustomUser, solicitud: SolicitudVacaciones, obser
     - No aplica si la solicitud quedó 'rechazada' por RRHH (flujo final).
     """
     # Valida ownership básico (ajústalo a tu auth real)
-    if solicitud.funcionario.usuario_id != user.id and not user.is_superuser:
+    if solicitud.funcionario.user_id != user.id and not user.is_superuser:
         raise PermissionDenied("Solo el funcionario dueño puede reenviar su solicitud devuelta.")
 
     # Busca la etapa devuelta (solo JEFE o COORD)

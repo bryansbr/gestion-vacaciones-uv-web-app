@@ -33,7 +33,7 @@
           {% endif %}
         {% endif %}
   
-        {% if etapa.estado == 'devuelta' and etapa.etapa != 'RRHH' and request.user.id == solicitud.funcionario.usuario.id %}
+        {% if etapa.estado == 'devuelta' and etapa.etapa != 'RRHH' and request.user.id == solicitud.funcionario.user.id %}
           <form method="post" action="{% url 'vacaciones:reenviar_funcionario' solicitud.id %}" class="acciones-row__form acciones-row__form--reenviar">
             {% csrf_token %}
             <input type="text" name="obs" class="acciones-row__obs" placeholder="Comentario al reenviar (opcional)">
