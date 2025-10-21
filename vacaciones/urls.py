@@ -1,4 +1,6 @@
 from django.urls import path, include
+
+from . import views
 from .views import (
     PeriodoVacacionalListView,
     PeriodoVacacionalCreateView,
@@ -14,6 +16,15 @@ from .views import (
 app_name = "vacaciones"
 
 urlpatterns = [
+    path("semaforo-cell/<int:pk>/", views.semaforo_cell, name="semaforo_cell"),
+
+    # Acciones de flujo por etapa
+    path("<int:pk>/aprobar/", views.aprobar_view, name="aprobar_etapa"),
+    path("<int:pk>/devolver/", views.devolver_view, name="devolver_etapa"),
+    path("<int:pk>/autorizar/", views.autorizar_view, name="autorizar_rrhh"),
+    path("<int:pk>/rechazar/", views.rechazar_view, name="rechazar_rrhh"),
+    path("<int:pk>/reenviar/", views.reenviar_view, name="reenviar_funcionario"),
+
     # -----------------------------------------
     # MODELO: PeriodoVacacional
     # -----------------------------------------

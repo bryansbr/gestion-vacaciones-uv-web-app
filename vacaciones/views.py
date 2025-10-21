@@ -1,18 +1,26 @@
 from datetime import date, datetime
+from weasyprint import HTML
+
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
+from django.core.exceptions import ValidationError, PermissionDenied
 from django.http import Http404, HttpResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.templatetags.static import static
 from django.utils.timezone import now, localdate
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.views import View
-from weasyprint import HTML
-from .models import PeriodoVacacional, SolicitudVacaciones, generar_codigo_sabs, ReintegroVacaciones
+
 from .forms import PeriodoVacacionalForm, SolicitudVacacionesForm
+from .models import AprobacionEtapa, PeriodoVacacional, SolicitudVacaciones, generar_codigo_sabs, ReintegroVacaciones
+from .services.aprobaciones import (
+    aprobar_etapa, devolver_etapa, autorizar_rrhh, rechazar_rrhh, reenviar_funcionario
+)
 from .utils import puede_solicitar_vacaciones_hoy, calcular_plazo_limite_solicitud
+
 import holidays
 import json
 import pytz
@@ -395,6 +403,77 @@ def solicitud_vacaciones_create(request):
 
     return render(request, 'vacaciones/solicitud-vacaciones-form.html', {'festivos_colombia': festivos_json})
 
+# ==========================================================
+# Parcial Semáforo (corregida la ruta del template)
+# ==========================================================
+
+@login_required
+def semaforo_cell(request, pk):
+    sol = get_object_or_404(SolicitudVacaciones, pk=pk)
+
+    # Backfill si la solicitud no tiene etapas (p. ej. solicitudes viejas)
+    if sol.aprobaciones.count() == 0:
+        bulk = [
+            AprobacionEtapa(solicitud=sol, etapa='JEFE', estado='pendiente'),
+            AprobacionEtapa(solicitud=sol, etapa='COORD', estado='pendiente'),
+            AprobacionEtapa(solicitud=sol, etapa='RRHH', estado='pendiente'),
+        ]
+        AprobacionEtapa.objects.bulk_create(bulk)
+
+    return render(request, "vacaciones/partials/_semaforo-cell.html", {"solicitud": sol})
+
+# ==========================================================
+# Acciones de flujo (JEFE/COORD/RRHH/Funcionario)
+# ==========================================================
+@login_required
+def aprobar_view(request, pk):
+    sol = get_object_or_404(SolicitudVacaciones, pk=pk)
+    try:
+        aprobar_etapa(request.user, sol, observacion=request.POST.get('obs'))
+        messages.success(request, "Etapa aprobada correctamente.")
+    except (ValidationError, PermissionDenied) as e:
+        messages.error(request, str(e))
+    return redirect("vacaciones:solicitud-vacaciones-list")
+
+@login_required
+def devolver_view(request, pk):
+    sol = get_object_or_404(SolicitudVacaciones, pk=pk)
+    try:
+        devolver_etapa(request.user, sol, observacion=request.POST.get('obs', ''))
+        messages.info(request, "Solicitud devuelta al funcionario para ajustes.")
+    except (ValidationError, PermissionDenied) as e:
+        messages.error(request, str(e))
+    return redirect("vacaciones:solicitud-vacaciones-list")
+
+@login_required
+def autorizar_view(request, pk):
+    sol = get_object_or_404(SolicitudVacaciones, pk=pk)
+    try:
+        autorizar_rrhh(request.user, sol, observacion=request.POST.get('obs'))
+        messages.success(request, "Solicitud autorizada por RRHH.")
+    except (ValidationError, PermissionDenied) as e:
+        messages.error(request, str(e))
+    return redirect("vacaciones:solicitud-vacaciones-list")
+
+@login_required
+def rechazar_view(request, pk):
+    sol = get_object_or_404(SolicitudVacaciones, pk=pk)
+    try:
+        rechazar_rrhh(request.user, sol, observacion=request.POST.get('obs', ''))
+        messages.warning(request, "Solicitud rechazada por RRHH.")
+    except (ValidationError, PermissionDenied) as e:
+        messages.error(request, str(e))
+    return redirect("vacaciones:solicitud-vacaciones-list")
+
+@login_required
+def reenviar_view(request, pk):
+    sol = get_object_or_404(SolicitudVacaciones, pk=pk)
+    try:
+        reenviar_funcionario(request.user, sol, observacion=request.POST.get('obs'))
+        messages.success(request, "Solicitud reenviada correctamente.")
+    except (ValidationError, PermissionDenied) as e:
+        messages.error(request, str(e))
+    return redirect("vacaciones:solicitud-vacaciones-list")
 
 # ==========================================================
 # PDF - WeasyPrint

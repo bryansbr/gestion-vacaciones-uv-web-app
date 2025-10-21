@@ -1,8 +1,13 @@
 from datetime import date, datetime, timedelta
+
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.db.models import Case, When, IntegerField
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
 from usuarios.models import Funcionario, CustomUser
-import holidays
+
 from .utils import (
     calcular_plazo_limite_solicitud, 
     calcular_fecha_salida_y_pago_fuera_plazo,
@@ -11,9 +16,11 @@ from .utils import (
     obtener_ultimo_dia_del_mes
 )
 
-# -----------------------------------------
+import holidays
+
+# ============================================================
 # MODELO: PeriodoVacacional
-# -----------------------------------------
+# ============================================================
 class PeriodoVacacional(models.Model):
     fecha_inicio_periodo = models.DateField(verbose_name="Fecha de inicio del periodo")
     fecha_fin_periodo = models.DateField(verbose_name="Fecha de fin del periodo")
@@ -30,24 +37,19 @@ class PeriodoVacacional(models.Model):
 
     def _calcular_dias_docente_1279(self, inicio, fin, festivos):
         dias_habiles, actual = 0, inicio
-        
         while actual <= fin and dias_habiles < 15:
             if actual.weekday() < 5 and actual not in festivos:
                 dias_habiles += 1
             actual += timedelta(days=1)
-
         dias_calendario = (fin - actual + timedelta(days=1)).days if actual <= fin else 0
-        
         return dias_habiles + dias_calendario
 
     def _calcular_dias_generico(self, inicio, fin, festivos):
         total, actual = 0, inicio
-        
         while actual <= fin:
             if actual.weekday() < 5 and actual not in festivos:
                 total += 1
             actual += timedelta(days=1)
-            
         return total
 
     def contar_dias_por_regimen(self):
@@ -64,13 +66,13 @@ class PeriodoVacacional(models.Model):
             elif decreto == '115':
                 return 30  # 30 días calendario
             else:
-                return 0   # Sin decreto válido
+                return 0
         elif estamento == 'administrativo':
             return 15  # 15 días hábiles
         elif estamento == 'trabajador oficial':
             return 30  # 30 días calendario
         else:
-            return 0   # Estamento no reconocido
+            return 0
 
     def clean(self):
         if self.fecha_inicio_periodo > self.fecha_fin_periodo:
@@ -79,11 +81,10 @@ class PeriodoVacacional(models.Model):
 
         if self.dias_pendientes_periodo + self.dias_disfrutados_periodo > self.dias_totales_periodo:
             raise ValidationError("La suma de días pendientes y disfrutados no puede superar los días totales.")
+
         periodos = PeriodoVacacional.objects.filter(funcionario=self.funcionario)
-        
         if self.pk:
             periodos = periodos.exclude(pk=self.pk)
-
         for periodo in periodos:
             if (self.fecha_inicio_periodo <= periodo.fecha_fin_periodo <= self.fecha_fin_periodo) or \
                (periodo.fecha_inicio_periodo <= self.fecha_fin_periodo <= periodo.fecha_fin_periodo):
@@ -102,9 +103,10 @@ class PeriodoVacacional(models.Model):
         verbose_name_plural = "Periodos vacacionales"
         ordering = ['-fecha_inicio_periodo']
 
-# -----------------------------------------
+
+# ============================================================
 # MODELO: SolicitudVacaciones
-# -----------------------------------------
+# ============================================================
 class SolicitudVacaciones(models.Model):
     ESTADOS = [
         ('pendiente', 'Pendiente'),
@@ -132,75 +134,143 @@ class SolicitudVacaciones(models.Model):
     funcionario = models.ForeignKey(Funcionario, on_delete=models.CASCADE)
     estado_solicitud = models.CharField(max_length=20, choices=ESTADOS, default='pendiente')
 
+    ETAPAS_ORDEN = ('JEFE', 'COORD', 'RRHH')
+
+    @staticmethod
+    def color_por_estado(estado: str) -> str:
+        """
+        Mapea estado de etapa a color del semáforo.
+        """
+        estado = (estado or '').lower()
+        if estado in ('aprobada', 'autorizada'):
+            return 'verde'
+        if estado in ('devuelta', 'rechazada'):
+            return 'rojo'
+
+        return 'amarillo'
+
+    @property
+    def aprobaciones_ordenadas(self):
+        orden = Case(
+            When(etapa='JEFE',  then=0),
+            When(etapa='COORD', then=1),
+            When(etapa='RRHH',  then=2),
+            output_field=IntegerField(),
+        )
+
+        return list(self.aprobaciones.order_by(orden, 'id'))
+
+    @property
+    def etapa_activa(self):
+        # Si hay una devolución (JEFE/COORD), esa es la “activa”
+        for a in self.aprobaciones_ordenadas:
+            if a.estado == 'devuelta':
+                return a
+        # Si no, la primera pendiente es la activa
+        for a in self.aprobaciones_ordenadas:
+            if a.estado == 'pendiente':
+                return a
+                
+        return None
+
+    @property
+    def estado_global(self) -> str:
+        """
+        Deriva un estado global legible para cabecera/tablero.
+        - 'rechazada' si RRHH rechaza.
+        - 'devuelta' si hay una devolución en JEFE o COORD.
+        - 'autorizada' si RRHH autoriza.
+        - 'en_progreso' si hay pendientes y ninguna roja.
+        """
+        mapa = {a.etapa: a for a in self.aprobaciones.all()}
+        rrhh = mapa.get('RRHH')
+
+        if rrhh and rrhh.estado == 'rechazada':
+            return 'rechazada'
+        if any(a.estado == 'devuelta' for a in self.aprobaciones.all() if a.etapa in ('JEFE', 'COORD')):
+            return 'devuelta'
+        if rrhh and rrhh.estado == 'autorizada':
+            return 'autorizada'
+        if any(a.estado == 'pendiente' for a in self.aprobaciones.all()):
+            return 'en_progreso'
+
+        return 'desconocido'
+
+    @property
+    def colores_semaforo(self):
+        """
+        Devuelve una lista de 3 colores en orden JEFE→COORD→RRHH.
+        Reglas:
+          - 'verde'  si la etapa está aprobada/autorizada
+          - 'rojo'   si está devuelta/rechazada
+          - 'amarillo' SOLO para la primera etapa con estado 'pendiente'
+          - 'blanco' para etapas 'pendiente' que aún no son la activa (futuras)
+        """
+        colores = []
+        activa_asignada = False
+        etapas = self.aprobaciones_ordenadas
+
+        for a in etapas:
+            est = (a.estado or '').lower()
+            if est in ('aprobada', 'autorizada'):
+                colores.append('verde')
+            elif est in ('devuelta', 'rechazada'):
+                colores.append('rojo')
+            elif est == 'pendiente':
+                if not activa_asignada:
+                    colores.append('amarillo')
+                    activa_asignada = True
+                else:
+                    colores.append('blanco')
+            else:
+                colores.append('blanco')
+
+        return colores
+
     def _obtener_siguiente_dia_habil(self, fecha):
-        """Retorna el siguiente día hábil a partir de una fecha dada."""
         festivos = holidays.Colombia(years=[fecha.year])
         siguiente_dia = fecha
-        
         while (siguiente_dia.weekday() >= 5 or siguiente_dia in festivos):
             siguiente_dia += timedelta(days=1)
-        
+
         return siguiente_dia
 
     def _calcular_fecha_minima_inicio_vacaciones_nuevas(self):
-        """
-        Calcula la fecha mínima permitida para iniciar vacaciones nuevas
-        según el calendario de pagos y plazos administrativos actualizados.
-        """
         hoy = date.today()
         estamento = self.funcionario.estamento.nombre.lower()
         decreto = (self.funcionario.decreto_resolucion or '').strip()
-        
-        # Usar la nueva lógica de plazos límite
         fecha_limite, mensaje_explicativo, fecha_salida_str = calcular_plazo_limite_solicitud(estamento, decreto)
+        d, m, y = map(int, fecha_salida_str.split('/'))
+        fecha_salida = date(y, m, d)
         
-        # Convertir la fecha de salida de string a date
-        fecha_salida_parts = fecha_salida_str.split('/')
-        fecha_salida = date(int(fecha_salida_parts[2]), int(fecha_salida_parts[1]), int(fecha_salida_parts[0]))
-        
-        # Si estamos dentro del plazo límite, usar la fecha de salida calculada
         if hoy <= fecha_limite:
             return fecha_salida
         else:
-            # Si estamos fuera del plazo, calcular según las reglas de fuera de plazo
-            fecha_salida_fuera_str, fecha_pago_fuera_str, mensaje_fuera = calcular_fecha_salida_y_pago_fuera_plazo(estamento, decreto)
-            fecha_salida_fuera_parts = fecha_salida_fuera_str.split('/')
-            fecha_salida_fuera = date(int(fecha_salida_fuera_parts[2]), int(fecha_salida_fuera_parts[1]), int(fecha_salida_fuera_parts[0]))
-            return fecha_salida_fuera
+            fecha_salida_fuera_str, _, _ = calcular_fecha_salida_y_pago_fuera_plazo(estamento, decreto)
+            d2, m2, y2 = map(int, fecha_salida_fuera_str.split('/'))
+            return date(y2, m2, d2)
 
     def _calcular_fecha_minima_inicio_dias_pendientes(self):
-        """
-        Calcula la fecha mínima permitida para iniciar vacaciones por días pendientes.
-        Permite solicitar con un día de anticipación.
-        """
-        
         hoy = date.today()
-        # Para días pendientes, permite solicitar con un día de anticipación
         fecha_minima = hoy + timedelta(days=1)
-        
+
         return self._obtener_siguiente_dia_habil(fecha_minima)
 
     def _calcular_fecha_minima_inicio(self):
-        """
-        Calcula la fecha mínima permitida para iniciar vacaciones
-        según si son vacaciones nuevas o por días pendientes.
-        """
         if self.tiene_dias_pendientes:
             return self._calcular_fecha_minima_inicio_dias_pendientes()
         else:
             return self._calcular_fecha_minima_inicio_vacaciones_nuevas()
 
     def _validar_fecha_inicio_es_habil(self, fecha):
-        """
-        Valida que la fecha de inicio no sea sábado, domingo o festivo.
-        """
         if fecha.weekday() >= 5:
             return False, "La fecha de inicio no puede ser sábado o domingo."
-        
+
         festivos = holidays.Colombia(years=[fecha.year])
+
         if fecha in festivos:
             return False, "La fecha de inicio no puede ser un festivo."
-        
+
         return True, None
 
     def clean(self):
@@ -212,25 +282,21 @@ class SolicitudVacaciones(models.Model):
 
             if estamento == 'docente' and decreto == '1279':
                 festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
-                dias_habiles = 0
                 actual = self.fecha_inicio_vacaciones
                 habiles_marcados = 0
-                
                 while actual <= self.fecha_fin_vacaciones and habiles_marcados < 15:
                     if actual.weekday() < 5 and actual not in festivos:
                         habiles_marcados += 1
                     actual += timedelta(days=1)
                 dias_calendario = 0
-
                 while actual <= self.fecha_fin_vacaciones:
                     dias_calendario += 1
                     actual += timedelta(days=1)
                 self.total_dias_solicitados = 15 + dias_calendario
             elif estamento == 'administrativo':
                 festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
-                dias_habiles = 0
                 actual = self.fecha_inicio_vacaciones
-                
+                dias_habiles = 0
                 while actual <= self.fecha_fin_vacaciones:
                     if actual.weekday() < 5 and actual not in festivos:
                         dias_habiles += 1
@@ -242,17 +308,15 @@ class SolicitudVacaciones(models.Model):
         if not self.funcionario.puede_solicitar_vacaciones():
             errores['funcionario'] = "El funcionario no cumple con la antigüedad mínima ni tiene días pendientes."
 
-        # Validación de plazos límite para solicitudes nuevas
+        # Validaciones de plazos y día hábil
         if self.fecha_inicio_vacaciones and not self.tiene_dias_pendientes:
             puede_solicitar, mensaje_plazo = puede_solicitar_vacaciones_hoy(
                 self.funcionario.estamento.nombre.lower(),
                 self.funcionario.decreto_resolucion
             )
-            
             if not puede_solicitar:
                 errores['fecha_inicio_vacaciones'] = mensaje_plazo
             else:
-                # Validar que la fecha de inicio sea hábil
                 if not es_dia_habil(self.fecha_inicio_vacaciones):
                     errores['fecha_inicio_vacaciones'] = "La fecha de inicio debe ser un día hábil (no puede ser fin de semana ni festivo)."
                 else:
@@ -263,7 +327,6 @@ class SolicitudVacaciones(models.Model):
                             f"{mensaje_plazo}"
                         )
 
-        # Validación adicional para días pendientes
         if self.fecha_inicio_vacaciones and self.tiene_dias_pendientes:
             if not es_dia_habil(self.fecha_inicio_vacaciones):
                 errores['fecha_inicio_vacaciones'] = "La fecha de inicio debe ser un día hábil (no puede ser fin de semana ni festivo)."
@@ -280,7 +343,6 @@ class SolicitudVacaciones(models.Model):
             funcionario=self.funcionario,
             estado_solicitud__in=['aprobado', 'en_revision']
         ).exclude(pk=self.pk)
-
         for s in solicitudes:
             if (
                 self.fecha_inicio_vacaciones <= s.fecha_fin_vacaciones and
@@ -297,16 +359,13 @@ class SolicitudVacaciones(models.Model):
             
             if estamento == 'docente' and decreto == '1279':
                 festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
-                dias_habiles = 0
                 actual = self.fecha_inicio_vacaciones
                 habiles_marcados = 0
-                
                 while actual <= self.fecha_fin_vacaciones and habiles_marcados < 15:
                     if actual.weekday() < 5 and actual not in festivos:
                         habiles_marcados += 1
                     actual += timedelta(days=1)
                 dias_calendario = 0
-                
                 while actual <= self.fecha_fin_vacaciones:
                     dias_calendario += 1
                     actual += timedelta(days=1)
@@ -318,9 +377,8 @@ class SolicitudVacaciones(models.Model):
             elif estamento == 'administrativo' or (estamento == 'docente' and decreto == '115'):
                 if estamento == 'administrativo':
                     festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
-                    dias_habiles = 0
                     actual = self.fecha_inicio_vacaciones
-                    
+                    dias_habiles = 0
                     while actual <= self.fecha_fin_vacaciones:
                         if actual.weekday() < 5 and actual not in festivos:
                             dias_habiles += 1
@@ -383,25 +441,21 @@ class SolicitudVacaciones(models.Model):
 
             if estamento == 'docente' and decreto == '1279':
                 festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
-                dias_habiles = 0
                 actual = self.fecha_inicio_vacaciones
                 habiles_marcados = 0
-                
                 while actual <= self.fecha_fin_vacaciones and habiles_marcados < 15:
                     if actual.weekday() < 5 and actual not in festivos:
                         habiles_marcados += 1
                     actual += timedelta(days=1)
                 dias_calendario = 0
-
                 while actual <= self.fecha_fin_vacaciones:
                     dias_calendario += 1
                     actual += timedelta(days=1)
                 self.total_dias_solicitados = 15 + dias_calendario
             elif estamento == 'administrativo':
                 festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
-                dias_habiles = 0
                 actual = self.fecha_inicio_vacaciones
-                
+                dias_habiles = 0
                 while actual <= self.fecha_fin_vacaciones:
                     if actual.weekday() < 5 and actual not in festivos:
                         dias_habiles += 1
@@ -409,48 +463,91 @@ class SolicitudVacaciones(models.Model):
                 self.total_dias_solicitados = dias_habiles
             else:
                 self.total_dias_solicitados = (self.fecha_fin_vacaciones - self.fecha_inicio_vacaciones).days + 1
+
         if not self.codigo_sabs:
-            # Usar el año de la fecha de solicitud para generar el código
             anio_codigo = self.fecha_solicitud.year if self.fecha_solicitud else datetime.now().year
             self.codigo_sabs = generar_codigo_sabs('VAC', anio_codigo)
             
-        # Calcular automáticamente la fecha de pago si no está establecida
         if not self.fecha_pago:
             self.fecha_pago = self._calcular_fecha_pago_automatica()
         
         super().save(*args, **kwargs)
 
     def _calcular_fecha_pago_automatica(self):
-        """
-        Calcula automáticamente la fecha de pago según el tipo de funcionario
-        y la fecha de solicitud, siguiendo las reglas establecidas actualizadas.
-        """
         hoy = date.today()
         estamento = self.funcionario.estamento.nombre.lower()
         decreto = (self.funcionario.decreto_resolucion or '').strip()
-        
-        # Usar la nueva lógica de plazos límite
-        fecha_limite, mensaje_explicativo, fecha_salida_str = calcular_plazo_limite_solicitud(estamento, decreto)
-        
+        fecha_limite, _, _ = calcular_plazo_limite_solicitud(estamento, decreto)
         if hoy <= fecha_limite:
-            # Dentro del plazo límite - usar reglas normales
             if estamento == 'docente' or estamento == 'trabajador oficial':
-                # Pago el día 30 del mes actual (o último día del mes)
                 fecha_pago = obtener_ultimo_dia_del_mes(hoy.year, hoy.month)
-            else:  # administrativo
-                # Pago el día 15 del mes actual
+            else:
                 fecha_pago = date(hoy.year, hoy.month, 15)
         else:
-            # Fuera del plazo límite - usar reglas especiales
-            fecha_salida_fuera_str, fecha_pago_fuera_str, mensaje_fuera = calcular_fecha_salida_y_pago_fuera_plazo(estamento, decreto)
-            fecha_pago_parts = fecha_pago_fuera_str.split('/')
-            fecha_pago = date(int(fecha_pago_parts[2]), int(fecha_pago_parts[1]), int(fecha_pago_parts[0]))
-        
+            _, fecha_pago_fuera_str, _ = calcular_fecha_salida_y_pago_fuera_plazo(estamento, decreto)
+            d, m, y = map(int, fecha_pago_fuera_str.split('/'))
+            fecha_pago = date(y, m, d)
         return fecha_pago
 
-# -----------------------------------------
+
+# ============================================================
+# MODELO: AprobacionEtapa (Semáforo)
+# ============================================================
+class AprobacionEtapa(models.Model):
+    ETAPA = [
+        ('JEFE', 'Jefe Inmediato'),
+        ('COORD', 'Coordinación Administrativa'),
+        ('RRHH', 'División de Recursos Humanos'),
+    ]
+    ESTADO = [
+        ('pendiente', 'Pendiente'),
+        ('aprobada', 'Aprobada'),      # JEFE / COORD
+        ('devuelta', 'Devuelta'),      # JEFE / COORD
+        ('rechazada', 'Rechazada'),    # RRHH
+        ('autorizada', 'Autorizada'),  # RRHH (aprobación final)
+    ]
+
+    solicitud = models.ForeignKey(
+        SolicitudVacaciones,
+        on_delete=models.CASCADE,
+        related_name='aprobaciones'
+    )
+    etapa = models.CharField(max_length=5, choices=ETAPA)
+    estado = models.CharField(max_length=10, choices=ESTADO, default='pendiente')
+    observacion = models.TextField(blank=True, null=True)
+    actualizado_por = models.ForeignKey('usuarios.CustomUser', null=True, blank=True, on_delete=models.SET_NULL)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Aprobación por etapa"
+        verbose_name_plural = "Aprobaciones por etapa"
+        unique_together = ('solicitud', 'etapa')
+
+    def __str__(self):
+        return f"{self.get_etapa_display()} – {self.get_estado_display()} – {self.solicitud.codigo_sabs}"
+
+
+# ============================================================
+# Señal: Crear etapas por defecto al crear una Solicitud
+# ============================================================
+@receiver(post_save, sender=SolicitudVacaciones)
+def crear_etapas_por_defecto(sender, instance: SolicitudVacaciones, created, **kwargs):
+    """
+    Crea las 3 etapas en 'pendiente' al crear la solicitud.
+    Idempotente: si ya existen, no las duplica.
+    """
+    if not created:
+        return
+    existentes = set(instance.aprobaciones.values_list('etapa', flat=True))
+    por_crear = [e for e in SolicitudVacaciones.ETAPAS_ORDEN if e not in existentes]
+    bulk = [AprobacionEtapa(solicitud=instance, etapa=e, estado='pendiente') for e in por_crear]
+    if bulk:
+        AprobacionEtapa.objects.bulk_create(bulk)
+
+
+# ============================================================
 # MODELO: DiasPendientesVacaciones
-# -----------------------------------------
+# ============================================================
 class DiasPendientesVacaciones(models.Model):
     periodo_desde = models.IntegerField()
     periodo_hasta = models.IntegerField()
@@ -467,9 +564,10 @@ class DiasPendientesVacaciones(models.Model):
         verbose_name = "Días pendientes de vacaciones"
         verbose_name_plural = "Días pendientes de vacaciones"
 
-# -----------------------------------------
+
+# ============================================================
 # MODELO: ReintegroVacaciones
-# -----------------------------------------
+# ============================================================
 class ReintegroVacaciones(models.Model):
     TIPO_DIAS = (('H', 'Hábiles'), ('C', 'Calendario'))
     MOTIVOS_REINTEGRO = [('Vacaciones', 'Vacaciones')]
@@ -521,14 +619,14 @@ class ReintegroVacaciones(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.codigo_sabs:
-            # Usar el año de la fecha de solicitud para generar el código
             anio_codigo = self.fecha_solicitud.year if self.fecha_solicitud else datetime.now().year
             self.codigo_sabs = generar_codigo_sabs('REI', anio_codigo)
         super().save(*args, **kwargs)
 
-# -----------------------------------------
+
+# ============================================================
 # MODELO: HistoricoAcciones
-# -----------------------------------------
+# ============================================================
 class HistoricoAcciones(models.Model):
     TIPO_ACCION = [('solicitud', 'Solicitud'), ('reintegro', 'Reintegro')]
     ACCIONES = [
@@ -566,6 +664,10 @@ class HistoricoAcciones(models.Model):
         verbose_name = "Historial de acciones"
         verbose_name_plural = "Historial de acciones"
 
+
+# ============================================================
+# Utilidad: Generador de código SABS
+# ============================================================
 def generar_codigo_sabs(tipo, anio):
     """
     Genera un código SABS único para solicitudes o reintegros.
@@ -577,26 +679,18 @@ def generar_codigo_sabs(tipo, anio):
     else:
         modelo = ReintegroVacaciones
     
-    # Buscar el último código del año actual
     ultimo_codigo = modelo.objects.filter(
         codigo_sabs__startswith=f"{tipo}{anio}"
     ).order_by('-codigo_sabs').first()
     
     if ultimo_codigo:
         try:
-            # Extraer el número consecutivo del código
             codigo_completo = ultimo_codigo.codigo_sabs
-            # El formato es VAC20250001, REI20250001, etc.
-            # Extraer solo los números después del año
             numero_str = codigo_completo[len(f"{tipo}{anio}"):]
-            if numero_str.isdigit():
-                consecutivo = int(numero_str) + 1
-            else:
-                consecutivo = 1
+            consecutivo = int(numero_str) + 1 if numero_str.isdigit() else 1
         except (ValueError, IndexError, AttributeError):
             consecutivo = 1
     else:
         consecutivo = 1
     
-    # Formatear con 4 dígitos
     return f"{tipo}{anio}{str(consecutivo).zfill(4)}"
