@@ -1,29 +1,39 @@
+import holidays
+import json
+import urllib.parse
 from datetime import date
-from weasyprint import HTML
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib import messages
-from django.core.exceptions import ValidationError, PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.templatetags.static import static
-from django.utils.timezone import now, localdate
 from django.urls import reverse_lazy
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView
+from django.utils.timezone import localdate, now
 from django.views import View
+from django.views.generic import CreateView, DeleteView, ListView, UpdateView
+
+from weasyprint import HTML
 
 from .forms import PeriodoVacacionalForm, SolicitudVacacionesForm
-from .models import AprobacionEtapa, PeriodoVacacional, SolicitudVacaciones, generar_codigo_sabs, ReintegroVacaciones
-from .services.aprobaciones import (
-    aprobar_etapa, devolver_etapa, autorizar_rrhh, rechazar_rrhh, reenviar_funcionario
+from .models import (
+    AprobacionEtapa,
+    PeriodoVacacional,
+    ReintegroVacaciones,
+    SolicitudVacaciones,
+    generar_codigo_sabs
 )
-from .utils import puede_solicitar_vacaciones_hoy, calcular_plazo_limite_solicitud, get_colombia_date_today
-
-import holidays
-import json
-import urllib.parse
+from .services.aprobaciones import (
+    aprobar_etapa,
+    autorizar_rrhh,
+    devolver_etapa,
+    rechazar_rrhh,
+    reenviar_funcionario
+)
+from .utils import get_colombia_date_today, puede_solicitar_vacaciones_hoy
 
 # -----------------------------------------
 # VISTA: PeriodoVacacional

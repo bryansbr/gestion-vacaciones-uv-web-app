@@ -1,7 +1,14 @@
 from datetime import date, timedelta, datetime
-from typing import Tuple, Optional
+from typing import NamedTuple, Optional, Tuple
 import holidays
 import pytz
+
+
+class PlazoLimiteResult(NamedTuple):
+    """Resultado del cálculo de plazo límite para solicitudes de vacaciones."""
+    fecha_limite: date
+    mensaje_explicativo: str
+    fecha_salida: str
 
 
 def get_colombia_date_today() -> date:
@@ -110,7 +117,7 @@ def obtener_ultimo_dia_habil_antes_de(fecha_limite: date) -> date:
     return fecha_anterior
 
 
-def calcular_plazo_limite_solicitud(funcionario_estamento: str, funcionario_decreto: Optional[str] = None) -> Tuple[date, str, str]:
+def calcular_plazo_limite_solicitud(funcionario_estamento: str, funcionario_decreto: Optional[str] = None) -> PlazoLimiteResult:
     """
     Calcula el plazo límite para presentar solicitudes de vacaciones según el tipo de funcionario.
     
@@ -119,10 +126,10 @@ def calcular_plazo_limite_solicitud(funcionario_estamento: str, funcionario_decr
         funcionario_decreto: Decreto del funcionario (solo para docentes: '1279' o '115')
         
     Returns:
-        Tupla con:
+        PlazoLimiteResult con:
         - fecha_limite: Última fecha hábil para presentar solicitud
         - mensaje_explicativo: Mensaje explicativo del plazo
-        - fecha_salida: Fecha estimada de salida a vacaciones
+        - fecha_salida: Fecha estimada de salida a vacaciones (formato string)
     """
     hoy = get_colombia_date_today()
     estamento = funcionario_estamento.lower()
@@ -157,7 +164,7 @@ def calcular_plazo_limite_solicitud(funcionario_estamento: str, funcionario_decr
             f"{fecha_salida.strftime('%d/%m/%Y')} y recibirá el pago el día 30 o 31 del mes actual."
         )
         
-        return fecha_limite, mensaje_explicativo, fecha_salida.strftime('%d/%m/%Y')
+        return PlazoLimiteResult(fecha_limite, mensaje_explicativo, fecha_salida.strftime('%d/%m/%Y'))
     
     elif estamento == 'administrativo':
         # Funcionarios Administrativos
@@ -185,7 +192,7 @@ def calcular_plazo_limite_solicitud(funcionario_estamento: str, funcionario_decr
             f"{fecha_salida.strftime('%d/%m/%Y')} y recibirá el pago el día 15 del mes actual."
         )
         
-        return fecha_limite, mensaje_explicativo, fecha_salida.strftime('%d/%m/%Y')
+        return PlazoLimiteResult(fecha_limite, mensaje_explicativo, fecha_salida.strftime('%d/%m/%Y'))
     
     else:
         # Estamento no reconocido
@@ -193,7 +200,7 @@ def calcular_plazo_limite_solicitud(funcionario_estamento: str, funcionario_decr
         mensaje_explicativo = "Estamento no reconocido. Contacte al administrador."
         fecha_salida = hoy.strftime('%d/%m/%Y')
         
-        return fecha_limite, mensaje_explicativo, fecha_salida
+        return PlazoLimiteResult(fecha_limite, mensaje_explicativo, fecha_salida)
 
 
 def calcular_fecha_salida_y_pago_fuera_plazo(funcionario_estamento: str, funcionario_decreto: Optional[str] = None) -> Tuple[str, str, str]:
@@ -292,11 +299,11 @@ def puede_solicitar_vacaciones_hoy(funcionario_estamento: str, funcionario_decre
         - mensaje: Mensaje informativo sobre plazos y consecuencias
     """
     hoy = get_colombia_date_today()
-    fecha_limite, mensaje_explicativo, fecha_salida = calcular_plazo_limite_solicitud(funcionario_estamento, funcionario_decreto)
+    plazo_resultado = calcular_plazo_limite_solicitud(funcionario_estamento, funcionario_decreto)
     
-    if hoy <= fecha_limite:
-        return True, mensaje_explicativo
+    if hoy <= plazo_resultado.fecha_limite:
+        return True, plazo_resultado.mensaje_explicativo
     else:
         fecha_salida_fuera, fecha_pago_fuera, mensaje_fuera = calcular_fecha_salida_y_pago_fuera_plazo(funcionario_estamento, funcionario_decreto)
-        mensaje_completo = f"El plazo recomendado para solicitar vacaciones era hasta el {fecha_limite.strftime('%d/%m/%Y')}. {mensaje_fuera}"
+        mensaje_completo = f"El plazo recomendado para solicitar vacaciones era hasta el {plazo_resultado.fecha_limite.strftime('%d/%m/%Y')}. {mensaje_fuera}"
         return True, mensaje_completo

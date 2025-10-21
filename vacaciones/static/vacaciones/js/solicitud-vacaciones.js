@@ -3,11 +3,15 @@
  * y el tipo de días (calendario o hábiles).
  */
 document.addEventListener('DOMContentLoaded', function() {
-  setTimeout(function() {
+  function elementosListos() {
     const fechaInicio = document.getElementById('id_fecha_inicio_vacaciones');
     const fechaFin = document.getElementById('id_fecha_fin_vacaciones');
-    const tipoHabiles = document.getElementById('id_tipo_habiles');
-    const tipoCalendario = document.getElementById('id_tipo_calendario');
+    return fechaInicio && fechaFin;
+  }
+
+  function inicializarCalculadora() {
+    const fechaInicio = document.getElementById('id_fecha_inicio_vacaciones');
+    const fechaFin = document.getElementById('id_fecha_fin_vacaciones');
     const periodoVacacional = document.getElementById('id_periodo_vacacional');
     const disfruteDiasPendientes = document.getElementById('id_tiene_dias_pendientes');
 
@@ -136,24 +140,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
       function configurarEventListeners() {
         fechaInicio.addEventListener('change', function() {
-          setTimeout(calcularFechaFinAutomatico, 100);
+          requestAnimationFrame(calcularFechaFinAutomatico);
         });
 
         if (fechaInicio._flatpickr) {
           fechaInicio._flatpickr.config.onChange.push(function(selectedDates, dateStr, instance) {
-            setTimeout(calcularFechaFinAutomatico, 100);
+            requestAnimationFrame(calcularFechaFinAutomatico);
           });
         }
 
         if (periodoVacacional) {
           periodoVacacional.addEventListener('change', function() {
-            setTimeout(calcularFechaFinAutomatico, 100);
+            requestAnimationFrame(calcularFechaFinAutomatico);
           });
         }
 
         if (disfruteDiasPendientes) {
           disfruteDiasPendientes.addEventListener('change', function() {
-            setTimeout(calcularFechaFinAutomatico, 100);
+            requestAnimationFrame(calcularFechaFinAutomatico);
           });
         }
       }
@@ -162,11 +166,20 @@ document.addEventListener('DOMContentLoaded', function() {
         if (fechaInicio._flatpickr && fechaFin._flatpickr) {
           configurarEventListeners();
         } else {
-          setTimeout(esperarFlatpickr, 200);
+          requestAnimationFrame(esperarFlatpickr);
         }
       }
 
       esperarFlatpickr();
     }
-  }, 200);
+  }
+
+  function esperarElementos() {
+    if (elementosListos()) {
+      inicializarCalculadora();
+    } else {
+      requestAnimationFrame(esperarElementos);
+    }
+  }
+  esperarElementos();
 }); 

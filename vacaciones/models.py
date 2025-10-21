@@ -97,7 +97,17 @@ class PeriodoVacacional(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Del {self.fecha_inicio_periodo.strftime('%d/%m/%Y')} al {self.fecha_fin_periodo.strftime('%d/%m/%Y')}"
+        if self.fecha_inicio_periodo and self.fecha_fin_periodo:
+            return f"Del {self.fecha_inicio_periodo.strftime('%d/%m/%Y')} al {self.fecha_fin_periodo.strftime('%d/%m/%Y')}"
+        
+        elif self.fecha_inicio_periodo:
+            return f"Desde {self.fecha_inicio_periodo.strftime('%d/%m/%Y')}"
+        
+        elif self.fecha_fin_periodo:
+            return f"Hasta {self.fecha_fin_periodo.strftime('%d/%m/%Y')}"
+        
+        else:
+            return "Fechas no definidas"
 
     class Meta:
         verbose_name = "Periodo vacacional"
@@ -240,11 +250,12 @@ class SolicitudVacaciones(models.Model):
         hoy = get_colombia_date_today()
         estamento = self.funcionario.estamento.nombre.lower()
         decreto = (self.funcionario.decreto_resolucion or '').strip()
-        fecha_limite, mensaje_explicativo, fecha_salida_str = calcular_plazo_limite_solicitud(estamento, decreto)
+        plazo_resultado = calcular_plazo_limite_solicitud(estamento, decreto)
+        fecha_salida_str = plazo_resultado.fecha_salida
         d, m, y = map(int, fecha_salida_str.split('/'))
         fecha_salida = date(y, m, d)
         
-        if hoy <= fecha_limite:
+        if hoy <= plazo_resultado.fecha_limite:
             return fecha_salida
         else:
             fecha_salida_fuera_str, _, _ = calcular_fecha_salida_y_pago_fuera_plazo(estamento, decreto)
@@ -274,43 +285,51 @@ class SolicitudVacaciones(models.Model):
 
         return True, None
 
-    def clean(self):
-        errores = {}
-        # Calcular total_dias_solicitados si no está establecido
-        if self.fecha_inicio_vacaciones and self.fecha_fin_vacaciones and self.total_dias_solicitados is None:
-            estamento = self.funcionario.estamento.nombre.lower()
-            decreto = (self.funcionario.decreto_resolucion or '').strip()
-
-            if estamento == 'docente' and decreto == '1279':
-                festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
-                actual = self.fecha_inicio_vacaciones
-                habiles_marcados = 0
-                while actual <= self.fecha_fin_vacaciones and habiles_marcados < 15:
-                    if actual.weekday() < 5 and actual not in festivos:
-                        habiles_marcados += 1
-                    actual += timedelta(days=1)
-                dias_calendario = 0
-                while actual <= self.fecha_fin_vacaciones:
-                    dias_calendario += 1
-                    actual += timedelta(days=1)
-                self.total_dias_solicitados = 15 + dias_calendario
-            elif estamento == 'administrativo':
-                festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
-                actual = self.fecha_inicio_vacaciones
-                dias_habiles = 0
-                while actual <= self.fecha_fin_vacaciones:
-                    if actual.weekday() < 5 and actual not in festivos:
-                        dias_habiles += 1
-                    actual += timedelta(days=1)
-                self.total_dias_solicitados = dias_habiles
-            else:
-                self.total_dias_solicitados = (self.fecha_fin_vacaciones - self.fecha_inicio_vacaciones).days + 1
+    def _calcular_total_dias_solicitados(self):
+        """Calcula el total de días solicitados si no está establecido."""
+        if not (self.fecha_inicio_vacaciones and self.fecha_fin_vacaciones and self.total_dias_solicitados is None):
+            return
             
+        estamento = self.funcionario.estamento.nombre.lower()
+        decreto = (self.funcionario.decreto_resolucion or '').strip()
+
+        if estamento == 'docente' and decreto == '1279':
+            festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
+            actual = self.fecha_inicio_vacaciones
+            habiles_marcados = 0
+            while actual <= self.fecha_fin_vacaciones and habiles_marcados < 15:
+                if actual.weekday() < 5 and actual not in festivos:
+                    habiles_marcados += 1
+                actual += timedelta(days=1)
+            dias_calendario = 0
+            while actual <= self.fecha_fin_vacaciones:
+                dias_calendario += 1
+                actual += timedelta(days=1)
+            self.total_dias_solicitados = 15 + dias_calendario
+        elif estamento == 'administrativo':
+            festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
+            actual = self.fecha_inicio_vacaciones
+            dias_habiles = 0
+            while actual <= self.fecha_fin_vacaciones:
+                if actual.weekday() < 5 and actual not in festivos:
+                    dias_habiles += 1
+                actual += timedelta(days=1)
+            self.total_dias_solicitados = dias_habiles
+        else:
+            self.total_dias_solicitados = (self.fecha_fin_vacaciones - self.fecha_inicio_vacaciones).days + 1
+
+    def _validar_funcionario(self, errores):
+        """Valida que el funcionario pueda solicitar vacaciones."""
         if not self.funcionario.puede_solicitar_vacaciones():
             errores['funcionario'] = "El funcionario no cumple con la antigüedad mínima ni tiene días pendientes."
 
-        # Validaciones de plazos y día hábil
-        if self.fecha_inicio_vacaciones and not self.tiene_dias_pendientes:
+    def _validar_fechas(self, errores):
+        """Valida las fechas de inicio y fin de vacaciones."""
+        if not self.fecha_inicio_vacaciones:
+            return
+            
+        # Validaciones de plazos y día hábil para vacaciones nuevas
+        if not self.tiene_dias_pendientes:
             puede_solicitar, mensaje_plazo = puede_solicitar_vacaciones_hoy(
                 self.funcionario.estamento.nombre.lower(),
                 self.funcionario.decreto_resolucion
@@ -328,7 +347,8 @@ class SolicitudVacaciones(models.Model):
                             f"{mensaje_plazo}"
                         )
 
-        if self.fecha_inicio_vacaciones and self.tiene_dias_pendientes:
+        # Validaciones para días pendientes
+        if self.tiene_dias_pendientes:
             if not es_dia_habil(self.fecha_inicio_vacaciones):
                 errores['fecha_inicio_vacaciones'] = "La fecha de inicio debe ser un día hábil (no puede ser fin de semana ni festivo)."
             else:
@@ -340,10 +360,16 @@ class SolicitudVacaciones(models.Model):
                         f"La fecha mínima permitida es {fecha_minima.strftime('%d/%m/%Y')}."
                     )
 
+    def _validar_cruces(self, errores):
+        """Valida que no haya cruces con otras solicitudes."""
+        if not (self.fecha_inicio_vacaciones and self.fecha_fin_vacaciones):
+            return
+            
         solicitudes = SolicitudVacaciones.objects.filter(
             funcionario=self.funcionario,
             estado_solicitud__in=['aprobado', 'en_revision']
         ).exclude(pk=self.pk)
+        
         for s in solicitudes:
             if (
                 self.fecha_inicio_vacaciones <= s.fecha_fin_vacaciones and
@@ -352,65 +378,84 @@ class SolicitudVacaciones(models.Model):
                 errores['fecha_inicio_vacaciones'] = "Las fechas se cruzan con otra solicitud en revisión o aprobada."
                 break
 
-        # Validación de cálculo de días según estamento y decreto
-        if self.fecha_inicio_vacaciones and self.fecha_fin_vacaciones:
-            estamento = self.funcionario.estamento.nombre.lower()
-            decreto = (self.funcionario.decreto_resolucion or '').strip()
-            dias_solicitados = (self.fecha_fin_vacaciones - self.fecha_inicio_vacaciones).days + 1
+    def _validar_dias_solicitados(self, errores):
+        """Valida el cálculo de días solicitados según estamento y decreto."""
+        if not (self.fecha_inicio_vacaciones and self.fecha_fin_vacaciones):
+            return
             
-            if estamento == 'docente' and decreto == '1279':
+        estamento = self.funcionario.estamento.nombre.lower()
+        decreto = (self.funcionario.decreto_resolucion or '').strip()
+        dias_solicitados = (self.fecha_fin_vacaciones - self.fecha_inicio_vacaciones).days + 1
+        
+        if estamento == 'docente' and decreto == '1279':
+            festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
+            actual = self.fecha_inicio_vacaciones
+            habiles_marcados = 0
+            while actual <= self.fecha_fin_vacaciones and habiles_marcados < 15:
+                if actual.weekday() < 5 and actual not in festivos:
+                    habiles_marcados += 1
+                actual += timedelta(days=1)
+            dias_calendario = 0
+            while actual <= self.fecha_fin_vacaciones:
+                dias_calendario += 1
+                actual += timedelta(days=1)
+            total = 15 + dias_calendario
+            if total != self.total_dias_solicitados:
+                errores[None] = (
+                    f"Se calcularon {total} días (15 hábiles y {dias_calendario} calendario), pero se intentó guardar {self.total_dias_solicitados}."
+                )
+        elif estamento == 'administrativo' or (estamento == 'docente' and decreto == '115'):
+            if estamento == 'administrativo':
                 festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
                 actual = self.fecha_inicio_vacaciones
-                habiles_marcados = 0
-                while actual <= self.fecha_fin_vacaciones and habiles_marcados < 15:
-                    if actual.weekday() < 5 and actual not in festivos:
-                        habiles_marcados += 1
-                    actual += timedelta(days=1)
-                dias_calendario = 0
+                dias_habiles = 0
                 while actual <= self.fecha_fin_vacaciones:
-                    dias_calendario += 1
+                    if actual.weekday() < 5 and actual not in festivos:
+                        dias_habiles += 1
                     actual += timedelta(days=1)
-                total = 15 + dias_calendario
-                if total != self.total_dias_solicitados:
+                if dias_habiles != self.total_dias_solicitados:
                     errores[None] = (
-                        f"Se calcularon {total} días (15 hábiles y {dias_calendario} calendario), pero se intentó guardar {self.total_dias_solicitados}."
-                    )
-            elif estamento == 'administrativo' or (estamento == 'docente' and decreto == '115'):
-                if estamento == 'administrativo':
-                    festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
-                    actual = self.fecha_inicio_vacaciones
-                    dias_habiles = 0
-                    while actual <= self.fecha_fin_vacaciones:
-                        if actual.weekday() < 5 and actual not in festivos:
-                            dias_habiles += 1
-                        actual += timedelta(days=1)
-                    if dias_habiles != self.total_dias_solicitados:
-                        errores[None] = (
-                            f"Se calcularon {dias_habiles} días hábiles, pero se intentó guardar {self.total_dias_solicitados}."
-                        )
-                else:
-                    if dias_solicitados != self.total_dias_solicitados:
-                        errores[None] = (
-                            f"Se calcularon {dias_solicitados} días calendario, pero se intentó guardar {self.total_dias_solicitados}."
-                        )
-            elif estamento == 'trabajador oficial':
-                if dias_solicitados != self.total_dias_solicitados:
-                    errores[None] = (
-                        f"Se calcularon {dias_solicitados} días calendario, pero se intentó guardar {self.total_dias_solicitados}."
+                        f"Se calcularon {dias_habiles} días hábiles, pero se intentó guardar {self.total_dias_solicitados}."
                     )
             else:
                 if dias_solicitados != self.total_dias_solicitados:
                     errores[None] = (
                         f"Se calcularon {dias_solicitados} días calendario, pero se intentó guardar {self.total_dias_solicitados}."
                     )
+        elif estamento == 'trabajador oficial':
+            if dias_solicitados != self.total_dias_solicitados:
+                errores[None] = (
+                    f"Se calcularon {dias_solicitados} días calendario, pero se intentó guardar {self.total_dias_solicitados}."
+                )
+        else:
+            if dias_solicitados != self.total_dias_solicitados:
+                errores[None] = (
+                    f"Se calcularon {dias_solicitados} días calendario, pero se intentó guardar {self.total_dias_solicitados}."
+                )
 
-        # Validación de días disponibles en el periodo vacacional
+    def _validar_periodo_vacacional(self, errores):
+        """Valida que haya suficientes días disponibles en el periodo vacacional."""
         if self.periodo_vacacional and self.total_dias_solicitados is not None and self.periodo_vacacional.dias_pendientes_periodo is not None:
             if self.total_dias_solicitados > self.periodo_vacacional.dias_pendientes_periodo:
                 errores['periodo_vacacional'] = "No hay suficientes días pendientes disponibles en el periodo seleccionado."
         elif self.total_dias_solicitados is None:
             errores['total_dias_solicitados'] = "Debe ingresar el número de días solicitados."
 
+    def clean(self):
+        """Valida la solicitud de vacaciones."""
+        errores = {}
+        
+        # Calcular total_dias_solicitados si no está establecido
+        self._calcular_total_dias_solicitados()
+        
+        # Ejecutar todas las validaciones
+        self._validar_funcionario(errores)
+        self._validar_fechas(errores)
+        self._validar_cruces(errores)
+        self._validar_dias_solicitados(errores)
+        self._validar_periodo_vacacional(errores)
+
+        # Lanzar errores si los hay
         if errores:
             if None in errores:
                 raise ValidationError(list(errores.values()))
@@ -466,7 +511,7 @@ class SolicitudVacaciones(models.Model):
                 self.total_dias_solicitados = (self.fecha_fin_vacaciones - self.fecha_inicio_vacaciones).days + 1
 
         if not self.codigo_sabs:
-            anio_codigo = self.fecha_solicitud.year if self.fecha_solicitud else date.today().year
+            anio_codigo = self.fecha_solicitud.year if self.fecha_solicitud else get_colombia_date_today().year
             self.codigo_sabs = generar_codigo_sabs('VAC', anio_codigo)
             
         if not self.fecha_pago:
@@ -478,8 +523,8 @@ class SolicitudVacaciones(models.Model):
         hoy = get_colombia_date_today()
         estamento = self.funcionario.estamento.nombre.lower()
         decreto = (self.funcionario.decreto_resolucion or '').strip()
-        fecha_limite, _, _ = calcular_plazo_limite_solicitud(estamento, decreto)
-        if hoy <= fecha_limite:
+        plazo_resultado = calcular_plazo_limite_solicitud(estamento, decreto)
+        if hoy <= plazo_resultado.fecha_limite:
             if estamento == 'docente' or estamento == 'trabajador oficial':
                 fecha_pago = obtener_ultimo_dia_del_mes(hoy.year, hoy.month)
             else:

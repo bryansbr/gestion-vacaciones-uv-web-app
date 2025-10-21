@@ -11,6 +11,14 @@ from ..models import (
 )
 
 # -----------------------------------------------------------
+# Constantes
+# -----------------------------------------------------------
+# Límite máximo para campos de observación para evitar crecimiento descontrolado
+# TextField no tiene max_length por defecto, pero establecemos un límite razonable
+
+MAX_OBSERVACION_LENGTH = 2000
+
+# -----------------------------------------------------------
 # Utilidades
 # -----------------------------------------------------------
 ETAPA_HUMANA = {
@@ -265,7 +273,6 @@ def reenviar_funcionario(user: CustomUser, solicitud: SolicitudVacaciones, obser
     etapa.estado = 'pendiente'
 
     if observacion:
-        MAX_OBSERVACION_LENGTH = 2000
         sep = "\n\n--- Reenvío por funcionario ---\n"
         nueva_observacion = f"{sep}{observacion.strip()}"
         

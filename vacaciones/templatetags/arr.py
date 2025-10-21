@@ -5,5 +5,5 @@ register = template.Library()
 def index(sequence, i):
     try:
         return sequence[i]
-    except Exception:
+    except (IndexError, KeyError, TypeError):
         return None

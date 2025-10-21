@@ -1,18 +1,35 @@
 (function() {
     'use strict';
-
-    // ----------------- Helpers DOM / Ready -----------------
+    
     function ready(fn) {
         if (document.readyState !== 'loading') fn();
         else document.addEventListener('DOMContentLoaded', fn);
     }
 
-    function waitForFlatpickr(callback, maxAttempts = 50) {
+    // ----------------- Error Handling -----------------
+    function handleFlatpickrError(error, elementId) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'flatpickr-error text-sm text-red-600 mt-1';
+            errorDiv.textContent = 'Error al inicializar el selector de fechas. Por favor, recargue la página.';
+            element.parentNode.insertBefore(errorDiv, element.nextSibling);
+            element.style.borderColor = '#ef4444';
+        }
+        
+        if (element) {
+            element.type = 'text';
+            element.placeholder = 'dd/mm/aaaa';
+            element.classList.add('input-fecha-fallback');
+        }
+    }
+
+    function esperarFlatpickr(callback, maxAttempts = 50) {
         let attempts = 0;
         (function check() {
             attempts++;
             if (typeof flatpickr !== 'undefined') callback();
-            else if (attempts < maxAttempts) setTimeout(check, 100);
+            else if (attempts < maxAttempts) requestAnimationFrame(check);
         })();
     }
 
@@ -184,7 +201,7 @@
     }
 
     // ----------------- Inicialización Flatpickr -----------------
-    function initFlatpickr() {
+    function inicializarFlatpickr() {
         const fechaMinimaInicio = calcularFechaMinimaInicio();
 
         const configBase = {
@@ -223,7 +240,6 @@
                     instance.input.setAttribute('data-django-format', `${y}-${m}-${d}`);
 
                     if (validarFechaInicio(fecha)) {
-                        // Autocalcular fecha fin SOLO cuando el usuario cambia inicio
                         const fin = calcularFechaFinAutomatica(fecha);
                         const finInput = document.getElementById('id_fecha_fin_vacaciones');
                         if (finInput && finInput._flatpickr) {
@@ -269,13 +285,23 @@
         if (fechaInicio) {
             fechaInicio.removeAttribute('type');
             if (fechaInicio._flatpickr) fechaInicio._flatpickr.destroy();
-            try { flatpickr(fechaInicio, configInicio); fechaInicio.classList.add('input-fecha'); } catch(_) {}
+            try { 
+                flatpickr(fechaInicio, configInicio); 
+                fechaInicio.classList.add('input-fecha'); 
+            } catch(error) {
+                handleFlatpickrError(error, 'id_fecha_inicio_vacaciones');
+            }
         }
 
         if (fechaFin) {
             fechaFin.removeAttribute('type');
             if (fechaFin._flatpickr) fechaFin._flatpickr.destroy();
-            try { flatpickr(fechaFin, configFin); fechaFin.classList.add('input-fecha'); } catch(_) {}
+            try { 
+                flatpickr(fechaFin, configFin); 
+                fechaFin.classList.add('input-fecha'); 
+            } catch(error) {
+                handleFlatpickrError(error, 'id_fecha_fin_vacaciones');
+            }
         }
 
         function setFechaInicial(fpInput, raw) {
@@ -303,7 +329,7 @@
             }
         }
 
-        // Convertir a YYYY-mm-dd en submit (si vienen en dd/mm/YYYY)
+        // Conversión a YYYY-mm-dd en 'Submit'
         const form = document.querySelector('form');
         if (form) {
             form.addEventListener('submit', function() {
@@ -318,7 +344,6 @@
             });
         }
 
-        // Listeners para revalidar y habilitar botón
         const periodoVacacional = document.getElementById('id_periodo_vacacional');
         if (periodoVacacional) periodoVacacional.addEventListener('change', actualizarEstadoBoton);
 
@@ -367,13 +392,23 @@
         if (fechaInicio) {
             fechaInicio.removeAttribute('type');
             if (fechaInicio._flatpickr) fechaInicio._flatpickr.destroy();
-            try { flatpickr(fechaInicio, base); } catch(_) {}
+            try { 
+                flatpickr(fechaInicio, base); 
+                fechaInicio.classList.add('input-fecha'); 
+            } catch(error) {
+                handleFlatpickrError(error, 'id_fecha_inicio_vacaciones');
+            }
         }
 
         if (fechaFin) {
             fechaFin.removeAttribute('type');
             if (fechaFin._flatpickr) fechaFin._flatpickr.destroy();
-            try { flatpickr(fechaFin, base); } catch(_) {}
+            try { 
+                flatpickr(fechaFin, base); 
+                fechaFin.classList.add('input-fecha'); 
+            } catch(error) {
+                handleFlatpickrError(error, 'id_fecha_fin_vacaciones');
+            }
         }
 
         const periodoVacacional = document.getElementById('id_periodo_vacacional');
@@ -384,33 +419,39 @@
         actualizarEstadoBoton();
     }
 
-    function esperarVariablesYInicializar() {
+    function esperarVariablesEInicializar() {
         function listas() {
             const festivosDisp = window.FESTIVOS_COLOMBIA && Array.isArray(window.FESTIVOS_COLOMBIA);
             const estamentoDisp = window.FUNCIONARIO_ESTAMENTO !== undefined;
             return festivosDisp && estamentoDisp;
         }
 
+        function esperarVariablesConFallback() {
+            if (listas()) {
+                esperarFlatpickr(inicializarFlatpickr);
+            } else {
+                requestAnimationFrame(function() {
+                    if (listas()) {
+                        esperarFlatpickr(inicializarFlatpickr);
+                    } else {
+                        esperarFlatpickr(initFlatpickrSinValidacion);
+                    }
+                });
+            }
+        }
+
         document.addEventListener('variablesGlobalesListas', function() {
-            if (listas()) waitForFlatpickr(initFlatpickr);
+            if (listas()) esperarFlatpickr(inicializarFlatpickr);
         });
 
-        setTimeout(function() {
-            if (listas()) {
-                waitForFlatpickr(initFlatpickr);
-            } else {
-                setTimeout(function() {
-                    if (listas()) waitForFlatpickr(initFlatpickr);
-                    else {
-                        waitForFlatpickr(initFlatpickrSinValidacion);
-                    }
-                }, 1000);
-            }
-        }, 500);
+        if (listas()) {
+            esperarFlatpickr(inicializarFlatpickr);
+        } else {
+            requestAnimationFrame(esperarVariablesConFallback);
+        }
     }
 
     ready(function() {
-        esperarVariablesYInicializar();
+        esperarVariablesEInicializar();
     });
-
 })();
