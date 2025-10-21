@@ -32,7 +32,7 @@ from .services.aprobaciones import (
     rechazar_rrhh,
     reenviar_funcionario
 )
-from .utils import get_colombia_date_today, puede_solicitar_vacaciones_hoy
+from .utils import get_current_date_colombia, puede_solicitar_vacaciones_hoy
 
 # -----------------------------------------
 # VISTA: PeriodoVacacional
@@ -88,14 +88,14 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
 
     def get_initial(self):
         initial = super().get_initial()
-        hoy_colombia = get_colombia_date_today()
+        hoy_colombia = get_current_date_colombia()
         initial['fecha_solicitud'] = hoy_colombia
         initial['codigo_sabs'] = generar_codigo_sabs('VAC', hoy_colombia.year)
         return initial
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        hoy_colombia = get_colombia_date_today()
+        hoy_colombia = get_current_date_colombia()
         years = [hoy_colombia.year, hoy_colombia.year + 1]
         festivos = []
 
@@ -229,7 +229,7 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         form = self.get_form()
         form.instance.funcionario = funcionario
         
-        hoy_colombia = get_colombia_date_today()
+        hoy_colombia = get_current_date_colombia()
         form.instance.fecha_solicitud = hoy_colombia
         
         if form.is_valid():
@@ -299,7 +299,7 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        years = [get_colombia_date_today().year, get_colombia_date_today().year + 1]
+        years = [get_current_date_colombia().year, get_current_date_colombia().year + 1]
         festivos = []
 
         for y in years:
@@ -390,7 +390,7 @@ class SolicitudVacacionesDeleteView(LoginRequiredMixin, DeleteView):
         return super().delete(request, *args, **kwargs)
 
 def solicitud_vacaciones_create(request):
-    years = [get_colombia_date_today().year, get_colombia_date_today().year + 1]
+    years = [get_current_date_colombia().year, get_current_date_colombia().year + 1]
     festivos = []
 
     for y in years:

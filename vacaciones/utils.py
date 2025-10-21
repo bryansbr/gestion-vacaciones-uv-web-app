@@ -11,7 +11,7 @@ class PlazoLimiteResult(NamedTuple):
     fecha_salida: str
 
 
-def get_colombia_date_today() -> date:
+def get_current_date_colombia() -> date:
     """
     Obtiene la fecha actual en la zona horaria de Colombia.
     
@@ -130,7 +130,7 @@ def calcular_plazo_limite_solicitud(funcionario_estamento: str, funcionario_decr
         )    
     """
     
-    hoy = get_colombia_date_today()
+    hoy = get_current_date_colombia()
     estamento = funcionario_estamento.lower()
     decreto = (funcionario_decreto or '').strip()
     
@@ -216,7 +216,7 @@ def calcular_fecha_salida_y_pago_fuera_plazo(funcionario_estamento: str, funcion
         - mensaje_explicativo: Mensaje explicativo
     """
     
-    hoy = get_colombia_date_today()
+    hoy = get_current_date_colombia()
     estamento = funcionario_estamento.lower()
     decreto = (funcionario_decreto or '').strip()
     
@@ -297,7 +297,7 @@ def puede_solicitar_vacaciones_hoy(funcionario_estamento: str, funcionario_decre
         - mensaje: Mensaje informativo sobre plazos y consecuencias
     """
     
-    hoy = get_colombia_date_today()
+    hoy = get_current_date_colombia()
     plazo_resultado = calcular_plazo_limite_solicitud(funcionario_estamento, funcionario_decreto)
     
     if hoy <= plazo_resultado.fecha_limite:

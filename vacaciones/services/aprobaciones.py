@@ -14,8 +14,10 @@ from ..models import (
 # Constantes
 # -----------------------------------------------------------
 # Límite máximo para campos de observación para evitar crecimiento descontrolado.
-
 MAX_OBSERVACION_LENGTH = 2000
+
+# Separador para observaciones de reenvío por funcionario
+SEPARADOR_REENVIO_FUNCIONARIO = "\n\n--- Reenvío por funcionario ---\n"
 
 # -----------------------------------------------------------
 # Utilidades
@@ -95,7 +97,7 @@ def _get_etapa_activa_estricta(solicitud: SolicitudVacaciones) -> AprobacionEtap
         raise ValidationError("No hay etapa activa para transicionar.")
     return etapa_activa
 
-def _concatenar_observacion_con_limite(observacion_actual: str, nueva_observacion: str, separador: str = "\n\n--- Reenvío por funcionario ---\n") -> str:
+def _concatenar_observacion_con_limite(observacion_actual: str, nueva_observacion: str, separador: str = SEPARADOR_REENVIO_FUNCIONARIO) -> str:
     """
     Concatena una nueva observación con la observación actual, respetando el límite máximo.
     

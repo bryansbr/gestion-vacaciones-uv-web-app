@@ -12,7 +12,7 @@ from .utils import (
     calcular_plazo_limite_solicitud, 
     calcular_fecha_salida_y_pago_fuera_plazo,
     es_dia_habil,
-    get_colombia_date_today,
+    get_current_date_colombia,
     puede_solicitar_vacaciones_hoy,
     obtener_ultimo_dia_del_mes
 )
@@ -245,7 +245,7 @@ class SolicitudVacaciones(models.Model):
         return siguiente_dia
 
     def _calcular_fecha_minima_inicio_vacaciones_nuevas(self):
-        hoy = get_colombia_date_today()
+        hoy = get_current_date_colombia()
         estamento = self.funcionario.estamento.nombre.lower()
         decreto = (self.funcionario.decreto_resolucion or '').strip()
         plazo_resultado = calcular_plazo_limite_solicitud(estamento, decreto)
@@ -261,7 +261,7 @@ class SolicitudVacaciones(models.Model):
             return date(y2, m2, d2)
 
     def _calcular_fecha_minima_inicio_dias_pendientes(self):
-        hoy = get_colombia_date_today()
+        hoy = get_current_date_colombia()
         fecha_minima = hoy + timedelta(days=1)
 
         return self._obtener_siguiente_dia_habil(fecha_minima)
@@ -284,8 +284,8 @@ class SolicitudVacaciones(models.Model):
         return True, None
 
     def _calcular_total_dias_solicitados(self):
-        """Calcula el total de días solicitados si no está establecido."""
-        if not (self.fecha_inicio_vacaciones and self.fecha_fin_vacaciones and self.total_dias_solicitados is None):
+        """Calcula el total de días solicitados basado en las fechas actuales."""
+        if not (self.fecha_inicio_vacaciones and self.fecha_fin_vacaciones):
             return
         
         self.total_dias_solicitados = self._obtener_total_dias_por_estamento()
@@ -495,7 +495,7 @@ class SolicitudVacaciones(models.Model):
             self.total_dias_solicitados = self._obtener_total_dias_por_estamento()
 
         if not self.codigo_sabs:
-            anio_codigo = self.fecha_solicitud.year if self.fecha_solicitud else get_colombia_date_today().year
+            anio_codigo = self.fecha_solicitud.year if self.fecha_solicitud else get_current_date_colombia().year
             self.codigo_sabs = generar_codigo_sabs('VAC', anio_codigo)
             
         if not self.fecha_pago:
@@ -504,7 +504,7 @@ class SolicitudVacaciones(models.Model):
         super().save(*args, **kwargs)
 
     def _calcular_fecha_pago_automatica(self):
-        hoy = get_colombia_date_today()
+        hoy = get_current_date_colombia()
         estamento = self.funcionario.estamento.nombre.lower()
         decreto = (self.funcionario.decreto_resolucion or '').strip()
         plazo_resultado = calcular_plazo_limite_solicitud(estamento, decreto)
@@ -649,7 +649,7 @@ class ReintegroVacaciones(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.codigo_sabs:
-            anio_codigo = self.fecha_solicitud.year if self.fecha_solicitud else get_colombia_date_today().year
+            anio_codigo = self.fecha_solicitud.year if self.fecha_solicitud else get_current_date_colombia().year
             self.codigo_sabs = generar_codigo_sabs('REI', anio_codigo)
         super().save(*args, **kwargs)
 

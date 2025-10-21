@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', function() {
           const day = parseInt(partes[0]);
           const month = parseInt(partes[1]);
           const year = parseInt(partes[2]);
-          
+
           if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
           return new Date(year, month - 1, day);
         }
@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       function addDays(date, days) {
         const result = new Date(date);
-        result.setDate(result.getDate() + (days - 1));
+        result.setDate(result.getDate() + (days));
 
         return result;
       }
