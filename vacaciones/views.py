@@ -86,7 +86,8 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        years = [date.today().year, date.today().year + 1]
+        hoy_colombia = get_colombia_date_today()
+        years = [hoy_colombia.year, hoy_colombia.year + 1]
         festivos = []
 
         for y in years:
@@ -299,7 +300,7 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        years = [date.today().year, date.today().year + 1]
+        years = [get_colombia_date_today().year, get_colombia_date_today().year + 1]
         festivos = []
 
         for y in years:
@@ -390,7 +391,7 @@ class SolicitudVacacionesDeleteView(LoginRequiredMixin, DeleteView):
         return super().delete(request, *args, **kwargs)
 
 def solicitud_vacaciones_create(request):
-    years = [date.today().year, date.today().year + 1]
+    years = [get_colombia_date_today().year, get_colombia_date_today().year + 1]
     festivos = []
 
     for y in years:

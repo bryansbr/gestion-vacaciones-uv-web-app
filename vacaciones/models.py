@@ -11,8 +11,9 @@ from usuarios.models import Funcionario, CustomUser
 from .utils import (
     calcular_plazo_limite_solicitud, 
     calcular_fecha_salida_y_pago_fuera_plazo,
-    puede_solicitar_vacaciones_hoy,
     es_dia_habil,
+    get_colombia_date_today,
+    puede_solicitar_vacaciones_hoy,
     obtener_ultimo_dia_del_mes
 )
 
@@ -236,7 +237,7 @@ class SolicitudVacaciones(models.Model):
         return siguiente_dia
 
     def _calcular_fecha_minima_inicio_vacaciones_nuevas(self):
-        hoy = date.today()
+        hoy = get_colombia_date_today()
         estamento = self.funcionario.estamento.nombre.lower()
         decreto = (self.funcionario.decreto_resolucion or '').strip()
         fecha_limite, mensaje_explicativo, fecha_salida_str = calcular_plazo_limite_solicitud(estamento, decreto)
@@ -251,7 +252,7 @@ class SolicitudVacaciones(models.Model):
             return date(y2, m2, d2)
 
     def _calcular_fecha_minima_inicio_dias_pendientes(self):
-        hoy = date.today()
+        hoy = get_colombia_date_today()
         fecha_minima = hoy + timedelta(days=1)
 
         return self._obtener_siguiente_dia_habil(fecha_minima)
@@ -474,7 +475,7 @@ class SolicitudVacaciones(models.Model):
         super().save(*args, **kwargs)
 
     def _calcular_fecha_pago_automatica(self):
-        hoy = date.today()
+        hoy = get_colombia_date_today()
         estamento = self.funcionario.estamento.nombre.lower()
         decreto = (self.funcionario.decreto_resolucion or '').strip()
         fecha_limite, _, _ = calcular_plazo_limite_solicitud(estamento, decreto)

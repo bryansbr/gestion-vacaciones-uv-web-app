@@ -124,7 +124,7 @@ def calcular_plazo_limite_solicitud(funcionario_estamento: str, funcionario_decr
         - mensaje_explicativo: Mensaje explicativo del plazo
         - fecha_salida: Fecha estimada de salida a vacaciones
     """
-    hoy = date.today()
+    hoy = get_colombia_date_today()
     estamento = funcionario_estamento.lower()
     decreto = (funcionario_decreto or '').strip()
     
@@ -210,7 +210,7 @@ def calcular_fecha_salida_y_pago_fuera_plazo(funcionario_estamento: str, funcion
         - fecha_pago: Fecha de pago
         - mensaje_explicativo: Mensaje explicativo
     """
-    hoy = date.today()
+    hoy = get_colombia_date_today()
     estamento = funcionario_estamento.lower()
     decreto = (funcionario_decreto or '').strip()
     
@@ -291,7 +291,7 @@ def puede_solicitar_vacaciones_hoy(funcionario_estamento: str, funcionario_decre
         - puede_solicitar: Siempre True (se permite solicitar en cualquier momento)
         - mensaje: Mensaje informativo sobre plazos y consecuencias
     """
-    hoy = date.today()
+    hoy = get_colombia_date_today()
     fecha_limite, mensaje_explicativo, fecha_salida = calcular_plazo_limite_solicitud(funcionario_estamento, funcionario_decreto)
     
     if hoy <= fecha_limite:
