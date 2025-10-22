@@ -50,7 +50,7 @@ INSTALLED_APPS = [
     'core',
     'notificaciones',
     'usuarios',
-    'vacaciones',
+    'vacaciones.apps.VacacionesConfig',
     
     # Autenticación
     'rest_framework',
