@@ -3,7 +3,8 @@ from datetime import date
 from django import forms
 from django.contrib.auth import get_user_model
 
-from .models import PeriodoVacacional, SolicitudVacaciones, ReintegroVacaciones
+from .models import PeriodoVacacional, ReintegroVacaciones, SolicitudVacaciones
+from .utils import get_current_date_colombia
 
 class PeriodoVacacionalForm(forms.ModelForm):
     class Meta:
@@ -204,7 +205,7 @@ class SolicitudVacacionesForm(forms.ModelForm):
             dias_pendientes = sum(p.dias_pendientes_periodo for p in funcionario.periodos_vacacionales.all())
         self.initial['dias_pendientes'] = dias_pendientes
 
-        hoy = date.today()
+        hoy = get_current_date_colombia()
 
         if estamento_nombre == 'docente':
             # Docentes: pago mensual el día 30

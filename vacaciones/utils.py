@@ -119,15 +119,7 @@ def calcular_plazo_limite_solicitud(funcionario_estamento: str, funcionario_decr
         PlazoLimiteResult con:
         - fecha_limite: Última fecha hábil para presentar solicitud (tipo date)
         - mensaje_explicativo: Mensaje explicativo del plazo (str)
-        - fecha_salida: Fecha estimada de salida a vacaciones (formato string 'dd/mm/yyyy')
-    
-    Example:
-        >>> calcular_plazo_limite_solicitud('docente', '1279')
-        PlazoLimiteResult(
-            fecha_limite=datetime.date(2024, 6, 14),
-            mensaje_explicativo='Plazo recomendado para solicitar vacaciones: hasta el 14/06/2024. Si solicita antes de esta fecha, podrá salir a vacaciones a partir del 01/07/2024 y recibirá el pago el día 30 o 31 del mes actual.',
-            fecha_salida='01/07/2024'
-        )    
+        - fecha_salida: Fecha estimada de salida a vacaciones (formato string 'dd/mm/yyyy')  
     """
     
     hoy = get_current_date_colombia()

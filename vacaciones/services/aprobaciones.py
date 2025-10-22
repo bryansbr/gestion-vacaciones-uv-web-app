@@ -19,6 +19,9 @@ MAX_OBSERVACION_LENGTH = 2000
 # Separador para observaciones de reenvío por funcionario
 SEPARADOR_REENVIO_FUNCIONARIO = "\n\n--- Reenvío por funcionario ---\n"
 
+# Margen de seguridad para truncamiento de observaciones
+MARGEN_SEGURIDAD_OBSERVACION = 50
+
 # -----------------------------------------------------------
 # Utilidades
 # -----------------------------------------------------------
@@ -116,7 +119,7 @@ def _concatenar_observacion_con_limite(observacion_actual: str, nueva_observacio
     if len(observacion_completa) <= MAX_OBSERVACION_LENGTH:
         return observacion_completa
     
-    espacio_disponible = MAX_OBSERVACION_LENGTH - len(nueva_observacion_formateada) - 50  # 50 chars de margen
+    espacio_disponible = MAX_OBSERVACION_LENGTH - len(nueva_observacion_formateada) - MARGEN_SEGURIDAD_OBSERVACION
     
     if espacio_disponible > 0:
         observacion_truncada = observacion_actual[-espacio_disponible:] if observacion_actual else ''
