@@ -1,0 +1,105 @@
+/* Estilos base de la tabla */
+.solicitud-vacaciones-table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+/* Centrar encabezados de la tabla */
+.solicitud-vacaciones-table thead th,
+.solicitud-vacaciones-table th {
+    text-align: center !important;
+    vertical-align: middle !important;
+    background-color: #f3f4f6 !important;
+    color: #374151 !important;
+    font-weight: 600 !important;
+    border: 1px solid #d1d5db !important;
+    padding: 0.5rem 1rem !important;
+}
+
+/* Centrar todas las celdas de datos */
+.solicitud-vacaciones-table tbody td,
+.solicitud-vacaciones-table td {
+    text-align: center !important;
+    vertical-align: middle !important;
+    border: 1px solid #d1d5db !important;
+    padding: 0.5rem 1rem !important;
+}
+
+/* Centrar el contenido dentro de cada celda */
+.solicitud-vacaciones-table tbody td *,
+.solicitud-vacaciones-table td * {
+    text-align: center !important;
+}
+
+/* Centrar específicamente la columna de acciones */
+.solicitud-vacaciones-table tbody td:last-child {
+    text-align: center !important;
+}
+
+/* Centrar el contenedor flex de iconos en la columna de acciones */
+.solicitud-vacaciones-table tbody td:last-child .flex {
+    justify-content: center !important;
+    align-items: center !important;
+    display: flex !important;
+}
+
+/* Centrar el texto "No disponible" */
+.solicitud-vacaciones-table tbody td:last-child span {
+    text-align: center !important;
+    display: block !important;
+    width: 100% !important;
+}
+
+/* Centrar los enlaces en la columna de acciones */
+.solicitud-vacaciones-table tbody td:last-child a {
+    display: inline-block !important;
+    text-align: center !important;
+}
+
+/* Hover effect para las filas */
+.solicitud-vacaciones-table tbody tr:hover {
+    background-color: #f9fafb !important;
+}
+
+/* Responsive para dispositivos móviles */
+@media (max-width: 768px) {
+    .solicitud-vacaciones-table th,
+    .solicitud-vacaciones-table td {
+        padding: 0.25rem 0.5rem !important;
+        font-size: 0.875rem !important;
+    }
+}
+
+/* Reglas adicionales para asegurar el centrado */
+.solicitud-vacaciones-table * {
+    text-align: center !important;
+}
+
+/* Centrado específico para elementos inline */
+.solicitud-vacaciones-table span,
+.solicitud-vacaciones-table div,
+.solicitud-vacaciones-table a {
+    text-align: center !important;
+}
+
+/* Asegurar que el contenido de las celdas esté centrado */
+.solicitud-vacaciones-table tbody td > * {
+    text-align: center !important;
+    margin: 0 auto !important;
+}
+
+/* Estilos para el botón deshabilitado */
+.btn-disabled {
+    background-color: #9ca3af !important;
+    color: #ffffff !important;
+    cursor: not-allowed !important;
+    opacity: 0.6 !important;
+    transition: all 0.2s ease-in-out !important;
+}
+
+.btn-disabled:hover {
+    background-color: #9ca3af !important;
+    transform: none !important;
+}

@@ -1,4 +1,3 @@
-
 document.addEventListener("DOMContentLoaded", function () {
   const menuToggle = document.getElementById("menu-toggle");
   const sidebar = document.getElementById("sidebar");
@@ -15,4 +14,4 @@ document.addEventListener("DOMContentLoaded", function () {
     sidebar.classList.remove("block");
     sidebar.classList.add("hidden");
   });
-});
+}); 

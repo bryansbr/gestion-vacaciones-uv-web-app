@@ -1,0 +1,47 @@
+<div class="acciones-row">
+    {% with etapa=solicitud.etapa_activa %}
+      {% if etapa %}
+  
+        {% if etapa.estado == 'pendiente' %}
+          {% if etapa.etapa == 'JEFE' or etapa.etapa == 'COORD' %}
+            {% if perms.vacaciones.dar_visto_bueno_solicitud %}
+              <form method="post" action="{% url 'vacaciones:aprobar_etapa' solicitud.id %}" class="acciones-row__form">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-xs btn-success">Aprobar</button>
+              </form>
+              <form method="post" action="{% url 'vacaciones:devolver_etapa' solicitud.id %}" class="acciones-row__form acciones-row__form--devolver">
+                {% csrf_token %}
+                <input type="text" name="obs" class="acciones-row__obs" placeholder="Motivo de devolución" required>
+                <button type="submit" class="btn btn-xs btn-warning">Devolver</button>
+              </form>
+            {% endif %}
+          {% endif %}
+  
+          {# --- RRHH --- #}
+          {% if etapa.etapa == 'RRHH' %}
+            {% if perms.vacaciones.autorizar_solicitud or perms.vacaciones.rechazar_solicitud %}
+              <form method="post" action="{% url 'vacaciones:autorizar_rrhh' solicitud.id %}" class="acciones-row__form">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-xs btn-success">Autorizar</button>
+              </form>
+              <form method="post" action="{% url 'vacaciones:rechazar_rrhh' solicitud.id %}" class="acciones-row__form acciones-row__form--rechazar">
+                {% csrf_token %}
+                <input type="text" name="obs" class="acciones-row__obs" placeholder="Motivo de rechazo" required>
+                <button type="submit" class="btn btn-xs btn-danger">Rechazar</button>
+              </form>
+            {% endif %}
+          {% endif %}
+        {% endif %}
+  
+        {% if etapa.estado == 'devuelta' and etapa.etapa != 'RRHH' and request.user.id == solicitud.funcionario.user.id %}
+          <form method="post" action="{% url 'vacaciones:reenviar_funcionario' solicitud.id %}" class="acciones-row__form acciones-row__form--reenviar">
+            {% csrf_token %}
+            <input type="text" name="obs" class="acciones-row__obs" placeholder="Comentario al reenviar (opcional)">
+            <button type="submit" class="btn btn-xs btn-primary">Reenviar</button>
+          </form>
+        {% endif %}
+  
+      {% endif %}
+    {% endwith %}
+  </div>
+  

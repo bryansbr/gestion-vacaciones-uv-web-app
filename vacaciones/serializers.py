@@ -30,30 +30,35 @@ class SolicitudVacacionesSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'codigo_sabs',
-            'fecha_elaboracion',
+            'fecha_solicitud',
             'fecha_inicio_vacaciones',
             'fecha_fin_vacaciones',
             'total_dias_solicitados',
-            'tipo_dias_solicitados',
-            'quincena_pago',
-            'mes_pago',
-            'anio_pago',
+            'fecha_pago',
             'observaciones',
-            'disfrute_dias_pendientes',
+            'tiene_dias_pendientes',
             'periodo_vacacional',
             'funcionario',
             'estado_solicitud',
         ]
-        read_only_fields = ('fecha_elaboracion', 'estado_solicitud')
+        read_only_fields = ['fecha_solicitud', 'estado_solicitud']
 
     def validate(self, data):
-        funcionario = data.get('funcionario')
-        if funcionario and not funcionario.puede_solicitar_vacaciones():
-            raise serializers.ValidationError(
-                "El funcionario no cumple con el año de antigüedad ni tiene días pendientes."
-            )
-        return data
+        """
+        Validación cruzada reutilizando el método .clean() del modelo
+        """
+        instance = SolicitudVacaciones(**data)
 
+        if self.instance: instance.pk = self.instance.pk
+
+        try:
+            instance.clean()
+        except serializers.ValidationError as e:
+            raise e
+        except Exception as e:
+            raise serializers.ValidationError(str(e))
+
+        return data
 
 class ReintegroVacacionesSerializer(serializers.ModelSerializer):
     class Meta:
@@ -61,7 +66,7 @@ class ReintegroVacacionesSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'codigo_sabs',
-            'fecha_elaboracion',
+            'fecha_solicitud',
             'fecha_reintegro',
             'motivo_reintegro',
             'observaciones',
@@ -76,4 +81,4 @@ class ReintegroVacacionesSerializer(serializers.ModelSerializer):
             'funcionario',
             'estado_solicitud',
         ]
-        read_only_fields = ('fecha_elaboracion', 'estado_solicitud')
+        read_only_fields = ('fecha_solicitud', 'estado_solicitud')

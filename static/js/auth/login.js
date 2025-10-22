@@ -22,4 +22,4 @@ document.addEventListener("DOMContentLoaded", function() {
   if (emailInput && errorBox) {
     emailInput.addEventListener("focus", function() { errorBox.remove(); });
   }
-});
+}); 

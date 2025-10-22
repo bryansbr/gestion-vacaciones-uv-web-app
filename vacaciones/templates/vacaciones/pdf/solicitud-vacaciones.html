@@ -1,0 +1,180 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Solicitud de Vacaciones</title>
+<link rel="stylesheet" href="{% static 'vacaciones/css/solicitud-vacaciones-pdf.css' %}">
+</head>
+<body>
+
+<header class="encabezado">
+  <div class="logo">
+    <img src="{{ logo_url }}" alt="Universidad del Valle">
+  </div>
+  <div class="titulo">
+    <div class="subtitulo">VICERRECTORÍA ADMINISTRATIVA<br>División de Recursos Humanos</div>
+    <div class="formato">FORMATO DE SOLICITUD DE VACACIONES</div>
+  </div>
+  <div class="fecha-box">
+    <div class="fecha-titulo">Fecha de Elaboración</div>
+    <div class="fecha-grid mini-grid">
+      <div>Día</div><div>Mes</div><div>Año</div>
+      <div class="cell">{{ fecha_elaboracion.dia }}</div>
+      <div class="cell">{{ fecha_elaboracion.mes }}</div>
+      <div class="cell">{{ fecha_elaboracion.anio }}</div>
+    </div>
+  </div>
+</header>
+
+<section class="tabla">
+  <table class="grid">
+    <tr>
+      <th>No. IDENTIFICACIÓN</th>
+      <th>NOMBRE FUNCIONARIO SOLICITANTE</th>
+      <th>ESTAMENTO</th>
+      <th>FACULTAD / DEPENDENCIA</th>
+      <th>CÓDIGO SABS</th>
+    </tr>
+    <tr>
+      <td>{{ numero_identificacion }}</td>
+      <td>{{ nombre_funcionario }}</td>
+      <td>{{ estamento }}</td>
+      <td>{{ facultad_dependencia }}</td>
+      <td>{{ codigo_sabs }}</td>
+    </tr>
+  </table>
+
+  <br>
+  <div class="bloque-titulo">INFORMACIÓN PARA DECRETAR VACACIONES DE UN NUEVO PERIODO</div>
+  <table class="grid">
+    <tr>
+      <th colspan="2">PERIODO DE VACACIONES CUMPLIDO</th>
+      <th rowspan="2" class="w-16">DÍAS A QUE TIENE DERECHO POR EL PERIODO DE VACACIONES</th>
+      <th rowspan="2" class="w-20">Hábiles<br>Cronológicos</th>
+    </tr>
+    <tr>
+      <th>DESDE</th>
+      <th>HASTA</th>
+    </tr>
+    <tr>
+      <td>
+        <div class="fecha-grid">
+          <div>Día</div><div>Mes</div><div>Año</div>
+          <div class="cell">{{ periodo_desde.dia }}</div>
+          <div class="cell">{{ periodo_desde.mes }}</div>
+          <div class="cell">{{ periodo_desde.anio }}</div>
+        </div>
+      </td>
+      <td>
+        <div class="fecha-grid">
+          <div>Día</div><div>Mes</div><div>Año</div>
+          <div class="cell">{{ periodo_hasta.dia }}</div>
+          <div class="cell">{{ periodo_hasta.mes }}</div>
+          <div class="cell">{{ periodo_hasta.anio }}</div>
+        </div>
+      </td>
+      <td class="center big">{{ dias_derecho }}</td>
+      <td class="center">
+        Hábiles: {% if es_habiles %}Sí{% else %}No{% endif %}<br>
+        Cronológicos: {% if es_calendario %}Sí{% else %}No{% endif %}
+      </td>
+    </tr>
+  </table>
+
+  <br>
+  <table class="grid">
+    <tr>
+      <th>QUINCENA EN LA QUE SE SOLICITA EL PAGO DEL VALOR DE LAS VACACIONES</th>
+      <th>TIEMPO EN EL CUAL DISFRUTA DE LA VACACIONES</th>
+    </tr>
+    <tr>
+      <td class="no-padding">
+        <div class="quincena-grid">
+          <div>Quincena</div><div>Mes</div><div>Año</div>
+          <div class="cell">{{ pago.q }}</div>
+          <div class="cell">{{ pago.mes }}</div>
+          <div class="cell">{{ pago.anio }}</div>
+        </div>
+      </td>
+      <td class="no-padding">
+        <div class="rango-grid">
+          <div>DESDE</div><div>HASTA</div>
+          <div class="fecha-grid">
+            <div>Día</div><div>Mes</div><div>Año</div>
+            <div class="cell">{{ disfrute_desde.dia }}</div>
+            <div class="cell">{{ disfrute_desde.mes }}</div>
+            <div class="cell">{{ disfrute_desde.anio }}</div>
+          </div>
+          <div class="fecha-grid">
+            <div>Día</div><div>Mes</div><div>Año</div>
+            <div class="cell">{{ disfrute_hasta.dia }}</div>
+            <div class="cell">{{ disfrute_hasta.mes }}</div>
+            <div class="cell">{{ disfrute_hasta.anio }}</div>
+          </div>
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <br>
+  <div class="bloque-titulo">TIEMPO QUE SE ADEUDA POR CONCEPTO DE VACACIONES DECRETADAS</div>
+  <table class="grid small">
+    <tr>
+      <th rowspan="2" class="w-20">PERIODO PENDIENTE</th>
+      <th colspan="3">FECHA EN LA QUE DISFRUTARÁ LOS DÍAS PENDIENTES</th>
+      <th rowspan="2" class="w-8">DÍAS</th>
+    </tr>
+    <tr>
+      <th>DESDE</th><th>HASTA</th><th></th>
+    </tr>
+    {% for i in "1234" %}
+    <tr>
+      <td></td><td></td><td></td><td></td><td></td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <br>
+  <div class="bloque-titulo">IMPORTANTE</div>
+  <div class="importante">
+    EL PRESENTE FORMATO DEBE ESTAR FIRMADO POR TODOS LOS FUNCIONARIOS Y LAS DEPENDENCIAS QUE SE DETALLAN A CONTINUACIÓN:
+  </div>
+
+  <table class="firmas">
+    <tr>
+      <th>SOLICITADO POR:</th>
+      <th>AUTORIZADO POR:</th>
+      <th>COORDINACIÓN ADMTVA.</th>
+      <th>RECURSOS HUMANOS</th>
+    </tr>
+
+    <tr class="altura-firma">
+      <td class="firma">{{ solicitado_por }}</td>
+      <td class="firma"></td>
+      <td class="firma"></td>
+      <td class="firma"></td>
+    </tr>
+
+    <tr class="etiquetas-firma">
+      <td class="etiqueta-firma">FIRMA DEL FUNCIONARIO</td>
+      <td class="etiqueta-firma">FIRMA DEL JEFE INMEDIATO</td>
+      <td class="etiqueta-firma">FIRMA DEL COORDINADOR DEL ÁREA</td>
+      <td class="etiqueta-firma">FIRMA AUTORIZADA</td>
+    </tr>
+
+    <tr class="nombres">
+      <td>NOMBRE: {{ solicitado_por }}</td>
+      <td>NOMBRE:</td>
+      <td>NOMBRE:</td>
+      <td>NOMBRE:</td>
+    </tr>
+  </table>
+</section>
+
+<footer class="pie">
+  {{ pie_pagina }}
+</footer>
+
+</body>
+</html>

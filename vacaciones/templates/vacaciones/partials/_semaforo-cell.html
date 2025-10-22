@@ -1,0 +1,19 @@
+{% load static %}
+
+{% with activa=solicitud.etapa_activa %}
+<div class="sem-col" role="group" aria-label="Avance de aprobación por etapas">
+  {% for ap in solicitud.aprobaciones_ordenadas %}
+    {% with est=ap.estado %}
+      <span
+        class="dot
+          {% if est == 'aprobada' or est == 'autorizada' %}ok
+          {% elif est == 'devuelta' or est == 'rechazada' %}error
+          {% elif activa and ap.id == activa.id %}pendiente
+          {% else %}idle{% endif %}"
+        title="{{ ap.get_etapa_display }}: {{ est|title }}{% if ap.observacion %} — {{ ap.observacion|truncatechars:120 }}{% endif %}"
+        aria-label="{{ ap.get_etapa_display }}: {{ est|title }}">
+      </span>
+    {% endwith %}
+  {% endfor %}
+</div>
+{% endwith %}

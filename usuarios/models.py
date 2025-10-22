@@ -1,8 +1,9 @@
-from datetime import date
-from django.db import models
 from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.db import models
+
 from core.models import Estamento, FacultadDependencia, Sede
+from vacaciones.utils import get_current_date_colombia
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -13,14 +14,17 @@ class CustomUserManager(BaseUserManager):
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
+
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
+
         if not extra_fields.get('username'):
             extra_fields['username'] = email
+            
         return self.create_user(email, password, **extra_fields)
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
@@ -82,7 +86,7 @@ class Funcionario(models.Model):
         - Antigüedad laboral >= 365 días
         - Días pendientes por reintegros aprobados o cerrados
         """
-        hoy = date.today()
+        hoy = get_current_date_colombia()
         antiguedad_suficiente = (hoy - self.fecha_ingreso_universidad).days >= 365
         tiene_dias_pendientes = self.reintegros_vacaciones.filter(
             dias_pendientes__gt=0,
@@ -95,7 +99,7 @@ class Funcionario(models.Model):
         """
         Retorna estado general del funcionario relacionado con sus vacaciones
         """
-        hoy = date.today()
+        hoy = get_current_date_colombia()
         antiguedad_dias = (hoy - self.fecha_ingreso_universidad).days
         ultimo_periodo = self.periodos_vacacionales.order_by('-fecha_inicio_periodo').first()
 

@@ -1,0 +1,98 @@
+/* Archivo CSS base para la aplicación de gestión de vacaciones */
+
+/* Estilos adicionales que no están cubiertos por Tailwind CSS */
+.tooltip-container {
+  position: relative;
+}
+
+.btn-disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Estilos para el sidebar */
+.sidebar-link {
+  transition: all 0.3s ease;
+}
+
+.sidebar-link:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Estilos para tablas */
+.solicitud-vacaciones-table {
+  border-collapse: collapse;
+}
+
+.solicitud-vacaciones-table th,
+.solicitud-vacaciones-table td {
+  border: 1px solid #e5e7eb;
+}
+
+/* Estilos para formularios */
+.form-input {
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-select {
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  background-color: white;
+}
+
+.form-textarea {
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  resize: vertical;
+}
+
+/* Estilos para Flatpickr */
+.flatpickr-input {
+  background-color: white;
+}
+
+.flatpickr-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Estilos para alertas */
+.alert-info {
+  background-color: #dbeafe;
+  border-color: #3b82f6;
+  color: #1e40af;
+}
+
+.alert-warning {
+  background-color: #fef3c7;
+  border-color: #f59e0b;
+  color: #92400e;
+}
+
+.alert-error {
+  background-color: #fee2e2;
+  border-color: #ef4444;
+  color: #dc2626;
+}
+
+.alert-success {
+  background-color: #d1fae5;
+  border-color: #10b981;
+  color: #065f46;
+}
