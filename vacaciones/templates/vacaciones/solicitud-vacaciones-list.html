@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_head %}
-  <link rel="stylesheet" href="{% static 'css/tabla-solicitudes-vacaciones.css' %}">
+  <link rel="stylesheet" href="{% static 'vacaciones/css/tabla-solicitudes-vacaciones.css' %}">
   <link rel="stylesheet" href="{% static 'vacaciones/css/semaforo.css' %}">
 {% endblock %}
 
@@ -58,14 +58,17 @@
           {% for solicitud in solicitudes %}
             <tr class="border-b hover:bg-gray-50">
               <td class="px-4 py-2 border">{{ solicitud.codigo_sabs }}</td>
+
               <td class="px-4 py-2 border">
                 {{ solicitud.fecha_inicio_vacaciones|date:"d/m/Y" }} -
                 {{ solicitud.fecha_fin_vacaciones|date:"d/m/Y" }}
               </td>
+
               <td class="px-4 py-2 border">
                 {{ solicitud.total_dias_solicitados }}
                 {{ solicitud.get_tipo_dias_solicitados_display }}
               </td>
+
               <td class="px-4 py-2 border">{{ solicitud.fecha_pago|date:"d/m/Y" }}</td>
 
               <td class="px-4 py-2 border"
@@ -76,12 +79,14 @@
               </td>
 
               <td class="px-4 py-2 border font-medium text-indigo-600">
-                {{ solicitud.get_estado_solicitud_display }}
+                {{ solicitud.get_estado_display }}
               </td>
+
               <td class="px-4 py-2 border">{{ solicitud.fecha_solicitud|date:"d/m/Y" }}</td>
 
               <td class="px-4 py-2 border">
                 <div class="flex flex-col items-center space-y-2">
+
                   <div class="flex justify-center items-center space-x-2">
                     <a href="{% url 'vacaciones:solicitud_vacaciones_pdf' solicitud.id %}"
                        class="text-gray-600 hover:text-gray-900 transition-colors duration-200"
@@ -91,7 +96,8 @@
                               d="M21 21l-4.35-4.35m1.6-4.4a7 7 0 11-14 0 7 7 0 0114 0z"/>
                       </svg>
                     </a>
-                    {% if solicitud.estado_solicitud == 'pendiente' %}
+
+                    {% if solicitud.estado == 'BORRADOR' or solicitud.estado == 'DEVUELTA' %}
                       <a href="{% url 'vacaciones:solicitud_vacaciones_update' solicitud.id %}"
                          class="text-blue-600 hover:text-blue-800 transition-colors duration-200"
                          title="Editar solicitud">
@@ -105,12 +111,13 @@
                          title="Eliminar solicitud">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1h-4a1 1 0 00-1 1v3M4 7h16"/>
                         </svg>
                       </a>
                     {% endif %}
                   </div>
 
+                  {# Acciones de flujo: Enviar/Aprobar/Devolver/Rechazar #}
                   {% include "vacaciones/partials/_acciones-row.html" with solicitud=solicitud %}
                 </div>
               </td>
@@ -151,5 +158,5 @@
 {% block extra_scripts %}
   {{ block.super }}
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-  <script src="{% static 'js/componentes/vacaciones/acciones-solicitud-vacaciones.js' %}"></script>
+  <script src="{% static 'vacaciones/js/components/vacaciones/acciones-solicitud-vacaciones.js' %}"></script>
 {% endblock %}

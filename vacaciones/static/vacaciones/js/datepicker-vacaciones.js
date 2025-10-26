@@ -181,12 +181,15 @@
         let f = new Date(fecha);
         let cont = 0;
         while (cont < n) {
-            f.setDate(f.getDate() + 1);
-            if (!esFinDeSemana(f) && !esFestivo(f)) cont++;
+          if (!esFinDeSemana(f) && !esFestivo(f)) {
+            cont++;
+            if (cont === n) break;
+          }
+          f.setDate(f.getDate() + 1);
         }
         return f;
     }
-
+      
     // ----------------- Mensajes de error -----------------
     function mostrarMensajeError(campoId, mensaje) {
         const campo = document.getElementById(campoId);
@@ -299,21 +302,23 @@
     function calcularFechaFinAutomatica(fechaInicio) {
         const estamento = (window.FUNCIONARIO_ESTAMENTO || '').toLowerCase();
         const decreto = (window.FUNCIONARIO_DECRETO || '').trim();
-
+      
         if (estamento === 'docente') {
             if (decreto === '1279') {
-                const finHabiles = sumarDiasHabiles(fechaInicio, 15);
-                return sumarDiasCalendario(finHabiles, 15);
+              const finHabiles = sumarDiasHabiles(fechaInicio, 15);
+              const f = new Date(finHabiles);
+              f.setDate(f.getDate() + 15);
+              return f;
             } else if (decreto === '115') {
-                return sumarDiasCalendario(fechaInicio, 30);
+              return sumarDiasCalendario(fechaInicio, 30);
             }
         } else if (estamento === 'administrativo') {
-            return sumarDiasHabiles(fechaInicio, 15);
+          return sumarDiasHabiles(fechaInicio, 15);
         } else if (estamento === 'trabajador oficial') {
-            return sumarDiasCalendario(fechaInicio, 30);
+          return sumarDiasCalendario(fechaInicio, 30);
         }
         return sumarDiasCalendario(fechaInicio, 15);
-    }
+      }      
 
     // ----------------- Inicialización Flatpickr -----------------
     function inicializarFlatpickr() {

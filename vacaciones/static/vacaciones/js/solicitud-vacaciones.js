@@ -57,31 +57,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
       function addDays(date, days) {
         const result = new Date(date);
-        result.setDate(result.getDate() + (days));
+        result.setDate(result.getDate() + days);
 
         return result;
       }
 
       function addBusinessDays(date, days, festivos) {
+        const toFestivoKey = (d) => {
+          const dd = String(d.getDate()).padStart(2,'0');
+          const mm = String(d.getMonth()+1).padStart(2,'0');
+          const yy = d.getFullYear();
+          return `${dd}/${mm}/${yy}`;
+        };
+      
+        const isWeekend = (d) => d.getDay() === 0 || d.getDay() === 6;
+        const isHoliday = (d) => (window.FESTIVOS_COLOMBIA || []).includes(toFestivoKey(d));
+      
         let result = new Date(date);
         let added = 0;
-
+      
         while (added < days) {
-          const isWeekend = result.getDay() === 0 || result.getDay() === 6;
-          const dia = String(result.getDate()).padStart(2, '0');
-          const mes = String(result.getMonth() + 1).padStart(2, '0');
-          const anio = result.getFullYear();
-          const esFestivo = (window.FESTIVOS_COLOMBIA || []).includes(`${dia}/${mes}/${anio}`);
-          
-          if (!isWeekend && !esFestivo) {
+          if (!isWeekend(result) && !isHoliday(result)) {
             added++;
             if (added === days) break;
           }
           result.setDate(result.getDate() + 1);
         }
-
         return result;
-      }
+      }      
 
       function obtenerDiasPendientesReintegro() {
         if (!periodoVacacional || !disfruteDiasPendientes) return null;
@@ -121,9 +124,9 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
           if (estamento === 'docente' && decreto === '1279') {
             const ultimoHabil = addBusinessDays(inicio, 15, window.FESTIVOS_COLOMBIA);
-            const primerCalendario = new Date(ultimoHabil);
-            primerCalendario.setDate(primerCalendario.getDate() + 1);
-            fechaFinCalculada = addDays(primerCalendario, 15);
+            const result = new Date(ultimoHabil);
+            result.setDate(result.getDate() + 15);
+            fechaFinCalculada = result;
           } else if (estamento === 'docente' && decreto === '115') {
             fechaFinCalculada = addDays(inicio, 30);
           } else if (estamento === 'administrativo') {

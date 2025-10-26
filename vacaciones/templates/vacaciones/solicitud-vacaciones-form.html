@@ -263,16 +263,16 @@
     
     <!-- Script para deshabilitar formulario cuando no hay periodos vacacionales -->
     {% if not tiene_periodos_vacacionales %}
-    <script src="{% static 'js/componentes/formularios/validacion-formulario.js' %}"></script>
+    <script src="{% static 'vacaciones/js/components/formularios/validacion-formulario.js' %}"></script>
     {% endif %}
     
     <!-- Script para manejar periodos acumulados -->
     {% if periodos_acumulados %}
-    <script src="{% static 'js/componentes/vacaciones/periodos-acumulados.js' %}"></script>
+    <script src="{% static 'vacaciones/js/components/vacaciones/periodos-acumulados.js' %}"></script>
     {% endif %}
     
     <!-- Script para manejar alertas del formulario -->
-    <script src="{% static 'js/componentes/vacaciones/alertas-solicitudes-vacaciones.js' %}"></script>
+    <script src="{% static 'vacaciones/js/components/vacaciones/alertas-solicitudes-vacaciones.js' %}"></script>
     
     <link rel="stylesheet" href="{% static 'vacaciones/css/datepicker-icon.css' %}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -286,5 +286,5 @@
     <script src="{% static 'vacaciones/js/solicitud-vacaciones.js' %}"></script>
     
     <!-- Script para manejar animación de carga -->
-    <script src="{% static 'js/componentes/formularios/animacion-carga.js' %}"></script>
+    <script src="{% static 'vacaciones/js/components/formularios/animacion-carga.js' %}"></script>
 {% endblock %}

@@ -30,7 +30,12 @@
       <img src="{% static 'img/banner_logo_univalle.png' %}" alt="Logo Univalle" class="h-7">
     </div>
     <div class="flex items-center gap-2 relative" id="user-menu-container">
-      <button id="user-menu-toggle" class="flex items-center gap-2 focus:outline-none">
+      <button id="user-menu-toggle"
+              class="flex items-center gap-2 focus:outline-none"
+              type="button"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-controls="user-menu-dropdown">
         <span class="text-gray-700 text-sm">
           Bienvenido, <strong>{{ request.user.funcionario.nombre }} {{ request.user.funcionario.apellido }}</strong>
         </span>
@@ -41,20 +46,18 @@
           </svg>
         </span>
       </button>
-      <!-- Dropdown -->
-      <div id="user-menu-dropdown" class="hidden fixed w-48 bg-white rounded-md shadow-lg z-50 py-2 border border-gray-200">
-        <a href="#" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Cambiar contraseña</a>
-        <a href="{% url 'usuarios:logout' %}" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Cerrar sesión</a>
+      <div id="user-menu-dropdown"
+           class="hidden absolute right-0 top-full mt-2 w-48 bg-white rounded-md shadow-lg z-50 py-2 border border-gray-200"
+           role="menu">
+        <a href="#" class="block px-4 py-2 text-gray-700 hover:bg-gray-100" role="menuitem">Cambiar contraseña</a>
+        <a href="{% url 'usuarios:logout' %}" class="block px-4 py-2 text-gray-700 hover:bg-gray-100" role="menuitem">Cerrar sesión</a>
       </div>
     </div>
   </header>
   {% endif %}
 
-  <!-- Contenedor principal -->
   <div class="flex flex-1 overflow-hidden">
-
     {% if request.user.is_authenticated %}
-    <!-- Sidebar -->
     <aside id="sidebar" class="bg-red-700 text-white w-64 transition-all duration-300 ease-in-out space-y-6 px-4 py-6 lg:block hidden">
       <button id="collapseSidebar" class="text-white absolute top-4 right-4 focus:outline-none">
       </button>
@@ -91,13 +94,11 @@
               <span class="sidebar-text" id="sidebar-text-solicitudes">Solicitudes de vacaciones</span>
             </a>
           </li>
-          <!-- Agrega más ítems aquí si lo necesitas -->
         </ul>
       </nav>
     </aside>
     {% endif %}
 
-    <!-- Contenido -->
     {% if request.user.is_authenticated %}
     <main class="flex-1 overflow-y-auto p-6">
     {% else %}
@@ -108,9 +109,8 @@
   </div>
 
   {% block extra_scripts %}
-    <script src="{% static 'js/componentes/navegacion/sidebar.js' %}"></script>
+    <script src="{% static 'vacaciones/js/components/navegacion/sidebar.js' %}"></script>
     <script>
-      // Sidebar toggle functionality
       const menuToggle = document.getElementById('menu-toggle');
       const sidebar = document.getElementById('sidebar');
       const sidebarTexts = document.querySelectorAll('.sidebar-text');
@@ -140,7 +140,7 @@
         });
       }
     </script>
-    <script src="{% static 'js/componentes/navegacion/menu-usuario.js' %}"></script>
+    <script src="{% static 'vacaciones/js/components/navegacion/menu-usuario.js' %}"></script>
     {% endblock %}
 </body>
 </html>
