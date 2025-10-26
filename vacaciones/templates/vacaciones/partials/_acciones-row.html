@@ -3,16 +3,22 @@
 {# Botones de flujo por fila (Solicitudes) #}
 <div class="flex flex-wrap justify-center gap-2">
 
-  {# Enviar (dueño) - solo BORRADOR o DEVUELTA #}
+  {# Enviar - solo BORRADOR o DEVUELTA #}
   {% if solicitud.estado == "BORRADOR" or solicitud.estado == "DEVUELTA" %}
-    {% if solicitud.funcionario.user_id == request.user.id or request.user.is_superuser %}
-      <a href="{% url 'vacaciones:solicitud_enviar' solicitud.id %}"
-         class="px-2 py-1 text-white bg-indigo-600 rounded hover:bg-indigo-700"
-         title="Enviar a Jefe Inmediato">
+  {% if solicitud.funcionario.user_id == request.user.id or request.user.is_superuser %}
+    <form method="post"
+          action="{% url 'vacaciones:solicitud_enviar' solicitud.id %}"
+          class="form-enviar-solicitud"
+          data-codigo="{{ solicitud.codigo_sabs }}">
+      {% csrf_token %}
+      <button type="button"
+              class="px-2 py-1 text-white bg-indigo-600 rounded hover:bg-indigo-700 btn-enviar-solicitud"
+              title="Enviar a Jefe Inmediato">
         Enviar
-      </a>
-    {% endif %}
+      </button>
+    </form>
   {% endif %}
+{% endif %}
 
   {# JEFE: Aprobar/Devolver en PEND_JEFE #}
   {% if solicitud.estado == "PEND_JEFE" %}
