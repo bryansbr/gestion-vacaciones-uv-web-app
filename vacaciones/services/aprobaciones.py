@@ -65,12 +65,12 @@ def _validar_propietario_o_permiso(user: CustomUser, solicitud: SolicitudVacacio
 
 def _refrescar_estado_global(solicitud: SolicitudVacaciones):
     """
-    Lee el estado derivado de las etapas y sincroniza el campo existente solicitud.estado_solicitud
+    Lee el estado derivado de las etapas y sincroniza el campo existente solicitud.estado
     con la taxonomía del modelo (aprobado/en_revision/rechazado).
     """
     global_derivado = solicitud.estado_global
-    solicitud.estado_solicitud = ESTADO_GLOBAL_MAP.get(global_derivado, 'en_revision')
-    solicitud.save(update_fields=['estado_solicitud'])
+    solicitud.estado = ESTADO_GLOBAL_MAP.get(global_derivado, 'en_revision')
+    solicitud.save(update_fields=['estado'])
 
 def _registrar_historial(
     *,

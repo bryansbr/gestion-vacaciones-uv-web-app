@@ -11,7 +11,6 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.templatetags.static import static
 from django.urls import reverse_lazy
-from django.utils.timezone import localdate, now
 from django.views import View
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 import holidays
@@ -34,6 +33,7 @@ from .services.aprobaciones import (
 )
 from .utils import get_current_date_colombia, puede_solicitar_vacaciones_hoy
 
+
 # -----------------------------------------
 # VISTA: PeriodoVacacional
 # -----------------------------------------
@@ -41,6 +41,7 @@ class PeriodoVacacionalListView(LoginRequiredMixin, ListView):
     model = PeriodoVacacional
     template_name = "vacaciones/periodo-vacacional-list.html"
     context_object_name = "periodos"
+
 
 class PeriodoVacacionalCreateView(LoginRequiredMixin, CreateView):
     model = PeriodoVacacional
@@ -52,6 +53,7 @@ class PeriodoVacacionalCreateView(LoginRequiredMixin, CreateView):
         messages.success(self.request, "Periodo vacacional creado correctamente.")
         return super().form_valid(form)
 
+
 class PeriodoVacacionalUpdateView(LoginRequiredMixin, UpdateView):
     model = PeriodoVacacional
     form_class = PeriodoVacacionalForm
@@ -62,6 +64,7 @@ class PeriodoVacacionalUpdateView(LoginRequiredMixin, UpdateView):
         messages.success(self.request, "Periodo vacacional actualizado correctamente.")
         return super().form_valid(form)
 
+
 class PeriodoVacacionalDeleteView(LoginRequiredMixin, DeleteView):
     model = PeriodoVacacional
     template_name = "vacaciones/periodo-vacacional-confirm-delete.html"
@@ -70,6 +73,7 @@ class PeriodoVacacionalDeleteView(LoginRequiredMixin, DeleteView):
     def delete(self, request, *args, **kwargs):
         messages.success(request, "Periodo vacacional eliminado correctamente.")
         return super().delete(request, *args, **kwargs)
+
 
 # -----------------------------------------
 # VISTA: Crear SolicitudVacaciones
@@ -101,7 +105,7 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
 
         for y in years:
             festivos += [d.strftime('%d/%m/%Y') for d in holidays.Colombia(years=[y]).keys()]
-        
+
         context['festivos_colombia'] = json.dumps(festivos)
 
         funcionario = self.request.user.funcionario
@@ -111,7 +115,7 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         # Verificar si el funcionario tiene periodos vacacionales
         periodos_vacacionales = PeriodoVacacional.objects.filter(funcionario=funcionario)
         context['tiene_periodos_vacacionales'] = periodos_vacacionales.exists()
-        
+
         # Verificar si puede solicitar vacaciones según los nuevos plazos límite
         puede_solicitar_hoy, mensaje_plazo = puede_solicitar_vacaciones_hoy(
             funcionario.estamento.nombre.lower(),
@@ -119,7 +123,7 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         )
         context['puede_solicitar_hoy'] = puede_solicitar_hoy
         context['mensaje_plazo'] = mensaje_plazo
-        
+
         # Si no tiene periodos, no mostrar reintegros ni otros datos
         if not context['tiene_periodos_vacacionales']:
             context['reintegros_pendientes'] = json.dumps([])
@@ -129,10 +133,10 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
             context['mostrar_alerta_periodos_acumulados'] = False
             return context
 
-        # Reintegros aprobados con días pendientes
+        # Reintegros aprobados con días pendientes (AUTORIZADA en el nuevo flujo)
         reintegros_pendientes = ReintegroVacaciones.objects.filter(
             funcionario=funcionario,
-            estado_solicitud='aprobado',
+            estado='AUTORIZADA',
             dias_pendientes__gt=0
         )
 
@@ -149,44 +153,43 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
 
         context['reintegros_pendientes'] = json.dumps(reintegros_data)
         context['tiene_reintegros_pendientes'] = len(reintegros_data) > 0
-        
+
         # Inicializar el campo tiene_dias_pendientes si hay reintegros pendientes
         if context['tiene_reintegros_pendientes']:
             context['form'].initial['tiene_dias_pendientes'] = False
 
         # Verificar si el funcionario tiene una solicitud activa (sin reintegro asociado)
+        ACTIVAS = ['BORRADOR', 'DEVUELTA', 'PEND_JEFE', 'PEND_COORD', 'PEND_RRHH', 'AUTORIZADA']
         solicitudes_activas = SolicitudVacaciones.objects.filter(
             funcionario=funcionario,
-            estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
+            estado__in=ACTIVAS
         ).prefetch_related('reintegrovacaciones_set')
-        
-        # Una solicitud se considera "culminada" si tiene un reintegro asociado
+
+        # Una solicitud se considera "culminada" si tiene un reintegro AUTORIZADO
         solicitudes_sin_reintegro = []
         for solicitud in solicitudes_activas:
             tiene_reintegro = any(
-                reintegro.estado_solicitud == 'aprobado' 
+                getattr(reintegro, 'estado', '') == 'AUTORIZADA'
                 for reintegro in solicitud.reintegrovacaciones_set.all()
             )
-            
             if not tiene_reintegro:
                 solicitudes_sin_reintegro.append(solicitud)
-        
+
         # Solo verificar solicitudes activas, NO plazos límite para el botón Crear
         context['puede_crear_solicitud'] = len(solicitudes_sin_reintegro) == 0
         context['solicitud_activa'] = solicitudes_sin_reintegro[0] if solicitudes_sin_reintegro else None
 
-        form = context.get('form')
-
         # Lógica para determinar si mostrar alerta de periodos acumulados
+        form = context.get('form')
         context['mostrar_alerta_periodos_acumulados'] = False
-        
+
         if hasattr(form, 'periodos_acumulados') and form.periodos_acumulados:
             context['periodos_acumulados'] = form.periodos_acumulados
             context['periodo_mas_antiguo'] = form.periodo_mas_antiguo
             context['periodo_mas_reciente'] = form.periodo_mas_reciente
             context['periodo_mas_antiguo_habilitado'] = form.periodo_mas_antiguo_habilitado
             context['periodo_mas_reciente_habilitado'] = form.periodo_mas_reciente_habilitado
-            
+
             if context['puede_crear_solicitud']:
                 solicitudes_periodos_acumulados = SolicitudVacaciones.objects.filter(
                     funcionario=funcionario,
@@ -195,46 +198,46 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
                 context['mostrar_alerta_periodos_acumulados'] = not solicitudes_periodos_acumulados
 
         context['plazo_solicitud'] = mensaje_plazo
-        
         return context
 
     def post(self, request, *args, **kwargs):
         self.object = None
         funcionario = self.request.user.funcionario
         periodos_vacacionales = PeriodoVacacional.objects.filter(funcionario=funcionario)
-        
+
         if not periodos_vacacionales.exists():
             messages.error(request, "No puede crear una solicitud de vacaciones sin tener periodos vacacionales registrados.")
             return self.form_invalid(self.get_form())
 
+        ACTIVAS = ['BORRADOR', 'DEVUELTA', 'PEND_JEFE', 'PEND_COORD', 'PEND_RRHH', 'AUTORIZADA']
+
         solicitudes_activas = SolicitudVacaciones.objects.filter(
             funcionario=funcionario,
-            estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
+            estado__in=ACTIVAS
         ).prefetch_related('reintegrovacaciones_set')
-        
+
         solicitudes_sin_reintegro = []
         for solicitud in solicitudes_activas:
             tiene_reintegro = any(
-                reintegro.estado_solicitud == 'aprobado' 
+                getattr(reintegro, 'estado', '') == 'AUTORIZADA'
                 for reintegro in solicitud.reintegrovacaciones_set.all()
             )
-            
             if not tiene_reintegro:
                 solicitudes_sin_reintegro.append(solicitud)
-        
+
         if solicitudes_sin_reintegro:
             messages.error(request, "Ya tiene una solicitud de vacaciones activa. Debe culminar el disfrute del periodo actual antes de crear una nueva solicitud.")
             return self.form_invalid(self.get_form())
 
         form = self.get_form()
         form.instance.funcionario = funcionario
-        
+
         hoy_colombia = get_current_date_colombia()
         form.instance.fecha_solicitud = hoy_colombia
-        
+
         if form.is_valid():
             return self.form_valid(form)
-            
+
         return self.form_invalid(form)
 
     def form_valid(self, form):
@@ -245,45 +248,44 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         except Exception as e:
             messages.error(self.request, f"Error al guardar la solicitud: {e}")
             return self.form_invalid(form)
-    
+
+
 class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
     model = SolicitudVacaciones
     template_name = "vacaciones/solicitud-vacaciones-list.html"
     context_object_name = "solicitudes"
 
     def get_queryset(self):
-        return SolicitudVacaciones.objects.filter(funcionario=self.request.user.funcionario).order_by('-fecha_solicitud')
+        return SolicitudVacaciones.objects.filter(
+            funcionario=self.request.user.funcionario
+        ).order_by('-fecha_solicitud')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         funcionario = self.request.user.funcionario
-        
+
+        ACTIVAS = ['BORRADOR', 'DEVUELTA', 'PEND_JEFE', 'PEND_COORD', 'PEND_RRHH', 'AUTORIZADA']
         solicitudes_activas = SolicitudVacaciones.objects.filter(
             funcionario=funcionario,
-            estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
+            estado__in=ACTIVAS
         ).prefetch_related('reintegrovacaciones_set')
-        
+
         solicitudes_sin_reintegro = []
-        
         for solicitud in solicitudes_activas:
             tiene_reintegro = any(
-                reintegro.estado_solicitud == 'aprobado' 
+                getattr(reintegro, 'estado', '') == 'AUTORIZADA'
                 for reintegro in solicitud.reintegrovacaciones_set.all()
             )
-            
             if not tiene_reintegro:
                 solicitudes_sin_reintegro.append(solicitud)
-        
-        puede_solicitar_hoy, mensaje_plazo = puede_solicitar_vacaciones_hoy(
-            funcionario.estamento.nombre.lower(),
-            funcionario.decreto_resolucion
-        )
-        
+
+        # Botón Crear depende solo de si hay solicitud activa sin reintegro culminado
         context['puede_crear_solicitud'] = len(solicitudes_sin_reintegro) == 0
         context['solicitud_activa'] = solicitudes_sin_reintegro[0] if solicitudes_sin_reintegro else None
         context['mensaje_plazo'] = None
-        
+
         return context
+
 
 class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
     model = SolicitudVacaciones
@@ -304,7 +306,7 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
 
         for y in years:
             festivos += [d.strftime('%d/%m/%Y') for d in holidays.Colombia(years=[y]).keys()]
-        
+
         context['festivos_colombia'] = json.dumps(festivos)
 
         funcionario = self.request.user.funcionario
@@ -314,7 +316,7 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
         # Verificar si el funcionario tiene periodos vacacionales
         periodos_vacacionales = PeriodoVacacional.objects.filter(funcionario=funcionario)
         context['tiene_periodos_vacacionales'] = periodos_vacacionales.exists()
-        
+
         if not context['tiene_periodos_vacacionales']:
             context['reintegros_pendientes'] = json.dumps([])
             context['tiene_reintegros_pendientes'] = False
@@ -323,9 +325,10 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
             context['mostrar_alerta_periodos_acumulados'] = False
             return context
 
+        # Reintegros aprobados con días pendientes (AUTORIZADA en el nuevo flujo)
         reintegros_pendientes = ReintegroVacaciones.objects.filter(
             funcionario=funcionario,
-            estado_solicitud='aprobado',
+            estado='AUTORIZADA',
             dias_pendientes__gt=0
         )
 
@@ -342,17 +345,14 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
 
         context['reintegros_pendientes'] = json.dumps(reintegros_data)
         context['tiene_reintegros_pendientes'] = len(reintegros_data) > 0
-        
-        if context['tiene_reintegros_pendientes']:
-            context['form'].initial['tiene_dias_pendientes'] = False
 
+        # En UpdateView dejamos crear/editar sin bloquear por solicitud activa
         context['puede_crear_solicitud'] = True
         context['solicitud_activa'] = None
 
         form = context.get('form')
-
         context['mostrar_alerta_periodos_acumulados'] = False
-        
+
         if hasattr(form, 'periodos_acumulados') and form.periodos_acumulados:
             context['periodos_acumulados'] = form.periodos_acumulados
             context['periodo_mas_antiguo'] = form.periodo_mas_antiguo
@@ -361,18 +361,19 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
             context['periodo_mas_reciente_habilitado'] = form.periodo_mas_reciente_habilitado
 
         context['plazo_solicitud'] = None
-        
         return context
 
     def get_queryset(self):
+        # Solo se puede editar en BORRADOR o DEVUELTA
         return SolicitudVacaciones.objects.filter(
             funcionario=self.request.user.funcionario,
-            estado_solicitud='pendiente'
+            estado__in=['BORRADOR', 'DEVUELTA']
         )
 
     def form_valid(self, form):
         messages.success(self.request, "Solicitud actualizada correctamente.")
         return super().form_valid(form)
+
 
 class SolicitudVacacionesDeleteView(LoginRequiredMixin, DeleteView):
     model = SolicitudVacaciones
@@ -380,14 +381,16 @@ class SolicitudVacacionesDeleteView(LoginRequiredMixin, DeleteView):
     success_url = reverse_lazy("vacaciones:solicitud-vacaciones-list")
 
     def get_queryset(self):
+        # Solo se puede eliminar en BORRADOR o DEVUELTA
         return SolicitudVacaciones.objects.filter(
             funcionario=self.request.user.funcionario,
-            estado_solicitud='pendiente'
+            estado__in=['BORRADOR', 'DEVUELTA']
         )
 
     def delete(self, request, *args, **kwargs):
         messages.success(request, "Solicitud eliminada correctamente.")
         return super().delete(request, *args, **kwargs)
+
 
 def solicitud_vacaciones_create(request):
     years = [get_current_date_colombia().year, get_current_date_colombia().year + 1]
@@ -395,15 +398,14 @@ def solicitud_vacaciones_create(request):
 
     for y in years:
         festivos += [d.strftime('%d/%m/%Y') for d in holidays.Colombia(years=[y]).keys()]
-        
-    festivos_json = json.dumps(festivos)
 
+    festivos_json = json.dumps(festivos)
     return render(request, 'vacaciones/solicitud-vacaciones-form.html', {'festivos_colombia': festivos_json})
 
-# ==========================================================
-# Parcial Semáforo (corregida la ruta del template)
-# ==========================================================
 
+# ==========================================================
+# Parcial Semáforo
+# ==========================================================
 @login_required
 def semaforo_cell(request, pk):
     sol = get_object_or_404(SolicitudVacaciones, pk=pk)
@@ -419,8 +421,9 @@ def semaforo_cell(request, pk):
 
     return render(request, "vacaciones/partials/_semaforo-cell.html", {"solicitud": sol})
 
+
 # ==========================================================
-# Acciones de flujo (JEFE/COORD/RRHH/Funcionario)
+# Acciones de flujo antiguas por etapa (si aún las usas en algún template)
 # ==========================================================
 @login_required
 def aprobar_view(request, pk):
@@ -432,6 +435,7 @@ def aprobar_view(request, pk):
         messages.error(request, str(e))
     return redirect("vacaciones:solicitud-vacaciones-list")
 
+
 @login_required
 def devolver_view(request, pk):
     sol = get_object_or_404(SolicitudVacaciones, pk=pk)
@@ -441,6 +445,7 @@ def devolver_view(request, pk):
     except (ValidationError, PermissionDenied) as e:
         messages.error(request, str(e))
     return redirect("vacaciones:solicitud-vacaciones-list")
+
 
 @login_required
 def autorizar_view(request, pk):
@@ -452,6 +457,7 @@ def autorizar_view(request, pk):
         messages.error(request, str(e))
     return redirect("vacaciones:solicitud-vacaciones-list")
 
+
 @login_required
 def rechazar_view(request, pk):
     sol = get_object_or_404(SolicitudVacaciones, pk=pk)
@@ -462,6 +468,7 @@ def rechazar_view(request, pk):
         messages.error(request, str(e))
     return redirect("vacaciones:solicitud-vacaciones-list")
 
+
 @login_required
 def reenviar_view(request, pk):
     sol = get_object_or_404(SolicitudVacaciones, pk=pk)
@@ -471,6 +478,7 @@ def reenviar_view(request, pk):
     except (ValidationError, PermissionDenied) as e:
         messages.error(request, str(e))
     return redirect("vacaciones:solicitud-vacaciones-list")
+
 
 # ==========================================================
 # PDF - WeasyPrint
@@ -498,7 +506,7 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
         except SolicitudVacaciones.DoesNotExist:
             raise Http404("Solicitud no encontrada")
 
-        # -------- FIX DE AUTORIZACIÓN --------
+        # Autorización básica: dueño / staff / superuser
         owner_id = solicitud.funcionario_id
         user_funcionario_id = None
         if hasattr(request.user, "funcionario") and request.user.funcionario is not None:
@@ -511,7 +519,6 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
         ):
             # Mantener 404 para no filtrar existencia
             raise Http404("No autorizado")
-        # -------------------------------------
 
         funcionario = solicitud.funcionario
         periodo = solicitud.periodo_vacacional
@@ -524,7 +531,7 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
         f_fin_disfrute = self._split_fecha(solicitud.fecha_fin_vacaciones)
         f_pago = self._quincena(solicitud.fecha_pago)
 
-        # Tipo de días
+        # Tipo de días (según reglas ya usadas en tu proyecto)
         estamento = funcionario.estamento.nombre.lower()
         decreto = (funcionario.decreto_resolucion or "").strip()
         es_habiles, es_calendario = False, False
@@ -578,5 +585,4 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
         response["Content-Disposition"] = (
             f'inline; filename="{filename}"; filename*=UTF-8\'\'{urllib.parse.quote(filename)}'
         )
-
         return response

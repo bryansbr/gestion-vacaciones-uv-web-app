@@ -14,7 +14,6 @@ class CustomUserManager(BaseUserManager):
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
-
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
@@ -24,7 +23,7 @@ class CustomUserManager(BaseUserManager):
 
         if not extra_fields.get('username'):
             extra_fields['username'] = email
-            
+
         return self.create_user(email, password, **extra_fields)
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
@@ -96,15 +95,14 @@ class Funcionario(models.Model):
         """
         Verifica si el funcionario puede solicitar vacaciones considerando:
         - Antigüedad laboral >= 365 días
-        - Días pendientes por reintegros aprobados o cerrados
+        - Días pendientes por reintegros AUTORIZADOS (MVP)
         """
         hoy = get_current_date_colombia()
         antiguedad_suficiente = (hoy - self.fecha_ingreso_universidad).days >= 365
         tiene_dias_pendientes = self.reintegros_vacaciones.filter(
             dias_pendientes__gt=0,
-            estado_solicitud__in=['aprobado', 'cerrado']
+            estado='AUTORIZADA'
         ).exists()
-        
         return antiguedad_suficiente or tiene_dias_pendientes
 
     def estado_de_vacaciones(self):

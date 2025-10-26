@@ -39,9 +39,9 @@ class PeriodoVacacionalAdmin(admin.ModelAdmin):
 
 @admin.register(SolicitudVacaciones)
 class SolicitudVacacionesAdmin(admin.ModelAdmin):
-    list_display = ('codigo_sabs', 'funcionario', 'fecha_inicio_vacaciones', 'fecha_fin_vacaciones', 'estado_solicitud')
+    list_display = ('codigo_sabs', 'funcionario', 'fecha_inicio_vacaciones', 'fecha_fin_vacaciones', 'estado')
     search_fields = ('codigo_sabs', 'funcionario__nombre', 'funcionario__apellido')
-    list_filter = ('estado_solicitud',)
+    list_filter = ('estado',)
     ordering = ('-fecha_solicitud',)
 
 @admin.register(DiasPendientesVacaciones)
@@ -52,9 +52,9 @@ class DiasPendientesVacacionesAdmin(admin.ModelAdmin):
 
 @admin.register(ReintegroVacaciones)
 class ReintegroVacacionesAdmin(admin.ModelAdmin):
-    list_display = ('codigo_sabs', 'funcionario', 'fecha_reintegro', 'estado_solicitud')
+    list_display = ('codigo_sabs', 'funcionario', 'fecha_reintegro', 'estado')
     search_fields = ('codigo_sabs', 'funcionario__nombre', 'funcionario__apellido')
-    list_filter = ('estado_solicitud', 'fecha_reintegro')
+    list_filter = ('estado', 'fecha_reintegro')
     ordering = ('-fecha_solicitud',)
 
 @admin.register(HistoricoAcciones)

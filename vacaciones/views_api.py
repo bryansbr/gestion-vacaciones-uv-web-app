@@ -1,14 +1,19 @@
 from rest_framework import viewsets, filters
 from rest_framework.permissions import IsAuthenticated, SAFE_METHODS
 from django_filters.rest_framework import DjangoFilterBackend
+
 from .models import PeriodoVacacional, SolicitudVacaciones, ReintegroVacaciones
-from .serializers import PeriodoVacacionalSerializer, SolicitudVacacionesSerializer, ReintegroVacacionesSerializer
+from .serializers import (
+    PeriodoVacacionalSerializer,
+    SolicitudVacacionesSerializer,
+    ReintegroVacacionesSerializer,
+)
 
 class IsAdminOrReadOnly(IsAuthenticated):
     def has_permission(self, request, view):
         if request.method in SAFE_METHODS:
             return True
-        return request.user and request.user.is_staff
+        return bool(request.user and request.user.is_staff)
 
 class PeriodoVacacionalViewSet(viewsets.ModelViewSet):
     """
@@ -24,10 +29,21 @@ class PeriodoVacacionalViewSet(viewsets.ModelViewSet):
     search_fields = [
         'funcionario__nombre',
         'funcionario__apellido',
-        'funcionario__numero_identificacion'
+        'funcionario__numero_identificacion',
     ]
     ordering_fields = ['fecha_inicio_periodo', 'fecha_fin_periodo', 'dias_totales_periodo']
     ordering = ['-fecha_inicio_periodo']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        u = self.request.user
+
+        if not (u.is_staff or u.is_superuser):
+            if hasattr(u, 'funcionario') and u.funcionario_id:
+                return qs.filter(funcionario=u.funcionario)
+            return qs.none()
+        return qs
+
 
 class SolicitudVacacionesViewSet(viewsets.ModelViewSet):
     """
@@ -38,7 +54,7 @@ class SolicitudVacacionesViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['estado_solicitud', 'funcionario', 'periodo_vacacional']
+    filterset_fields = ['estado', 'funcionario', 'periodo_vacacional']
     search_fields = [
         'codigo_sabs',
         'funcionario__nombre',
@@ -46,6 +62,16 @@ class SolicitudVacacionesViewSet(viewsets.ModelViewSet):
     ]
     ordering_fields = ['fecha_solicitud', 'fecha_inicio_vacaciones', 'total_dias_solicitados']
     ordering = ['-fecha_solicitud']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        u = self.request.user
+
+        if not (u.is_staff or u.is_superuser):
+            if hasattr(u, 'funcionario') and u.funcionario_id:
+                return qs.filter(funcionario=u.funcionario)
+            return qs.none()
+        return qs
 
 class ReintegroVacacionesViewSet(viewsets.ModelViewSet):
     """
@@ -56,7 +82,7 @@ class ReintegroVacacionesViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['estado_solicitud', 'funcionario', 'periodo_vacacional']
+    filterset_fields = ['estado', 'funcionario', 'periodo_vacacional']
     search_fields = [
         'codigo_sabs',
         'funcionario__nombre',
@@ -64,3 +90,13 @@ class ReintegroVacacionesViewSet(viewsets.ModelViewSet):
     ]
     ordering_fields = ['fecha_solicitud', 'fecha_reintegro', 'dias_disfrutados']
     ordering = ['-fecha_solicitud']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        u = self.request.user
+
+        if not (u.is_staff or u.is_superuser):
+            if hasattr(u, 'funcionario') and u.funcionario_id:
+                return qs.filter(funcionario=u.funcionario)
+            return qs.none()
+        return qs

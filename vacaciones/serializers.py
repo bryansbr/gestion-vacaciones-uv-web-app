@@ -1,28 +1,37 @@
-from django.forms import ValidationError
+from django.core.exceptions import ValidationError
 from rest_framework import serializers
+
 from .models import PeriodoVacacional, SolicitudVacaciones, ReintegroVacaciones
 
 class PeriodoVacacionalSerializer(serializers.ModelSerializer):
     class Meta:
         model = PeriodoVacacional
         fields = [
-            'id', 'fecha_inicio_periodo', 'fecha_fin_periodo',
-            'dias_totales_periodo', 'dias_pendientes_periodo',
-            'dias_disfrutados_periodo', 'funcionario'
+            'id',
+            'fecha_inicio_periodo',
+            'fecha_fin_periodo',
+            'dias_totales_periodo',
+            'dias_pendientes_periodo',
+            'dias_disfrutados_periodo',
+            'funcionario',
         ]
         read_only_fields = ('dias_totales_periodo', 'dias_pendientes_periodo')
 
     def validate(self, data):
-        periodo = PeriodoVacacional(**data)
-        periodo.funcionario = data.get('funcionario')
+        """
+        Reutiliza la validación del modelo (clean), soportando creates y updates parciales.
+        """
+        instance = self.instance or PeriodoVacacional()
+
+        for k, v in data.items():
+            setattr(instance, k, v)
 
         try:
-            periodo.clean()
+            instance.clean()
         except ValidationError as e:
-            raise serializers.ValidationError(e.messages)
-
+            # e.message_dict (por campo) o e.messages (lista)
+            raise serializers.ValidationError(getattr(e, "message_dict", e.messages))
         return data
-
 
 class SolicitudVacacionesSerializer(serializers.ModelSerializer):
     class Meta:
@@ -39,22 +48,23 @@ class SolicitudVacacionesSerializer(serializers.ModelSerializer):
             'tiene_dias_pendientes',
             'periodo_vacacional',
             'funcionario',
-            'estado_solicitud',
+            'estado',
         ]
-        read_only_fields = ['fecha_solicitud', 'estado_solicitud']
+        read_only_fields = ['codigo_sabs', 'fecha_solicitud', 'estado']
 
     def validate(self, data):
         """
-        Validación cruzada reutilizando el método .clean() del modelo
+        Validación cruzada reutilizando el método .clean() del modelo.
+        Soporta creates y updates parciales (PATCH).
         """
-        instance = SolicitudVacaciones(**data)
-
-        if self.instance: instance.pk = self.instance.pk
+        instance = self.instance or SolicitudVacaciones()
+        for k, v in data.items():
+            setattr(instance, k, v)
 
         try:
             instance.clean()
-        except serializers.ValidationError as e:
-            raise e
+        except ValidationError as e:
+            raise serializers.ValidationError(getattr(e, "message_dict", e.messages))
         except Exception as e:
             raise serializers.ValidationError(str(e))
 
@@ -79,6 +89,22 @@ class ReintegroVacacionesSerializer(serializers.ModelSerializer):
             'periodo_vacacional',
             'solicitud_vacaciones',
             'funcionario',
-            'estado_solicitud',
+            'estado',
         ]
-        read_only_fields = ('fecha_solicitud', 'estado_solicitud')
+        read_only_fields = ('codigo_sabs', 'fecha_solicitud', 'estado')
+
+    def validate(self, data):
+        """
+        Si necesitas validar reglas adicionales del reintegro, reusa clean() del modelo.
+        (Es opcional; incluyo el patrón por consistencia.)
+        """
+        instance = self.instance or ReintegroVacaciones()
+        for k, v in data.items():
+            setattr(instance, k, v)
+
+        try:
+            if hasattr(instance, "clean"):
+                instance.clean()
+        except ValidationError as e:
+            raise serializers.ValidationError(getattr(e, "message_dict", e.messages))
+        return data

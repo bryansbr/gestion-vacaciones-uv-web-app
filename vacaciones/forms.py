@@ -26,8 +26,8 @@ class PeriodoVacacionalForm(forms.ModelForm):
         cleaned_data = super().clean()
         return cleaned_data
 
-
 class SolicitudVacacionesForm(forms.ModelForm):
+    # Campos informativos (solo lectura en UI)
     numero_identificacion = forms.CharField(required=False, disabled=True)
     nombre_funcionario = forms.CharField(required=False, disabled=True)
     estamento = forms.CharField(required=False, disabled=True)
@@ -210,10 +210,7 @@ class SolicitudVacacionesForm(forms.ModelForm):
         if estamento_nombre == 'docente':
             # Docentes: pago mensual el día 30
             if hoy.day <= 10:
-                if hoy.month == 12:
-                    fecha_pago = date(hoy.year, 12, 30)
-                else:
-                    fecha_pago = date(hoy.year, hoy.month, 30)
+                fecha_pago = date(hoy.year, hoy.month, 30) if hoy.month != 12 else date(hoy.year, 12, 30)
             else:
                 if hoy.month == 12:
                     fecha_pago = date(hoy.year + 1, 1, 30)
@@ -237,7 +234,6 @@ class SolicitudVacacionesForm(forms.ModelForm):
             funcionario=funcionario,
             dias_pendientes_periodo__gt=0
         ).count()
-
         self.initial['periodos_pendientes'] = periodos_pendientes_count
 
         if self.instance and self.instance.pk:
@@ -248,26 +244,25 @@ class SolicitudVacacionesForm(forms.ModelForm):
 
     def clean_tiene_dias_pendientes(self):
         """
-        Limpia y establece el valor de tiene_dias_pendientes basado en la lógica de negocio.
-        Si no se proporciona en el POST, se establece basado en la existencia de reintegros pendientes.
+        Si no viene en POST, se infiere con base en reintegros AUTORIZADOS con saldo.
         """
         tiene_dias_pendientes = self.cleaned_data.get('tiene_dias_pendientes', False)
-        
+
         if 'tiene_dias_pendientes' not in self.data:
-            if 'instance' in self.__dict__ and self.instance and self.instance.funcionario:
+            if getattr(self, 'instance', None) and self.instance and self.instance.funcionario:
                 funcionario = self.instance.funcionario
             else:
                 User = get_user_model()
                 user = User.objects.get(id=self.initial.get('user_id'))
                 funcionario = user.funcionario
-            
+
             reintegros_pendientes = ReintegroVacaciones.objects.filter(
                 funcionario=funcionario,
-                estado_solicitud='aprobado',
+                estado='AUTORIZADA',
                 dias_pendientes__gt=0
             )
             tiene_dias_pendientes = reintegros_pendientes.exists()
-        
+
         return tiene_dias_pendientes
 
     def clean(self):

@@ -3,12 +3,14 @@ from datetime import date, timedelta
 from django.db import models
 from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from django.contrib.contenttypes.models import ContentType
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Case, When, IntegerField
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from usuarios.models import Funcionario, CustomUser
+
+from .permissions import can_delete, next_action_allowed
 
 from .utils import (
     calcular_plazo_limite_solicitud, 
@@ -121,12 +123,14 @@ class PeriodoVacacional(models.Model):
 # ============================================================
 class SolicitudVacaciones(models.Model):
     ESTADOS = [
-        ('pendiente', 'Pendiente'),
-        ('en_revision', 'En revisión'),
-        ('aprobado', 'Aprobado'),
-        ('rechazado', 'Rechazado'),
-        ('cancelado', 'Cancelado')
-    ]
+        ("BORRADOR","Borrador"),
+        ("PEND_JEFE","Pendiente Jefe"),
+        ("PEND_COORD","Pendiente Coordinación"),
+        ("PEND_RRHH","Pendiente RRHH"),
+        ("AUTORIZADA","Autorizada"),
+        ("RECHAZADA","Rechazada"),
+        ("DEVUELTA","Devuelta"),
+        ]
 
     aprobaciones = GenericRelation(
         'AprobacionEtapa',
@@ -157,9 +161,118 @@ class SolicitudVacaciones(models.Model):
     tiene_dias_pendientes = models.BooleanField(default=False)
     periodo_vacacional = models.ForeignKey(PeriodoVacacional, on_delete=models.PROTECT)
     funcionario = models.ForeignKey(Funcionario, on_delete=models.CASCADE)
-    estado_solicitud = models.CharField(max_length=20, choices=ESTADOS, default='pendiente')
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='BORRADOR')
 
     ETAPAS_ORDEN = ('JEFE', 'COORD', 'RRHH')
+
+    # ---- Helpers de pertenencia/alcance ----
+    def misma_dependencia(self, user):
+        try:
+            return self.funcionario.facultad_dependencia == user.funcionario.facultad_dependencia
+        except Exception:
+            return False
+
+    def bajo_jefe(self, user):
+        try:
+            return self.funcionario.jefe_inmediato == user.funcionario
+        except Exception:
+            return False
+
+    def propietario(self, user):
+        return getattr(self.funcionario, "user", None) == user
+
+    # === Inicializa las 3 etapas (JEFE, COORD, RRHH) si faltan ===
+    def _asegurar_etapas(self):
+        existentes = {a.etapa: a for a in self.aprobaciones.all()}
+        for etapa in self.ETAPAS_ORDEN:
+            if etapa not in existentes:
+                self.aprobaciones.model.objects.create(
+                    content_object=self,
+                    etapa=etapa,
+                    estado='pendiente'
+                )
+
+    def _etapa(self, code):
+        return self.aprobaciones.filter(etapa=code).first()
+
+    # ---- Acciones de flujo ----
+    def enviar(self, user):
+        if self.estado not in ["BORRADOR", "DEVUELTA"]:
+            raise ValidationError("La solicitud no está en estado enviable.")
+        self._asegurar_etapas()
+        for a in self.aprobaciones.all():
+            a.estado = 'pendiente'
+            a.save(update_fields=['estado'])
+        self.estado = "PEND_JEFE"
+        self.save(update_fields=["estado"])
+
+    def aprobar(self, user):
+        if not next_action_allowed(user, self, "aprobar"):
+            raise PermissionDenied("No puedes aprobar en este estado/rol.")
+
+        if self.estado == "PEND_JEFE":
+            e = self._etapa('JEFE')
+            if e:
+                e.estado = 'aprobada'
+                e.save(update_fields=['estado'])
+            self.estado = "PEND_COORD"
+
+        elif self.estado == "PEND_COORD":
+            e = self._etapa('COORD')
+            if e:
+                e.estado = 'aprobada'
+                e.save(update_fields=['estado'])
+            self.estado = "PEND_RRHH"
+
+        elif self.estado == "PEND_RRHH":
+            e = self._etapa('RRHH')
+            if e:
+                e.estado = 'autorizada'
+                e.save(update_fields=['estado'])
+            self.estado = "AUTORIZADA"
+
+        self.save(update_fields=["estado"])
+
+    def devolver(self, user, comentario=None):
+        if not next_action_allowed(user, self, "devolver"):
+            raise PermissionDenied("No puedes devolver en este estado/rol.")
+
+        if self.estado == "PEND_JEFE":
+            e = self._etapa('JEFE')
+        elif self.estado == "PEND_COORD":
+            e = self._etapa('COORD')
+        elif self.estado == "PEND_RRHH":
+            e = self._etapa('RRHH')
+        else:
+            e = None
+
+        if e:
+            e.estado = 'devuelta'
+            e.save(update_fields=['estado'])
+
+        self.estado = "DEVUELTA"
+        self.save(update_fields=["estado"])
+
+    def rechazar(self, user, comentario=None):
+        if not next_action_allowed(user, self, "rechazar"):
+            raise PermissionDenied("No puedes rechazar en este estado/rol.")
+
+        e = self._etapa('RRHH')
+        if e:
+            e.estado = 'rechazada'
+            e.save(update_fields=['estado'])
+
+        self.estado = "RECHAZADA"
+        self.save(update_fields=["estado"])
+
+    # ---- Borrado seguro ----
+    def puede_eliminar(self, user):
+        return can_delete(user, self)
+
+    def delete(self, using=None, keep_parents=False):
+        if self.estado in ["AUTORIZADA", "RECHAZADA"]:
+            raise ValidationError("No se puede eliminar en este estado.")
+        return super().delete(using, keep_parents)
 
     @property
     def aprobaciones_ordenadas(self):
@@ -322,45 +435,52 @@ class SolicitudVacaciones(models.Model):
     def _obtener_total_dias_por_estamento(self):
         """
         Calcula el total de días solicitados según el estamento y decreto del funcionario.
-        
-        Returns:
-            int: Total de días calculados según las reglas del estamento
+        - Docente 1279: 15 hábiles + (calendario) hasta un máximo total de 30.
+        - Administrativo: 15 días hábiles.
+        - Docente 115 / Trabajador oficial: 30 días calendario.
         """
         if not (self.fecha_inicio_vacaciones and self.fecha_fin_vacaciones):
             return 0
-            
+
         estamento = self.funcionario.estamento.nombre.lower()
         decreto = (self.funcionario.decreto_resolucion or '').strip()
 
+        fi = self.fecha_inicio_vacaciones
+        ff = self.fecha_fin_vacaciones
+
         if estamento == 'docente' and decreto == '1279':
-            festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
-            actual = self.fecha_inicio_vacaciones
+            festivos = holidays.Colombia(years=range(fi.year, ff.year + 1))
+            actual = fi
             habiles_marcados = 0
-            
-            while actual <= self.fecha_fin_vacaciones and habiles_marcados < 15:
+            last_business = None
+
+            while actual <= ff and habiles_marcados < 15:
                 if actual.weekday() < 5 and actual not in festivos:
                     habiles_marcados += 1
+                    last_business = actual
                 actual += timedelta(days=1)
-            dias_calendario = 0
-           
-            while actual <= self.fecha_fin_vacaciones:
-                dias_calendario += 1
-                actual += timedelta(days=1)
-                
-            return 15 + dias_calendario
-            
+
+            if last_business is None:
+                return min(30, (ff - fi).days + 1)
+
+            start_calendar = last_business + timedelta(days=1)
+            remainder_cal = 0 if start_calendar > ff else (ff - start_calendar).days + 1  # <-- +1 inclusivo
+
+            total = 15 + remainder_cal
+            return 30 if total > 30 else total
+
         elif estamento == 'administrativo':
-            festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
-            actual = self.fecha_inicio_vacaciones
+            festivos = holidays.Colombia(years=range(fi.year, ff.year + 1))
+            actual = fi
             dias_habiles = 0
-            while actual <= self.fecha_fin_vacaciones:
+            while actual <= ff:
                 if actual.weekday() < 5 and actual not in festivos:
                     dias_habiles += 1
                 actual += timedelta(days=1)
             return dias_habiles
-            
+
         else:
-            return (self.fecha_fin_vacaciones - self.fecha_inicio_vacaciones).days + 1
+            return (ff - fi).days + 1
 
     def _validar_funcionario(self, errores):
         """Valida que el funcionario pueda solicitar vacaciones."""
@@ -403,85 +523,52 @@ class SolicitudVacaciones(models.Model):
                     )
 
     def _validar_cruces(self, errores):
-        """Valida que no haya cruces con otras solicitudes."""
+        """Valida que no haya cruces con otras solicitudes activas/autorizadas del mismo funcionario."""
         if not (self.fecha_inicio_vacaciones and self.fecha_fin_vacaciones):
             return
-            
+
+        CONFLICTIVOS = ['PEND_JEFE', 'PEND_COORD', 'PEND_RRHH', 'AUTORIZADA']
+
         solicitudes = SolicitudVacaciones.objects.filter(
             funcionario=self.funcionario,
-            estado_solicitud__in=['aprobado', 'en_revision']
+            estado__in=CONFLICTIVOS
         ).exclude(pk=self.pk)
-        
+
         for s in solicitudes:
             if (
                 self.fecha_inicio_vacaciones <= s.fecha_fin_vacaciones and
                 self.fecha_fin_vacaciones >= s.fecha_inicio_vacaciones
             ):
-                errores['fecha_inicio_vacaciones'] = "Las fechas se cruzan con otra solicitud en revisión o aprobada."
+                errores['fecha_inicio_vacaciones'] = (
+                    "Las fechas se cruzan con otra solicitud activa o autorizada."
+                )
                 break
 
     def _validar_dias_solicitados(self, errores):
         """Valida el cálculo de días solicitados según estamento y decreto."""
         if not (self.fecha_inicio_vacaciones and self.fecha_fin_vacaciones):
             return
-            
+
         estamento = self.funcionario.estamento.nombre.lower()
         decreto = (self.funcionario.decreto_resolucion or '').strip()
-        dias_solicitados = (self.fecha_fin_vacaciones - self.fecha_inicio_vacaciones).days + 1
-        
+
+        calculado = self._obtener_total_dias_por_estamento()
+
         if estamento == 'docente' and decreto == '1279':
-            festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
-            actual = self.fecha_inicio_vacaciones
-            habiles_marcados = 0
-            while actual <= self.fecha_fin_vacaciones and habiles_marcados < 15:
-                if actual.weekday() < 5 and actual not in festivos:
-                    habiles_marcados += 1
-                actual += timedelta(days=1)
-            dias_calendario = 0
-            while actual <= self.fecha_fin_vacaciones:
-                dias_calendario += 1
-                actual += timedelta(days=1)
-            total = 15 + dias_calendario
-            if total != self.total_dias_solicitados:
-                errores[None] = (
-                    f"Se calcularon {total} días (15 hábiles y {dias_calendario} calendario), pero se intentó guardar {self.total_dias_solicitados}."
-                )
-        elif estamento == 'administrativo' or (estamento == 'docente' and decreto == '115'):
-            if estamento == 'administrativo':
-                festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
-                actual = self.fecha_inicio_vacaciones
-                dias_habiles = 0
-                while actual <= self.fecha_fin_vacaciones:
-                    if actual.weekday() < 5 and actual not in festivos:
-                        dias_habiles += 1
-                    actual += timedelta(days=1)
-                if dias_habiles != self.total_dias_solicitados:
-                    errores[None] = (
-                        f"Se calcularon {dias_habiles} días hábiles, pero se intentó guardar {self.total_dias_solicitados}."
-                    )
-            else:
-                if dias_solicitados != self.total_dias_solicitados:
-                    errores[None] = (
-                        f"Se calcularon {dias_solicitados} días calendario, pero se intentó guardar {self.total_dias_solicitados}."
-                    )
-        elif estamento == 'trabajador oficial':
-            if dias_solicitados != self.total_dias_solicitados:
-                errores[None] = (
-                    f"Se calcularon {dias_solicitados} días calendario, pero se intentó guardar {self.total_dias_solicitados}."
-                )
-        else:
-            if dias_solicitados != self.total_dias_solicitados:
-                errores[None] = (
-                    f"Se calcularon {dias_solicitados} días calendario, pero se intentó guardar {self.total_dias_solicitados}."
-                )
+            if calculado > 30:
+                calculado = 30
+
+        if calculado != self.total_dias_solicitados:
+            errores[None] = (
+                f"Se calcularon {calculado} días según las reglas del estamento, "
+                f"pero se intentó guardar {self.total_dias_solicitados}."
+            )
 
     def _validar_periodo_vacacional(self, errores):
-        """Valida que haya suficientes días disponibles en el periodo vacacional."""
-        if self.periodo_vacacional and self.total_dias_solicitados is not None and self.periodo_vacacional.dias_pendientes_periodo is not None:
-            if self.total_dias_solicitados > self.periodo_vacacional.dias_pendientes_periodo:
-                errores['periodo_vacacional'] = "No hay suficientes días pendientes disponibles en el periodo seleccionado."
-        elif self.total_dias_solicitados is None:
-            errores['total_dias_solicitados'] = "Debe ingresar el número de días solicitados."
+        """
+        MVP: El periodo vacacional es informativo y NO debe bloquear la creación.
+        """
+        return
 
     def clean(self):
         """Valida la solicitud de vacaciones."""
@@ -507,16 +594,6 @@ class SolicitudVacaciones(models.Model):
     class Meta:
         verbose_name = "Solicitud de vacaciones"
         verbose_name_plural = "Solicitudes de vacaciones"
-        permissions = [
-            ("crear_solicitud_vacaciones", "Puede crear solicitudes de vacaciones"),
-            ("editar_solicitud_vacaciones", "Puede editar solicitudes de vacaciones"),
-            ("ver_solicitud_vacaciones", "Puede ver solicitudes de vacaciones"),
-            ("dar_visto_bueno_solicitud", "Puede dar visto bueno a solicitudes de vacaciones"),
-            ("devolver_solicitud", "Puede devolver solicitudes de vacaciones para corrección"),
-            ("autorizar_solicitud", "Puede autorizar solicitudes de vacaciones"),
-            ("rechazar_solicitud", "Puede rechazar solicitudes de vacaciones"),
-            ("cerrar_solicitud", "Puede cerrar solicitudes de vacaciones"),
-        ]
 
     def save(self, *args, **kwargs):
         # Calcular automáticamente el total de días solicitados antes de guardar
@@ -666,12 +743,15 @@ class DiasPendientesVacaciones(models.Model):
 class ReintegroVacaciones(models.Model):
     TIPO_DIAS = (('H', 'Hábiles'), ('C', 'Calendario'))
     MOTIVOS_REINTEGRO = [('Vacaciones', 'Vacaciones')]
+
     ESTADOS = [
-        ('pendiente', 'Pendiente'),
-        ('en_revision', 'En revisión'),
-        ('aprobado', 'Aprobado'),
-        ('rechazado', 'Rechazado'),
-        ('cancelado', 'Cancelado'),
+        ("BORRADOR","Borrador"),
+        ("PEND_JEFE","Pendiente Jefe"),
+        ("PEND_COORD","Pendiente Coordinación"),
+        ("PEND_RRHH","Pendiente RRHH"),
+        ("AUTORIZADA","Autorizada"),
+        ("RECHAZADA","Rechazada"),
+        ("DEVUELTA","Devuelta"),
     ]
 
     aprobaciones = GenericRelation(
@@ -703,7 +783,10 @@ class ReintegroVacaciones(models.Model):
         on_delete=models.PROTECT,
         related_name="reintegros_vacaciones"
     )
-    estado_solicitud = models.CharField(max_length=20, choices=ESTADOS, default='pendiente')
+
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='BORRADOR')
+
+    ETAPAS_ORDEN = ('JEFE', 'COORD', 'RRHH')
 
     @property
     def aprobada_por_jefe(self) -> bool:
@@ -720,22 +803,120 @@ class ReintegroVacaciones(models.Model):
         a = self.aprobaciones.filter(etapa='RRHH').first()
         return bool(a and a.estado == 'autorizada')
 
+    # ========= Helpers de pertenencia/alcance =========
+    def misma_dependencia(self, user):
+        try:
+            return self.funcionario.facultad_dependencia == user.funcionario.facultad_dependencia
+        except Exception:
+            return False
+
+    def bajo_jefe(self, user):
+        try:
+            return self.funcionario.jefe_inmediato == user.funcionario
+        except Exception:
+            return False
+
+    def propietario(self, user):
+        return getattr(self.funcionario, "user", None) == user
+
+    def _asegurar_etapas(self):
+        existentes = {a.etapa: a for a in self.aprobaciones.all()}
+        for etapa in self.ETAPAS_ORDEN:
+            if etapa not in existentes:
+                self.aprobaciones.model.objects.create(
+                    content_object=self,
+                    etapa=etapa,
+                    estado='pendiente'
+                )
+
+    def _etapa(self, code):
+        return self.aprobaciones.filter(etapa=code).first()
+
+    # ================= Acciones de flujo =================
+    def enviar(self, user):
+        if self.estado not in ["BORRADOR", "DEVUELTA"]:
+            raise ValidationError("El reintegro no está en estado enviable.")
+        self._asegurar_etapas()
+        for a in self.aprobaciones.all():
+            a.estado = 'pendiente'
+            a.save(update_fields=['estado'])
+        self.estado = "PEND_JEFE"
+        self.save(update_fields=["estado"])
+
+    def aprobar(self, user):
+        if not next_action_allowed(user, self, "aprobar"):
+            raise PermissionDenied("No puedes aprobar en este estado/rol.")
+
+        if self.estado == "PEND_JEFE":
+            e = self._etapa('JEFE')
+            if e:
+                e.estado = 'aprobada'
+                e.save(update_fields=['estado'])
+            self.estado = "PEND_COORD"
+
+        elif self.estado == "PEND_COORD":
+            e = self._etapa('COORD')
+            if e:
+                e.estado = 'aprobada'
+                e.save(update_fields=['estado'])
+            self.estado = "PEND_RRHH"
+
+        elif self.estado == "PEND_RRHH":
+            e = self._etapa('RRHH')
+            if e:
+                e.estado = 'autorizada'
+                e.save(update_fields=['estado'])
+            self.estado = "AUTORIZADA"
+
+        self.save(update_fields=["estado"])
+
+    def devolver(self, user, comentario=None):
+        if not next_action_allowed(user, self, "devolver"):
+            raise PermissionDenied("No puedes devolver en este estado/rol.")
+
+        if self.estado == "PEND_JEFE":
+            e = self._etapa('JEFE')
+        elif self.estado == "PEND_COORD":
+            e = self._etapa('COORD')
+        elif self.estado == "PEND_RRHH":
+            e = self._etapa('RRHH')
+        else:
+            e = None
+
+        if e:
+            e.estado = 'devuelta'
+            e.save(update_fields=['estado'])
+
+        self.estado = "DEVUELTA"
+        self.save(update_fields=["estado"])
+
+    def rechazar(self, user, comentario=None):
+        if not next_action_allowed(user, self, "rechazar"):
+            raise PermissionDenied("No puedes rechazar en este estado/rol.")
+
+        e = self._etapa('RRHH')
+        if e:
+            e.estado = 'rechazada'
+            e.save(update_fields=['estado'])
+
+        self.estado = "RECHAZADA"
+        self.save(update_fields=["estado"])
+
+    # ================= Borrado seguro =================
+    def puede_eliminar(self, user):
+        return can_delete(user, self)
+
+    def delete(self, using=None, keep_parents=False):
+        if self.estado in ["AUTORIZADA", "RECHAZADA"]:
+            raise ValidationError("No se puede eliminar en este estado.")
+        return super().delete(using, keep_parents)
+
     def __str__(self):
         return f"Reintegro {self.codigo_sabs} - {self.funcionario}"
 
     class Meta:
         verbose_name = "Reintegro de vacaciones"
         verbose_name_plural = "Reintegros de vacaciones"
-        permissions = [
-            ("crear_reintegro_vacaciones", "Puede crear reintegros de vacaciones"),
-            ("editar_reintegro_vacaciones", "Puede editar reintegros de vacaciones"),
-            ("ver_reintegro_vacaciones", "Puede ver reintegros de vacaciones"),
-            ("dar_visto_bueno_reintegro", "Puede dar visto bueno a reintegros de vacaciones"),
-            ("devolver_reintegro", "Puede devolver reintegros para corrección"),
-            ("autorizar_reintegro", "Puede autorizar reintegros de vacaciones"),
-            ("rechazar_reintegro", "Puede rechazar reintegros de vacaciones"),
-            ("cerrar_reintegro", "Puede cerrar reintegros de vacaciones"),
-        ]
 
     def save(self, *args, **kwargs):
         if not self.codigo_sabs:
