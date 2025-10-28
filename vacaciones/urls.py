@@ -1,6 +1,6 @@
 from django.urls import path, include
 
-from . import views
+from . import views, views_jefe
 from .views import (
     PeriodoVacacionalListView,
     PeriodoVacacionalCreateView,
@@ -16,32 +16,40 @@ from .views import (
 app_name = "vacaciones"
 
 urlpatterns = [
+    # --- Semáforo ---
     path("semaforo-cell/<int:pk>/", views.semaforo_cell, name="semaforo_cell"),
 
-    # Acciones de flujo por etapa
-    path("<int:pk>/aprobar/", views.aprobar_view, name="aprobar_etapa"),
-    path("<int:pk>/devolver/", views.devolver_view, name="devolver_etapa"),
-    path("<int:pk>/autorizar/", views.autorizar_view, name="autorizar_rrhh"),
-    path("<int:pk>/rechazar/", views.rechazar_view, name="rechazar_rrhh"),
-    path("<int:pk>/reenviar/", views.reenviar_view, name="reenviar_funcionario"),
+    # --- Acciones de flujo por etapa (Genéricas)
+    path("<int:pk>/aprobar/",   views.aprobar_view,    name="aprobar_etapa"),
+    path("<int:pk>/devolver/",  views.devolver_view,   name="devolver_etapa"),
+    path("<int:pk>/autorizar/", views.autorizar_view,  name="autorizar_rrhh"),
+    path("<int:pk>/rechazar/",  views.rechazar_view,   name="rechazar_rrhh"),
+    path("<int:pk>/reenviar/",  views.reenviar_view,   name="reenviar_funcionario"),
 
     # -----------------------------------------
     # MODELO: PeriodoVacacional
     # -----------------------------------------
-    path('periodos-vacacionales/', PeriodoVacacionalListView.as_view(), name="periodo-vacacional-list"),
-    path('periodos-vacacionales/crear/', PeriodoVacacionalCreateView.as_view(), name="periodo_vacacional_create"),
-    path('periodos-vacacionales/<int:pk>/editar/', PeriodoVacacionalUpdateView.as_view(), name="periodo_vacacional_update"),
-    path('periodos-vacacionales/<int:pk>/eliminar/', PeriodoVacacionalDeleteView.as_view(), name="periodo_vacacional_delete"),
+    path("periodos-vacacionales/",                   PeriodoVacacionalListView.as_view(),   name="periodo-vacacional-list"),
+    path("periodos-vacacionales/crear/",             PeriodoVacacionalCreateView.as_view(), name="periodo_vacacional_create"),
+    path("periodos-vacacionales/<int:pk>/editar/",   PeriodoVacacionalUpdateView.as_view(), name="periodo_vacacional_update"),
+    path("periodos-vacacionales/<int:pk>/eliminar/", PeriodoVacacionalDeleteView.as_view(), name="periodo_vacacional_delete"),
 
     # -----------------------------------------
-    # MODELO: SolicitudVacaciones
+    # MODELO: SolicitudVacaciones (Funcionario)
     # -----------------------------------------
-    path('solicitudes-vacaciones/', SolicitudVacacionesListView.as_view(), name="solicitud-vacaciones-list"),
-    path('solicitudes-vacaciones/crear/', SolicitudVacacionesCreateView.as_view(), name="solicitud_vacaciones_create"),
-    path('solicitudes-vacaciones/<int:pk>/editar/', SolicitudVacacionesUpdateView.as_view(), name="solicitud_vacaciones_update"),
-    path('solicitudes-vacaciones/<int:pk>/eliminar/', SolicitudVacacionesDeleteView.as_view(), name="solicitud_vacaciones_delete"),
-    path('solicitudes/<int:pk>/pdf/', SolicitudVacacionesPDFView.as_view(), name="solicitud_vacaciones_pdf"),
+    path("solicitudes-vacaciones/",                     SolicitudVacacionesListView.as_view(),   name="solicitud-vacaciones-list"),
+    path("solicitudes-vacaciones/crear/",               SolicitudVacacionesCreateView.as_view(), name="solicitud_vacaciones_create"),
+    path("solicitudes-vacaciones/<int:pk>/editar/",     SolicitudVacacionesUpdateView.as_view(), name="solicitud_vacaciones_update"),
+    path("solicitudes-vacaciones/<int:pk>/eliminar/",   SolicitudVacacionesDeleteView.as_view(), name="solicitud_vacaciones_delete"),
+    path("solicitudes/<int:pk>/pdf/",                   SolicitudVacacionesPDFView.as_view(),    name="solicitud_vacaciones_pdf"),
 
-    # Rutas API REST
-    path('api/', include('vacaciones.urls_api')),
+    # -----------------------------------------
+    # Jefe Inmediato
+    # -----------------------------------------
+    path("jefe/solicitudes/",                         views_jefe.SolicitudesJefeListView.as_view(), name="jefe_solicitudes_list"),
+    path("jefe/solicitudes/<int:pk>/aprobar/",        views_jefe.aprobar_solicitud,               name="jefe_aprobar_solicitud"),
+    path("jefe/solicitudes/<int:pk>/devolver/",       views_jefe.devolver_solicitud,              name="jefe_devolver_solicitud"),
+
+    # --- API REST
+    path("api/", include("vacaciones.urls_api")),
 ]

@@ -1,0 +1,31 @@
+{% load semaforo_tags %}
+
+<tr id="sol-row-{{ s.id }}">
+    <td>{{ s.codigo_sabs }}</td>
+    <td>{{ s.funcionario.nombres }} {{ s.funcionario.apellidos }}<br>
+        <small class="text-muted">{{ s.funcionario.facultad_dependencia.descripcion }}</small></td>
+    <td>{{ s.fecha_inicio_vacaciones|date:"d/m/Y" }} - {{ s.fecha_fin_vacaciones|date:"d/m/Y" }}</td>
+    <td>{{ s.total_dias_solicitados }}</td>
+    <td><span class="badge bg-secondary">{{ s.get_estado_solicitud_display }}</span></td>
+    <td>{% semaforo_estado s.estado_solicitud %}</td>
+    <td class="text-end">
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'vacaciones:solicitud_vacaciones_pdf' s.id %}" target="_blank">PDF</a>
+  
+      {% if s.estado_solicitud == "pendiente" %}
+        <button class="btn btn-sm btn-success"
+                hx-post="{% url 'vacaciones:jefe_aprobar_solicitud' s.id %}"
+                hx-target="#sol-row-{{ s.id }}"
+                hx-swap="outerHTML"
+                hx-vals='{"comentario": ""}'
+                >Aprobar</button>
+  
+        <button class="btn btn-sm btn-warning"
+                hx-post="{% url 'vacaciones:jefe_devolver_solicitud' s.id %}"
+                hx-target="#sol-row-{{ s.id }}"
+                hx-swap="outerHTML"
+                hx-vals='{"comentario": "Falta documentación"}'
+                >Devolver</button>
+      {% endif %}
+    </td>
+  </tr>
+  
