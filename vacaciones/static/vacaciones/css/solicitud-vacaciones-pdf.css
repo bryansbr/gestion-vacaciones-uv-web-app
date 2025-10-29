@@ -62,6 +62,23 @@
   
   .bloque-titulo { font-weight: bold; margin: 6px 0 2px; text-transform: uppercase; }
   
+  /* Observaciones */
+  .observaciones-contenido {
+    border: 1px solid #000;
+    padding: 8px;
+    min-height: 60px;
+    margin-bottom: 8px;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .observaciones-texto {
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  
   /* Fechas en cuadriculado */
   .fecha-grid {
     display: grid; grid-template-columns: repeat(3, 1fr);

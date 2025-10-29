@@ -118,6 +118,16 @@
   </table>
 
   <br>
+  <div class="bloque-titulo">OBSERVACIONES</div>
+  <div class="observaciones-contenido">
+    {% if observaciones %}
+      <div class="observaciones-texto">{{ observaciones|linebreaks }}</div>
+    {% else %}
+      <div class="observaciones-texto">&nbsp;</div>
+    {% endif %}
+  </div>
+
+  <br>
   <div class="bloque-titulo">TIEMPO QUE SE ADEUDA POR CONCEPTO DE VACACIONES DECRETADAS</div>
   <table class="grid small">
     <tr>

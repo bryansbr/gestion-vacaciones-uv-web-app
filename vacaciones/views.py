@@ -564,6 +564,8 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
             "disfrute_desde": f_inicio_disfrute,
             "disfrute_hasta": f_fin_disfrute,
 
+            "observaciones": solicitud.observaciones or "",
+
             "solicitado_por": f"{funcionario.nombre} {funcionario.apellido}",
         }
 
