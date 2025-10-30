@@ -2,12 +2,11 @@ document.addEventListener('click', function (e) {
   const btn = e.target.closest('.btn-enviar-solicitud');
   if (!btn) return;
 
-  const form = btn.closest('.form-enviar-solicitud');
-  if (!form) return;
+  const formulario = btn.closest('.form-enviar-solicitud');
+  if (!formulario) return;
 
-  const codigo = form.dataset.codigo || '';
+  const codigo = formulario.dataset.codigo || '';
 
-  // Confirmación
   Swal.fire({
     title: "¿Está seguro de enviar la solicitud de vacaciones?",
     text: "Una vez enviada a su Jefe Inmediato esta acción no se podrá revertir.",
@@ -17,10 +16,10 @@ document.addEventListener('click', function (e) {
     cancelButtonColor: "#d33",
     confirmButtonText: "Sí, enviar",
     cancelButtonText: "Cancelar"
-  }).then((result) => {
-    if (result.isConfirmed) {
+  }).then((resultado) => {
+    if (resultado.isConfirmed) {
       try { localStorage.setItem('solicitud_enviada', codigo); } catch (_) {}
-      form.submit();
+      formulario.submit();
     }
   });
 });

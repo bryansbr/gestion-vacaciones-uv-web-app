@@ -283,6 +283,8 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
         context['solicitud_activa'] = solicitudes_sin_reintegro[0] if solicitudes_sin_reintegro else None
         context['mensaje_plazo'] = None
         
+        context['tiene_periodos'] = PeriodoVacacional.objects.filter(funcionario=funcionario).exists()
+        
         return context
 
 class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):

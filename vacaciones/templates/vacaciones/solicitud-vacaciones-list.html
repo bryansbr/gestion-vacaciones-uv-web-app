@@ -11,9 +11,15 @@
   <div class="flex justify-between items-center mb-6">
     <h2 class="text-2xl font-bold text-gray-700">Mis solicitudes de vacaciones</h2>
     {% if puede_crear_solicitud %}
-      <a href="{% url 'vacaciones:solicitud_vacaciones_create' %}" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200">
-        Crear
-      </a>
+      {% if tiene_periodos %}
+        <a href="{% url 'vacaciones:solicitud_vacaciones_create' %}" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200">
+          Crear
+        </a>
+      {% else %}
+        <button id="btn-crear-sin-periodos" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200">
+          Crear
+        </button>
+      {% endif %}
     {% else %}
       <div class="tooltip-container">
         <button title="No puedes crear una nueva solicitud mientras tengas una solicitud activa."
@@ -79,7 +85,7 @@
               </td>
 
               <td class="px-4 py-2 border font-medium text-indigo-600">
-                {{ solicitud.get_estado_display }}
+                {{ solicitud.get_estado_solicitud_display }}
               </td>
 
               <td class="px-4 py-2 border">{{ solicitud.fecha_solicitud|date:"d/m/Y" }}</td>
@@ -97,7 +103,7 @@
                       </svg>
                     </a>
 
-                    {% if solicitud.estado == 'BORRADOR' or solicitud.estado == 'DEVUELTA' %}
+                    {% if solicitud.estado_solicitud == 'pendiente' %}
                       <a href="{% url 'vacaciones:solicitud_vacaciones_update' solicitud.id %}"
                          class="text-blue-600 hover:text-blue-800 transition-colors duration-200"
                          title="Editar solicitud">
@@ -131,33 +137,24 @@
   {% endif %}
 </div>
 
-{# Modal de eliminación #}
-<div id="modal-eliminar-solicitud"
-     class="hidden fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
-     style="width:100vw;height:100vh;top:0;left:0;">
-  <div class="bg-white p-6 rounded shadow-lg max-w-md w-full relative">
-    <h2 class="flex justify-center mt-4 text-lg font-bold mb-2 text-red-600">Confirmar eliminación</h2>
-    <p class="text-gray-700 mb-4 text-center">
-      ¿Estás seguro de que deseas eliminar la solicitud <strong id="codigo-solicitud-eliminar"></strong>?
-    </p>
-    <form id="form-eliminar-solicitud" method="POST" action="">
-      {% csrf_token %}
-      <div class="flex justify-center gap-4 mt-4">
-        <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">
-          Sí, eliminar
-        </button>
-        <button type="button" id="cancelar-eliminar" class="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500 transition">
-          Cancelar
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
+{# Formulario oculto para enviar el POST de eliminación (usado por SweetAlert2) #}
+<form id="form-eliminar-solicitud" method="POST" action="" class="hidden">
+  {% csrf_token %}
+  <input type="hidden" name="_method" value="delete">
+  <button type="submit"></button>
+</form>
 {% endblock %}
 
 {% block extra_scripts %}
   {{ block.super }}
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-  <script src="{% static 'vacaciones/js/components/vacaciones/confirmar-envio.js' %}"></script>
+  <script src="{% static 'vacaciones/js/components/vacaciones/confirmar-envio-solicitud.js' %}"></script>
   <script src="{% static 'vacaciones/js/components/vacaciones/acciones-solicitud-vacaciones.js' %}"></script>
+  
+  <script src="{% static 'vacaciones/js/components/vacaciones/creacion-exitosa-solicitud.js' %}"></script>
+  <script src="{% static 'vacaciones/js/components/vacaciones/eliminacion-exitosa-solicitud.js' %}"></script>
+  
+  {% if not tiene_periodos and puede_crear_solicitud %}
+  <script src="{% static 'vacaciones/js/components/vacaciones/alerta-sin-periodos.js' %}"></script>
+  {% endif %}
 {% endblock %}
