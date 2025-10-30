@@ -492,7 +492,6 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
         return {"q": q, "mes": f.month, "anio": f.year}
 
     def get(self, request, pk):
-        # Cargar solicitud
         try:
             solicitud = SolicitudVacaciones.objects.select_related(
                 "funcionario", "periodo_vacacional"
@@ -500,20 +499,24 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
         except SolicitudVacaciones.DoesNotExist:
             raise Http404("Solicitud no encontrada")
 
-        # -------- FIX DE AUTORIZACIÓN --------
+        # -------- AUTORIZACIÓN --------
         owner_id = solicitud.funcionario_id
         user_funcionario_id = None
+        es_jefe_del_funcionario = False
         if hasattr(request.user, "funcionario") and request.user.funcionario is not None:
             user_funcionario_id = request.user.funcionario.pk
+            try:
+                es_jefe_del_funcionario = (solicitud.funcionario.jefe_inmediato_id == request.user.funcionario.pk)
+            except Exception:
+                es_jefe_del_funcionario = False
 
         if not (
             request.user.is_staff
             or request.user.is_superuser
             or user_funcionario_id == owner_id
+            or es_jefe_del_funcionario
         ):
-            # Mantener 404 para no filtrar existencia
             raise Http404("No autorizado")
-        # -------------------------------------
 
         funcionario = solicitud.funcionario
         periodo = solicitud.periodo_vacacional
