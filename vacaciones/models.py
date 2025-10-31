@@ -317,7 +317,14 @@ class SolicitudVacaciones(models.Model):
         if not (self.fecha_inicio_vacaciones and self.fecha_fin_vacaciones):
             return
         
-        self.total_dias_solicitados = self._obtener_total_dias_por_estamento()
+        total = self._obtener_total_dias_por_estamento()
+        try:
+            if self.periodo_vacacional_id and self.periodo_vacacional and self.periodo_vacacional.dias_pendientes_periodo is not None:
+                total = min(total, max(0, int(self.periodo_vacacional.dias_pendientes_periodo)))
+        except Exception:
+            pass
+
+        self.total_dias_solicitados = total
 
     def _obtener_total_dias_por_estamento(self):
         """
@@ -336,17 +343,17 @@ class SolicitudVacaciones(models.Model):
             festivos = holidays.Colombia(years=range(self.fecha_inicio_vacaciones.year, self.fecha_fin_vacaciones.year + 1))
             actual = self.fecha_inicio_vacaciones
             habiles_marcados = 0
-            
+
             while actual <= self.fecha_fin_vacaciones and habiles_marcados < 15:
                 if actual.weekday() < 5 and actual not in festivos:
                     habiles_marcados += 1
                 actual += timedelta(days=1)
+
             dias_calendario = 0
-           
-            while actual <= self.fecha_fin_vacaciones:
+            while actual <= self.fecha_fin_vacaciones and dias_calendario < 15:
                 dias_calendario += 1
                 actual += timedelta(days=1)
-                
+
             return 15 + dias_calendario
             
         elif estamento == 'administrativo':
@@ -437,10 +444,12 @@ class SolicitudVacaciones(models.Model):
                 if actual.weekday() < 5 and actual not in festivos:
                     habiles_marcados += 1
                 actual += timedelta(days=1)
+
             dias_calendario = 0
-            while actual <= self.fecha_fin_vacaciones:
+            while actual <= self.fecha_fin_vacaciones and dias_calendario < 15:
                 dias_calendario += 1
                 actual += timedelta(days=1)
+
             total = 15 + dias_calendario
             if total != self.total_dias_solicitados:
                 errores[None] = (

@@ -122,19 +122,41 @@ document.addEventListener('DOMContentLoaded', function() {
             fechaFinCalculada = addDays(inicio, diasPendientes.dias);
           }
         } else {
+          let diasPendientesPeriodo = null;
+          if (periodoVacacional && periodoVacacional.value) {
+            const periodosDiasPendientes = window.PERIODOS_DIAS_PENDIENTES || {};
+            const periodoId = parseInt(periodoVacacional.value);
+            diasPendientesPeriodo = periodosDiasPendientes[periodoId] || null;
+          }
+
+          let diasACalcular = null;
           if (estamento === 'docente' && decreto === '1279') {
-            const ultimoHabil = addBusinessDays(inicio, 15, window.FESTIVOS_COLOMBIA);
-            const result = new Date(ultimoHabil);
-            result.setDate(result.getDate() + 15);
-            fechaFinCalculada = result;
+            diasACalcular = 30;
           } else if (estamento === 'docente' && decreto === '115') {
-            fechaFinCalculada = addDays(inicio, 30);
+            diasACalcular = 30;
           } else if (estamento === 'administrativo') {
-            fechaFinCalculada = addBusinessDays(inicio, 15, window.FESTIVOS_COLOMBIA);
+            diasACalcular = 15;
           } else if (estamento === 'trabajador oficial') {
-            fechaFinCalculada = addDays(inicio, 30);
+            diasACalcular = 30;
           } else {
-            fechaFinCalculada = addBusinessDays(inicio, 15, window.FESTIVOS_COLOMBIA);
+            diasACalcular = 15;
+          }
+
+          if (diasPendientesPeriodo !== null && diasPendientesPeriodo !== undefined) {
+            diasACalcular = Math.min(diasACalcular, diasPendientesPeriodo);
+          }
+
+          if (estamento === 'docente' && decreto === '1279') {
+            const diasHabiles = Math.min(15, diasACalcular);
+            const diasCalendario = Math.max(0, diasACalcular - 15);
+            const ultimoHabil = addBusinessDays(inicio, diasHabiles, window.FESTIVOS_COLOMBIA);
+            const result = new Date(ultimoHabil);
+            result.setDate(result.getDate() + diasCalendario);
+            fechaFinCalculada = result;
+          } else if (estamento === 'administrativo') {
+            fechaFinCalculada = addBusinessDays(inicio, diasACalcular, window.FESTIVOS_COLOMBIA);
+          } else {
+            fechaFinCalculada = addDays(inicio, diasACalcular - 1);
           }
         }
 

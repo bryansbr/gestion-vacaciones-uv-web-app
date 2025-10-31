@@ -24,13 +24,6 @@ document.addEventListener('DOMContentLoaded', function () {
       cancelButtonText: "Cancelar"
     }).then((resultado) => {
       if (resultado.isConfirmed) {
-        try {
-          localStorage.setItem('solicitud_creada', '1');
-          var codigoInput = formulario.querySelector('#id_codigo_sabs') || formulario.querySelector('[name="codigo_sabs"]');
-          if (codigoInput && codigoInput.value) {
-            localStorage.setItem('solicitud_creada_codigo', String(codigoInput.value));
-          }
-        } catch (_) {}
         formulario.submit();
       }
     });

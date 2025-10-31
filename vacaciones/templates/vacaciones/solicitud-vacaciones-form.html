@@ -65,6 +65,7 @@
         data-funcionario-estamento="{{ funcionario_estamento|escapejs }}"
         data-funcionario-decreto="{{ funcionario_decreto|escapejs }}"
         data-reintegros-pendientes='{{ reintegros_pendientes|default:"[]"|safe }}'
+        data-periodos-dias-pendientes='{{ periodos_dias_pendientes|default:"{}"|safe }}'
         id="variables-container"
     >
     <form method="post" class="space-y-6" {% if not tiene_periodos_vacacionales %}id="form-disabled"{% endif %}>

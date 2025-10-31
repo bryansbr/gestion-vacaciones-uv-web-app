@@ -112,6 +112,11 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         periodos_vacacionales = PeriodoVacacional.objects.filter(funcionario=funcionario)
         context['tiene_periodos_vacacionales'] = periodos_vacacionales.exists()
         
+        periodos_dias_pendientes = {}
+        for periodo in periodos_vacacionales:
+            periodos_dias_pendientes[periodo.pk] = periodo.dias_pendientes_periodo
+        context['periodos_dias_pendientes'] = json.dumps(periodos_dias_pendientes)
+        
         # Verificar si puede solicitar vacaciones según los nuevos plazos límite
         puede_solicitar_hoy, mensaje_plazo = puede_solicitar_vacaciones_hoy(
             funcionario.estamento.nombre.lower(),
@@ -120,13 +125,13 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         context['puede_solicitar_hoy'] = puede_solicitar_hoy
         context['mensaje_plazo'] = mensaje_plazo
         
-        # Si no tiene periodos, no mostrar reintegros ni otros datos
         if not context['tiene_periodos_vacacionales']:
             context['reintegros_pendientes'] = json.dumps([])
             context['tiene_reintegros_pendientes'] = False
             context['periodos_acumulados'] = None
             context['plazo_solicitud'] = mensaje_plazo
             context['mostrar_alerta_periodos_acumulados'] = False
+            context['periodos_dias_pendientes'] = json.dumps({})
             return context
 
         # Reintegros aprobados con días pendientes
@@ -177,7 +182,6 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
 
         form = context.get('form')
 
-        # Lógica para determinar si mostrar alerta de periodos acumulados
         context['mostrar_alerta_periodos_acumulados'] = False
         
         if hasattr(form, 'periodos_acumulados') and form.periodos_acumulados:
@@ -245,6 +249,13 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         except Exception as e:
             messages.error(self.request, f"Error al guardar la solicitud: {e}")
             return self.form_invalid(form)
+
+    def get_success_url(self):
+        url = super().get_success_url()
+        separador = '&' if ('?' in url) else '?'
+        codigo = getattr(self.object, 'codigo_sabs', '') or ''
+        codigo_q = urllib.parse.quote(codigo)
+        return f"{url}{separador}creada=1&codigo={codigo_q}"
     
 class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
     model = SolicitudVacaciones
@@ -317,12 +328,18 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
         periodos_vacacionales = PeriodoVacacional.objects.filter(funcionario=funcionario)
         context['tiene_periodos_vacacionales'] = periodos_vacacionales.exists()
         
+        periodos_dias_pendientes = {}
+        for periodo in periodos_vacacionales:
+            periodos_dias_pendientes[periodo.pk] = periodo.dias_pendientes_periodo
+        context['periodos_dias_pendientes'] = json.dumps(periodos_dias_pendientes)
+        
         if not context['tiene_periodos_vacacionales']:
             context['reintegros_pendientes'] = json.dumps([])
             context['tiene_reintegros_pendientes'] = False
             context['periodos_acumulados'] = None
             context['plazo_solicitud'] = None
             context['mostrar_alerta_periodos_acumulados'] = False
+            context['periodos_dias_pendientes'] = json.dumps({})
             return context
 
         reintegros_pendientes = ReintegroVacaciones.objects.filter(
