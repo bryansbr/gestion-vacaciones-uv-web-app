@@ -1,22 +1,25 @@
-from datetime import date
+import holidays
 import json
 import urllib.parse
+
+from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db.models import Q
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.templatetags.static import static
 from django.urls import reverse_lazy
-from django.utils.timezone import localdate, now
+from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
-import holidays
 from weasyprint import HTML
 
+from core.permissions import group_required, es_secretaria
 from .forms import PeriodoVacacionalForm, SolicitudVacacionesForm
 from .models import (
     AprobacionEtapa,
@@ -33,6 +36,7 @@ from .services.aprobaciones import (
     reenviar_funcionario
 )
 from .utils import get_current_date_colombia, puede_solicitar_vacaciones_hoy
+from usuarios.models import Funcionario
 
 # -----------------------------------------
 # VISTA: PeriodoVacacional
@@ -82,6 +86,7 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
         kwargs['initial'] = kwargs.get('initial', {})
         kwargs['initial']['user_id'] = self.request.user.id
         return kwargs
@@ -108,7 +113,6 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         context['funcionario_estamento'] = funcionario.estamento.nombre.lower()
         context['funcionario_decreto'] = (funcionario.decreto_resolucion or '').strip()
 
-        # Verificar si el funcionario tiene periodos vacacionales
         periodos_vacacionales = PeriodoVacacional.objects.filter(funcionario=funcionario)
         context['tiene_periodos_vacacionales'] = periodos_vacacionales.exists()
         
@@ -117,7 +121,6 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
             periodos_dias_pendientes[periodo.pk] = periodo.dias_pendientes_periodo
         context['periodos_dias_pendientes'] = json.dumps(periodos_dias_pendientes)
         
-        # Verificar si puede solicitar vacaciones según los nuevos plazos límite
         puede_solicitar_hoy, mensaje_plazo = puede_solicitar_vacaciones_hoy(
             funcionario.estamento.nombre.lower(),
             funcionario.decreto_resolucion
@@ -134,7 +137,6 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
             context['periodos_dias_pendientes'] = json.dumps({})
             return context
 
-        # Reintegros aprobados con días pendientes
         reintegros_pendientes = ReintegroVacaciones.objects.filter(
             funcionario=funcionario,
             estado_solicitud='aprobado',
@@ -155,17 +157,14 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         context['reintegros_pendientes'] = json.dumps(reintegros_data)
         context['tiene_reintegros_pendientes'] = len(reintegros_data) > 0
         
-        # Inicializar el campo tiene_dias_pendientes si hay reintegros pendientes
         if context['tiene_reintegros_pendientes']:
             context['form'].initial['tiene_dias_pendientes'] = False
 
-        # Verificar si el funcionario tiene una solicitud activa (sin reintegro asociado)
         solicitudes_activas = SolicitudVacaciones.objects.filter(
             funcionario=funcionario,
             estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
         ).prefetch_related('reintegrovacaciones_set')
         
-        # Una solicitud se considera "culminada" si tiene un reintegro asociado
         solicitudes_sin_reintegro = []
         for solicitud in solicitudes_activas:
             tiene_reintegro = any(
@@ -176,7 +175,6 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
             if not tiene_reintegro:
                 solicitudes_sin_reintegro.append(solicitud)
         
-        # Solo verificar solicitudes activas, NO plazos límite para el botón Crear
         context['puede_crear_solicitud'] = len(solicitudes_sin_reintegro) == 0
         context['solicitud_activa'] = solicitudes_sin_reintegro[0] if solicitudes_sin_reintegro else None
 
@@ -306,6 +304,7 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
         kwargs['initial'] = kwargs.get('initial', {})
         kwargs['initial']['user_id'] = self.request.user.id
         return kwargs
@@ -420,14 +419,12 @@ def solicitud_vacaciones_create(request):
     return render(request, 'vacaciones/solicitud-vacaciones-form.html', {'festivos_colombia': festivos_json})
 
 # ==========================================================
-# Parcial Semáforo (corregida la ruta del template)
+# Parcial Semáforo
 # ==========================================================
-
 @login_required
 def semaforo_cell(request, pk):
     sol = get_object_or_404(SolicitudVacaciones, pk=pk)
 
-    # Backfill si la solicitud no tiene etapas (p. ej. solicitudes viejas)
     if sol.aprobaciones.count() == 0:
         bulk = [
             AprobacionEtapa(solicitud=sol, etapa='JEFE', estado='pendiente'),
@@ -516,22 +513,31 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
         except SolicitudVacaciones.DoesNotExist:
             raise Http404("Solicitud no encontrada")
 
-        # -------- AUTORIZACIÓN --------
         owner_id = solicitud.funcionario_id
         user_funcionario_id = None
         es_jefe_del_funcionario = False
+        es_secretaria_autorizada = False
         if hasattr(request.user, "funcionario") and request.user.funcionario is not None:
             user_funcionario_id = request.user.funcionario.pk
             try:
                 es_jefe_del_funcionario = (solicitud.funcionario.jefe_inmediato_id == request.user.funcionario.pk)
             except Exception:
                 es_jefe_del_funcionario = False
+            
+            try:
+                if es_secretaria(request.user):
+                    secretaria_func = request.user.funcionario
+                    if secretaria_func.jefe_inmediato and solicitud.funcionario.jefe_inmediato:
+                        es_secretaria_autorizada = (secretaria_func.jefe_inmediato.pk == solicitud.funcionario.jefe_inmediato.pk)
+            except Exception:
+                es_secretaria_autorizada = False
 
         if not (
             request.user.is_staff
             or request.user.is_superuser
             or user_funcionario_id == owner_id
             or es_jefe_del_funcionario
+            or es_secretaria_autorizada
         ):
             raise Http404("No autorizado")
 
@@ -604,3 +610,317 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
         )
 
         return response
+
+# ==========================================================
+# VISTA: Secretaria
+# ==========================================================
+
+@method_decorator(group_required("Secretaria"), name="dispatch")
+class SecretariaSolicitudesListView(LoginRequiredMixin, ListView):
+    """
+    Lista las solicitudes de vacaciones que la secretaria puede ver:
+    - De funcionarios que tienen el mismo jefe_inmediato que la secretaria
+    - Incluye todas las solicitudes de los subordinados del jefe inmediato de la secretaria
+    """
+    model = SolicitudVacaciones
+    template_name = "vacaciones/secretaria-solicitudes-list.html"
+    context_object_name = "solicitudes"
+    paginate_by = 20
+
+    def get_queryset(self):
+        secretaria_func = getattr(self.request.user, "funcionario", None)
+        
+        if not secretaria_func or not secretaria_func.jefe_inmediato:
+            return SolicitudVacaciones.objects.none()
+
+        qs = (SolicitudVacaciones.objects
+              .select_related("funcionario", "periodo_vacacional")
+              .filter(funcionario__jefe_inmediato=secretaria_func.jefe_inmediato)
+              .order_by("-fecha_solicitud", "-id"))
+        
+        q = self.request.GET.get("q", "").strip()
+        estado = self.request.GET.get("estado", "").strip()
+
+        if q:
+            qs = qs.filter(
+                Q(codigo_sabs__icontains=q) |
+                Q(funcionario__nombre__icontains=q) |
+                Q(funcionario__apellido__icontains=q)
+            )
+        if estado:
+            qs = qs.filter(estado_solicitud=estado)
+
+        return qs
+
+@method_decorator(group_required("Secretaria"), name="dispatch")
+class SecretariaSolicitudCreateView(LoginRequiredMixin, CreateView):
+    """
+    Permite a la secretaria crear solicitudes en nombre de funcionarios
+    que cumplen los criterios de acceso.
+    """
+    model = SolicitudVacaciones
+    form_class = SolicitudVacacionesForm
+    template_name = "vacaciones/secretaria-solicitud-form.html"
+    success_url = reverse_lazy("vacaciones:secretaria-solicitudes-list")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        kwargs['initial'] = kwargs.get('initial', {})
+        
+        funcionario_id = self.request.GET.get('funcionario_id')
+        if funcionario_id:
+            kwargs['initial']['user_id'] = funcionario_id
+        
+        return kwargs
+
+    def get_initial(self):
+        initial = super().get_initial()
+        hoy_colombia = get_current_date_colombia()
+        initial['fecha_solicitud'] = hoy_colombia
+        initial['codigo_sabs'] = generar_codigo_sabs('VAC', hoy_colombia.year)
+        return initial
+
+    def dispatch(self, request, *args, **kwargs):
+        funcionario_id = request.GET.get('funcionario_id')
+        if not funcionario_id:
+            messages.error(request, "Debe seleccionar un funcionario para crear la solicitud.")
+            return redirect("vacaciones:secretaria-solicitudes-list")
+        
+        secretaria_func = getattr(request.user, "funcionario", None)
+        if not secretaria_func:
+            messages.error(request, "No se encontró información del funcionario asociado.")
+            return redirect("vacaciones:secretaria-solicitudes-list")
+        
+        try:
+            funcionario_target = Funcionario.objects.get(pk=funcionario_id)
+        except Funcionario.DoesNotExist:
+            messages.error(request, "Funcionario no encontrado.")
+            return redirect("vacaciones:secretaria-solicitudes-list")
+        
+        if not secretaria_func.jefe_inmediato or funcionario_target.jefe_inmediato != secretaria_func.jefe_inmediato:
+            messages.error(request, "No tiene permisos para crear solicitudes para este funcionario.")
+            return redirect("vacaciones:secretaria-solicitudes-list")
+        
+        solicitudes_activas = SolicitudVacaciones.objects.filter(
+            funcionario=funcionario_target,
+            estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
+        ).prefetch_related('reintegrovacaciones_set')
+        
+        solicitudes_sin_reintegro = []
+        for solicitud in solicitudes_activas:
+            tiene_reintegro = any(
+                reintegro.estado_solicitud == 'aprobado' 
+                for reintegro in solicitud.reintegrovacaciones_set.all()
+            )
+            if not tiene_reintegro:
+                solicitudes_sin_reintegro.append(solicitud)
+        
+        if solicitudes_sin_reintegro:
+            messages.error(
+                request, 
+                "El funcionario seleccionado ya tiene una solicitud de vacaciones activa y no puede crear otra."
+            )
+            return redirect("vacaciones:secretaria-solicitudes-list")
+        
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        hoy_colombia = get_current_date_colombia()
+        years = [hoy_colombia.year, hoy_colombia.year + 1]
+        festivos = []
+
+        for y in years:
+            festivos += [d.strftime('%d/%m/%Y') for d in holidays.Colombia(years=[y]).keys()]
+        
+        context['festivos_colombia'] = json.dumps(festivos)
+
+        funcionario_id = self.request.GET.get('funcionario_id')
+        try:
+            funcionario = Funcionario.objects.get(pk=funcionario_id)
+        except Funcionario.DoesNotExist:
+            funcionario = None
+        
+        if funcionario:
+            context['funcionario_target'] = funcionario
+            context['funcionario_estamento'] = funcionario.estamento.nombre.lower()
+            context['funcionario_decreto'] = (funcionario.decreto_resolucion or '').strip()
+
+            periodos_vacacionales = PeriodoVacacional.objects.filter(funcionario=funcionario)
+            context['tiene_periodos_vacacionales'] = periodos_vacacionales.exists()
+            
+            periodos_dias_pendientes = {}
+            for periodo in periodos_vacacionales:
+                periodos_dias_pendientes[periodo.pk] = periodo.dias_pendientes_periodo
+            context['periodos_dias_pendientes'] = json.dumps(periodos_dias_pendientes)
+            
+            reintegros_pendientes = ReintegroVacaciones.objects.filter(
+                funcionario=funcionario,
+                estado_solicitud='aprobado',
+                dias_pendientes__gt=0
+            )
+
+            reintegros_data = []
+            for reintegro in reintegros_pendientes:
+                reintegros_data.append({
+                    'id': reintegro.id,
+                    'dias_pendientes': reintegro.dias_pendientes,
+                    'tipo_dias': reintegro.tipo_dias_pendientes,
+                    'periodo_vacacional_id': reintegro.periodo_vacacional_id,
+                    'fecha_disfrute_desde': reintegro.fecha_disfrute_desde.strftime('%d/%m/%Y'),
+                    'fecha_disfrute_hasta': reintegro.fecha_disfrute_hasta.strftime('%d/%m/%Y')
+                })
+
+            context['reintegros_pendientes'] = json.dumps(reintegros_data)
+            context['tiene_reintegros_pendientes'] = len(reintegros_data) > 0
+
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = None
+        funcionario_id = request.GET.get('funcionario_id')
+        
+        if not funcionario_id:
+            messages.error(request, "Debe seleccionar un funcionario para crear la solicitud.")
+            return self.form_invalid(self.get_form())
+
+        try:
+            funcionario_target = Funcionario.objects.get(pk=funcionario_id)
+        except Funcionario.DoesNotExist:
+            messages.error(request, "Funcionario no encontrado.")
+            return self.form_invalid(self.get_form())
+
+        secretaria_func = getattr(request.user, "funcionario", None)
+        if not secretaria_func:
+            messages.error(request, "No se encontró información del funcionario asociado.")
+            return self.form_invalid(self.get_form())
+
+        if not secretaria_func.jefe_inmediato or funcionario_target.jefe_inmediato != secretaria_func.jefe_inmediato:
+            messages.error(request, "No tiene permisos para crear solicitudes para este funcionario.")
+            return self.form_invalid(self.get_form())
+
+        periodos_vacacionales = PeriodoVacacional.objects.filter(funcionario=funcionario_target)
+        if not periodos_vacacionales.exists():
+            messages.error(request, "No puede crear una solicitud de vacaciones sin tener periodos vacacionales registrados.")
+            return self.form_invalid(self.get_form())
+
+        solicitudes_activas = SolicitudVacaciones.objects.filter(
+            funcionario=funcionario_target,
+            estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
+        ).prefetch_related('reintegrovacaciones_set')
+        
+        solicitudes_sin_reintegro = []
+        for solicitud in solicitudes_activas:
+            tiene_reintegro = any(
+                reintegro.estado_solicitud == 'aprobado' 
+                for reintegro in solicitud.reintegrovacaciones_set.all()
+            )
+            if not tiene_reintegro:
+                solicitudes_sin_reintegro.append(solicitud)
+        
+        if solicitudes_sin_reintegro:
+            messages.error(request, "El funcionario seleccionado ya tiene una solicitud de vacaciones activa y no puede crear otra.")
+            return self.form_invalid(self.get_form())
+
+        form = self.get_form()
+        form.instance.funcionario = funcionario_target
+        form.instance.creada_por = request.user
+        
+        hoy_colombia = get_current_date_colombia()
+        form.instance.fecha_solicitud = hoy_colombia
+        
+        if form.is_valid():
+            return self.form_valid(form)
+        
+        return self.form_invalid(form)
+
+    def form_valid(self, form):
+        try:
+            self.object = form.save()
+            messages.success(self.request, "Solicitud registrada correctamente.")
+            return super().form_valid(form)
+        except Exception as e:
+            messages.error(self.request, f"Error al guardar la solicitud: {e}")
+            return self.form_invalid(form)
+
+@method_decorator(group_required("Secretaria"), name="dispatch")
+class SecretariaSolicitudUpdateView(LoginRequiredMixin, UpdateView):
+    """
+    Permite a la secretaria editar solicitudes SOLO si están en estado 'pendiente'.
+    """
+    model = SolicitudVacaciones
+    form_class = SolicitudVacacionesForm
+    template_name = "vacaciones/secretaria-solicitud-form.html"
+    success_url = reverse_lazy("vacaciones:secretaria-solicitudes-list")
+
+    def get_queryset(self):
+        secretaria_func = getattr(self.request.user, "funcionario", None)
+        
+        if not secretaria_func:
+            return SolicitudVacaciones.objects.none()
+
+        if not secretaria_func.jefe_inmediato:
+            return SolicitudVacaciones.objects.none()
+
+        return SolicitudVacaciones.objects.filter(
+            funcionario__jefe_inmediato=secretaria_func.jefe_inmediato,
+            estado_solicitud='pendiente'  # Solo puede editar solicitudes en estado pendiente
+        )
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        kwargs['initial'] = kwargs.get('initial', {})
+        if hasattr(self.get_object(), 'funcionario'):
+            kwargs['initial']['user_id'] = self.get_object().funcionario.user.pk
+        return kwargs
+
+    def dispatch(self, request, *args, **kwargs):
+        solicitud = self.get_object()
+        
+        if solicitud.estado_solicitud != 'pendiente':
+            messages.error(request, "Solo puede editar solicitudes en estado 'pendiente'.")
+            return redirect("vacaciones:secretaria-solicitudes-list")
+        
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        messages.success(self.request, "Solicitud actualizada correctamente.")
+        return super().form_valid(form)
+
+@method_decorator(group_required("Secretaria"), name="dispatch")
+class SecretariaSolicitudDeleteView(LoginRequiredMixin, DeleteView):
+    """
+    Permite a la secretaria eliminar solicitudes SOLO si están en estado 'pendiente'.
+    """
+    model = SolicitudVacaciones
+    template_name = "vacaciones/secretaria-solicitud-confirm-delete.html"
+    success_url = reverse_lazy("vacaciones:secretaria-solicitudes-list")
+
+    def get_queryset(self):
+        secretaria_func = getattr(self.request.user, "funcionario", None)
+        
+        if not secretaria_func:
+            return SolicitudVacaciones.objects.none()
+
+        if not secretaria_func.jefe_inmediato:
+            return SolicitudVacaciones.objects.none()
+
+        return SolicitudVacaciones.objects.filter(
+            funcionario__jefe_inmediato=secretaria_func.jefe_inmediato,
+            estado_solicitud='pendiente'  # Solo puede eliminar solicitudes en estado pendiente
+        )
+
+    def dispatch(self, request, *args, **kwargs):
+        solicitud = self.get_object()
+        
+        if solicitud.estado_solicitud != 'pendiente':
+            messages.error(request, "Solo puede eliminar solicitudes en estado 'pendiente'.")
+            return redirect("vacaciones:secretaria-solicitudes-list")
+        
+        return super().dispatch(request, *args, **kwargs)
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(request, "Solicitud eliminada correctamente.")
+        return super().delete(request, *args, **kwargs)

@@ -1,4 +1,5 @@
 {% load static %}
+{% load grupos_tags %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -85,15 +86,59 @@
             </a>
           </li>
           <li>
-            <a href="{% url 'vacaciones:solicitud-vacaciones-list' %}"
-               class="sidebar-link block py-2 px-3 rounded hover:bg-red-600 flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-7 w-7 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <rect x="3" y="7" width="18" height="14" rx="2" fill="#fff" stroke="#fff"/>
-                <rect x="3" y="7" width="18" height="14" rx="2" stroke="#cbd5e1" stroke-width="2"/>
-                <path d="M16 3v4M8 3v4M3 11h18" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round"/>
+            <button id="submenu-solicitudes-toggle" 
+                    class="sidebar-link w-full block py-2 px-3 rounded hover:bg-red-600 flex items-center justify-between gap-2 cursor-pointer">
+              <div class="flex items-center gap-2 flex-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-7 w-7 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <rect x="3" y="7" width="18" height="14" rx="2" fill="#fff" stroke="#fff"/>
+                  <rect x="3" y="7" width="18" height="14" rx="2" stroke="#cbd5e1" stroke-width="2"/>
+                  <path d="M16 3v4M8 3v4M3 11h18" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                <span class="sidebar-text text-left" id="sidebar-text-solicitudes">Solicitudes de vacaciones</span>
+              </div>
+              <svg id="submenu-solicitudes-arrow" class="sidebar-icon h-5 w-5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
               </svg>
-              <span class="sidebar-text" id="sidebar-text-solicitudes">Solicitudes de vacaciones</span>
-            </a>
+            </button>
+            <ul id="submenu-solicitudes" class="hidden ml-4 mt-2 space-y-1">
+              <li>
+                <a href="{% url 'vacaciones:solicitud-vacaciones-list' %}"
+                   id="submenu-link-mis-solicitudes"
+                   data-url-path="{% url 'vacaciones:solicitud-vacaciones-list' %}"
+                   class="sidebar-link block py-2 px-3 rounded hover:bg-red-600 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-5 w-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  <span class="sidebar-text" id="sidebar-text-mis-solicitudes">Mis solicitudes</span>
+                </a>
+              </li>
+              {% if request.user.is_superuser or request.user|has_group:"Jefe Inmediato" %}
+              <li>
+                <a href="{% url 'vacaciones:jefe_solicitudes_list' %}"
+                   id="submenu-link-jefe-solicitudes"
+                   data-url-path="{% url 'vacaciones:jefe_solicitudes_list' %}"
+                   class="sidebar-link block py-2 px-3 rounded hover:bg-red-600 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-5 w-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span class="sidebar-text" id="sidebar-text-jefe-solicitudes">Listado de solicitudes</span>
+                </a>
+              </li>
+              {% endif %}
+              {% if request.user.is_superuser or request.user|has_group:"Secretaria" %}
+              <li>
+                <a href="{% url 'vacaciones:secretaria-solicitudes-list' %}"
+                   id="submenu-link-secretaria-solicitudes"
+                   data-url-path="{% url 'vacaciones:secretaria-solicitudes-list' %}"
+                   class="sidebar-link block py-2 px-3 rounded hover:bg-red-600 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-5 w-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span class="sidebar-text" id="sidebar-text-secretaria-solicitudes">Listado de solicitudes</span>
+                </a>
+              </li>
+              {% endif %}
+            </ul>
           </li>
         </ul>
       </nav>
@@ -110,37 +155,7 @@
   </div>
 
   {% block extra_scripts %}
-    <script src="{% static 'vacaciones/js/components/navegacion/sidebar.js' %}"></script>
-    <script>
-      const menuToggle = document.getElementById('menu-toggle');
-      const sidebar = document.getElementById('sidebar');
-      const sidebarTexts = document.querySelectorAll('.sidebar-text');
-      const sidebarLinks = document.querySelectorAll('.sidebar-link');
-      let sidebarCollapsed = false;
-
-      if (menuToggle && sidebar) {
-        menuToggle.addEventListener('click', () => {
-          sidebarCollapsed = !sidebarCollapsed;
-          if (sidebarCollapsed) {
-            sidebar.classList.remove('w-64');
-            sidebar.classList.add('w-16');
-            sidebarTexts.forEach(el => el.classList.add('hidden'));
-            sidebarLinks.forEach(link => {
-              link.classList.remove('gap-2', 'px-3');
-              link.classList.add('justify-center', 'px-0');
-            });
-          } else {
-            sidebar.classList.remove('w-16');
-            sidebar.classList.add('w-64');
-            sidebarTexts.forEach(el => el.classList.remove('hidden'));
-            sidebarLinks.forEach(link => {
-              link.classList.add('gap-2', 'px-3');
-              link.classList.remove('justify-center', 'px-0');
-            });
-          }
-        });
-      }
-    </script>
+    <script src="{% static 'js/navegacion/base.js' %}"></script>
     <script src="{% static 'vacaciones/js/components/navegacion/menu-usuario.js' %}"></script>
     {% endblock %}
 </body>

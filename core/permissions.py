@@ -1,5 +1,4 @@
 from django.contrib.auth.decorators import user_passes_test
-from django.http import HttpResponseForbidden
 
 def group_required(*group_names):
     def in_groups(u):
@@ -8,3 +7,12 @@ def group_required(*group_names):
                 return True
         return False
     return user_passes_test(in_groups)
+
+
+def es_secretaria(user) -> bool:
+    """
+    Verifica si el usuario pertenece al grupo "Secretaria".
+    """
+    if not user or not user.is_authenticated:
+        return False
+    return user.groups.filter(name="Secretaria").exists()

@@ -2,7 +2,6 @@ from django import template
 
 register = template.Library()
 
-
 @register.filter(name='has_group')
 def has_group(user, group_name):
     """
@@ -16,3 +15,9 @@ def has_group(user, group_name):
     
     return user.groups.filter(name=group_name).exists()
 
+@register.filter(name='es_secretaria')
+def es_secretaria(user):
+    """
+    Filtro de template que verifica si un usuario pertenece al grupo "Secretaria".
+    """
+    return has_group(user, "Secretaria")

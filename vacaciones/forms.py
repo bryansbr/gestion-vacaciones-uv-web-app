@@ -1,7 +1,9 @@
 from datetime import date
 
 from django import forms
-from django.contrib.auth import get_user_model
+
+from core.permissions import es_secretaria
+from usuarios.models import Funcionario
 
 from .models import PeriodoVacacional, ReintegroVacaciones, SolicitudVacaciones
 from .utils import get_current_date_colombia
@@ -138,40 +140,63 @@ class SolicitudVacacionesForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        funcionario_id = kwargs.pop('funcionario_id', None)
         super().__init__(*args, **kwargs)
-
-        if 'instance' in kwargs and kwargs['instance']:
-            funcionario = kwargs['instance'].funcionario
-        else:
-            User = get_user_model()
-            user = User.objects.get(id=kwargs.get('initial', {}).get('user_id'))
+        
+        self.user = user
+        funcionario = None
+        
+        if self.instance and self.instance.pk:
+            funcionario = self.instance.funcionario
+        elif user and hasattr(user, 'funcionario'):
             funcionario = user.funcionario
 
-        periodos_funcionario = PeriodoVacacional.objects.filter(funcionario=funcionario).order_by('fecha_inicio_periodo')
-        self.fields['periodo_vacacional'].queryset = periodos_funcionario
+        if user and es_secretaria(user) and funcionario and funcionario.jefe_inmediato:
+            f = funcionario
+            self.fields['funcionario'] = forms.ModelChoiceField(
+                queryset=Funcionario.objects.filter(jefe_inmediato=f.jefe_inmediato),
+                widget=forms.Select(attrs={'class': 'form-select'}),
+                required=True,
+                empty_label="Seleccione un funcionario"
+            )
 
-        self.periodos_acumulados = None
-        self.periodo_mas_antiguo = None
-        self.periodo_mas_reciente = None
-        self.periodo_mas_antiguo_habilitado = True
-        self.periodo_mas_reciente_habilitado = True
+            if funcionario_id:
+                try:
+                    self.fields['funcionario'].initial = Funcionario.objects.get(pk=funcionario_id)
+                except Funcionario.DoesNotExist:
+                    pass
 
-        if periodos_funcionario.count() == 2:
-            self.periodos_acumulados = list(periodos_funcionario)
-            self.periodo_mas_antiguo = self.periodos_acumulados[0]
-            self.periodo_mas_reciente = self.periodos_acumulados[1]
-            self.periodo_mas_antiguo_habilitado = self.periodo_mas_antiguo.dias_pendientes_periodo > 0
-            self.periodo_mas_reciente_habilitado = not self.periodo_mas_antiguo_habilitado
+        if funcionario:
+            periodos_funcionario = PeriodoVacacional.objects.filter(funcionario=funcionario).order_by('fecha_inicio_periodo')
+            self.fields['periodo_vacacional'].queryset = periodos_funcionario
 
-        self.initial.update({
-            'numero_identificacion': funcionario.numero_identificacion,
-            'nombre_funcionario': f"{funcionario.nombre} {funcionario.apellido}",
-            'estamento': funcionario.estamento.nombre,
-            'facultad_dependencia': funcionario.facultad_dependencia.nombre,
-        })
+            self.periodos_acumulados = None
+            self.periodo_mas_antiguo = None
+            self.periodo_mas_reciente = None
+            self.periodo_mas_antiguo_habilitado = True
+            self.periodo_mas_reciente_habilitado = True
 
-        estamento_nombre = funcionario.estamento.nombre.lower()
-        decreto = (funcionario.decreto_resolucion or '').strip()
+            if periodos_funcionario.count() == 2:
+                self.periodos_acumulados = list(periodos_funcionario)
+                self.periodo_mas_antiguo = self.periodos_acumulados[0]
+                self.periodo_mas_reciente = self.periodos_acumulados[1]
+                self.periodo_mas_antiguo_habilitado = self.periodo_mas_antiguo.dias_pendientes_periodo > 0
+                self.periodo_mas_reciente_habilitado = not self.periodo_mas_antiguo_habilitado
+
+            self.initial.update({
+                'numero_identificacion': funcionario.numero_identificacion,
+                'nombre_funcionario': f"{funcionario.nombre} {funcionario.apellido}",
+                'estamento': funcionario.estamento.nombre,
+                'facultad_dependencia': funcionario.facultad_dependencia.nombre,
+            })
+
+            estamento_nombre = funcionario.estamento.nombre.lower()
+            decreto = (funcionario.decreto_resolucion or '').strip()
+        else:
+            estamento_nombre = ''
+            decreto = ''
+            dias_derecho = 0
 
         if estamento_nombre == 'docente':
             if decreto == '1279':
@@ -200,45 +225,46 @@ class SolicitudVacacionesForm(forms.ModelForm):
             self.initial['tipo_calendario'] = False
         self.initial['dias_derecho'] = dias_derecho
 
-        dias_pendientes = 0
-        if hasattr(funcionario, 'periodos_vacacionales'):
-            dias_pendientes = sum(p.dias_pendientes_periodo for p in funcionario.periodos_vacacionales.all())
-        self.initial['dias_pendientes'] = dias_pendientes
+        if funcionario:
+            dias_pendientes = 0
+            if hasattr(funcionario, 'periodos_vacacionales'):
+                dias_pendientes = sum(p.dias_pendientes_periodo for p in funcionario.periodos_vacacionales.all())
+            self.initial['dias_pendientes'] = dias_pendientes
 
-        hoy = get_current_date_colombia()
+            hoy = get_current_date_colombia()
 
-        if estamento_nombre == 'docente':
-            # Docentes: pago mensual el día 30
-            if hoy.day <= 10:
-                if hoy.month == 12:
-                    fecha_pago = date(hoy.year, 12, 30)
+            if estamento_nombre == 'docente':
+                # Docentes: pago mensual el día 30
+                if hoy.day <= 10:
+                    if hoy.month == 12:
+                        fecha_pago = date(hoy.year, 12, 30)
+                    else:
+                        fecha_pago = date(hoy.year, hoy.month, 30)
                 else:
+                    if hoy.month == 12:
+                        fecha_pago = date(hoy.year + 1, 1, 30)
+                    else:
+                        fecha_pago = date(hoy.year, hoy.month + 1, 30)
+            else:
+                # Administrativos y trabajadores oficiales: pago quincenal (15 y 30)
+                if hoy.day <= 3:
+                    fecha_pago = date(hoy.year, hoy.month, 15)
+                elif hoy.day <= 18:
                     fecha_pago = date(hoy.year, hoy.month, 30)
-            else:
-                if hoy.month == 12:
-                    fecha_pago = date(hoy.year + 1, 1, 30)
                 else:
-                    fecha_pago = date(hoy.year, hoy.month + 1, 30)
-        else:
-            # Administrativos y trabajadores oficiales: pago quincenal (15 y 30)
-            if hoy.day <= 3:
-                fecha_pago = date(hoy.year, hoy.month, 15)
-            elif hoy.day <= 18:
-                fecha_pago = date(hoy.year, hoy.month, 30)
-            else:
-                if hoy.month == 12:
-                    fecha_pago = date(hoy.year + 1, 1, 15)
-                else:
-                    fecha_pago = date(hoy.year, hoy.month + 1, 15)
+                    if hoy.month == 12:
+                        fecha_pago = date(hoy.year + 1, 1, 15)
+                    else:
+                        fecha_pago = date(hoy.year, hoy.month + 1, 15)
 
-        self.initial['fecha_pago'] = fecha_pago
+            self.initial['fecha_pago'] = fecha_pago
 
-        periodos_pendientes_count = PeriodoVacacional.objects.filter(
-            funcionario=funcionario,
-            dias_pendientes_periodo__gt=0
-        ).count()
+            periodos_pendientes_count = PeriodoVacacional.objects.filter(
+                funcionario=funcionario,
+                dias_pendientes_periodo__gt=0
+            ).count()
 
-        self.initial['periodos_pendientes'] = periodos_pendientes_count
+            self.initial['periodos_pendientes'] = periodos_pendientes_count
 
         if self.instance and self.instance.pk:
             if self.instance.fecha_inicio_vacaciones:
@@ -254,22 +280,35 @@ class SolicitudVacacionesForm(forms.ModelForm):
         tiene_dias_pendientes = self.cleaned_data.get('tiene_dias_pendientes', False)
         
         if 'tiene_dias_pendientes' not in self.data:
-            if 'instance' in self.__dict__ and self.instance and self.instance.funcionario:
+            funcionario = None
+            if hasattr(self, 'cleaned_data') and 'funcionario' in self.cleaned_data:
+                funcionario = self.cleaned_data['funcionario']
+            elif 'instance' in self.__dict__ and self.instance and self.instance.funcionario:
                 funcionario = self.instance.funcionario
-            else:
-                User = get_user_model()
-                user = User.objects.get(id=self.initial.get('user_id'))
-                funcionario = user.funcionario
+            elif 'user' in self.__dict__ and hasattr(self.__dict__['user'], 'funcionario'):
+                funcionario = self.__dict__['user'].funcionario
             
-            reintegros_pendientes = ReintegroVacaciones.objects.filter(
-                funcionario=funcionario,
-                estado_solicitud='aprobado',
-                dias_pendientes__gt=0
-            )
-            tiene_dias_pendientes = reintegros_pendientes.exists()
+            if funcionario:
+                reintegros_pendientes = ReintegroVacaciones.objects.filter(
+                    funcionario=funcionario,
+                    estado_solicitud='aprobado',
+                    dias_pendientes__gt=0
+                )
+                tiene_dias_pendientes = reintegros_pendientes.exists()
         
         return tiene_dias_pendientes
 
     def clean(self):
         cleaned_data = super().clean()
+        
+        if 'funcionario' in self.fields and 'funcionario' in cleaned_data:
+            funcionario_seleccionado = cleaned_data.get('funcionario')
+            if funcionario_seleccionado and hasattr(funcionario_seleccionado, 'pk'):
+                periodos_funcionario = PeriodoVacacional.objects.filter(funcionario=funcionario_seleccionado).order_by('fecha_inicio_periodo')
+                self.fields['periodo_vacacional'].queryset = periodos_funcionario
+                periodo_seleccionado = cleaned_data.get('periodo_vacacional')
+                
+                if periodo_seleccionado and periodo_seleccionado not in periodos_funcionario:
+                    raise forms.ValidationError({'periodo_vacacional': 'El periodo vacacional seleccionado no pertenece al funcionario seleccionado.'})
+        
         return cleaned_data

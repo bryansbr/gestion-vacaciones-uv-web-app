@@ -2,68 +2,67 @@
 
 {# Botones de flujo por fila (Solicitudes) #}
 <div class="flex flex-wrap justify-center gap-2">
-
-  {# Enviar - solo BORRADOR o DEVUELTA #}
   {% if solicitud.estado == "BORRADOR" or solicitud.estado == "DEVUELTA" %}
   {% if solicitud.funcionario.user_id == request.user.id or request.user.is_superuser %}
     <form method="post"
-          action="{% url 'vacaciones:solicitud_enviar' solicitud.id %}"
-          class="form-enviar-solicitud"
-          data-codigo="{{ solicitud.codigo_sabs }}">
+      action="{% url 'vacaciones:solicitud_enviar' solicitud.id %}"
+      class="form-enviar-solicitud"
+      data-codigo="{{ solicitud.codigo_sabs }}">
       {% csrf_token %}
       <button type="button"
-              class="px-2 py-1 text-white bg-indigo-600 rounded hover:bg-indigo-700 btn-enviar-solicitud"
-              title="Enviar a Jefe Inmediato">
+        class="px-2 py-1 text-white bg-indigo-600 rounded hover:bg-indigo-700 btn-enviar-solicitud"
+        title="Enviar a Jefe Inmediato">
         Enviar
       </button>
     </form>
   {% endif %}
 {% endif %}
-
-  {# JEFE: Aprobar/Devolver en PEND_JEFE #}
   {% if solicitud.estado == "PEND_JEFE" %}
-    {% if request.user.is_superuser or request.user|has_group:"Jefe Inmediato" %}
-      <form method="post" action="{% url 'vacaciones:solicitud_aprobar' solicitud.id %}">
-        {% csrf_token %}
-        <button class="px-2 py-1 text-white bg-green-600 rounded hover:bg-green-700">Aprobar</button>
-      </form>
-      <form method="post" action="{% url 'vacaciones:solicitud_devolver' solicitud.id %}">
-        {% csrf_token %}
-        <button class="px-2 py-1 text-white bg-yellow-600 rounded hover:bg-yellow-700">Devolver</button>
-      </form>
+    {% if not request.user|es_secretaria %}
+      {% if request.user.is_superuser or request.user|has_group:"Jefe Inmediato" %}
+        <form method="post" action="{% url 'vacaciones:solicitud_aprobar' solicitud.id %}">
+          {% csrf_token %}
+          <button class="px-2 py-1 text-white bg-green-600 rounded hover:bg-green-700">Aprobar</button>
+        </form>
+        <form method="post" action="{% url 'vacaciones:solicitud_devolver' solicitud.id %}">
+          {% csrf_token %}
+          <button class="px-2 py-1 text-white bg-yellow-600 rounded hover:bg-yellow-700">Devolver</button>
+        </form>
+      {% endif %}
     {% endif %}
   {% endif %}
 
-  {# COORD: Aprobar/Devolver en PEND_COORD #}
   {% if solicitud.estado == "PEND_COORD" %}
-    {% if request.user.is_superuser or request.user|has_group:"Coordinador Administrativo" %}
-      <form method="post" action="{% url 'vacaciones:solicitud_aprobar' solicitud.id %}">
-        {% csrf_token %}
-        <button class="px-2 py-1 text-white bg-green-600 rounded hover:bg-green-700">Aprobar</button>
-      </form>
-      <form method="post" action="{% url 'vacaciones:solicitud_devolver' solicitud.id %}">
-        {% csrf_token %}
-        <button class="px-2 py-1 text-white bg-yellow-600 rounded hover:bg-yellow-700">Devolver</button>
-      </form>
+    {% if not request.user|es_secretaria %}
+      {% if request.user.is_superuser or request.user|has_group:"Coordinador Administrativo" %}
+        <form method="post" action="{% url 'vacaciones:solicitud_aprobar' solicitud.id %}">
+          {% csrf_token %}
+          <button class="px-2 py-1 text-white bg-green-600 rounded hover:bg-green-700">Aprobar</button>
+        </form>
+        <form method="post" action="{% url 'vacaciones:solicitud_devolver' solicitud.id %}">
+          {% csrf_token %}
+          <button class="px-2 py-1 text-white bg-yellow-600 rounded hover:bg-yellow-700">Devolver</button>
+        </form>
+      {% endif %}
     {% endif %}
   {% endif %}
 
-  {# RRHH: Autorizar/Devolver/Rechazar en PEND_RRHH #}
   {% if solicitud.estado == "PEND_RRHH" %}
-    {% if request.user.is_superuser or request.user|has_group:"RRHH" %}
-      <form method="post" action="{% url 'vacaciones:solicitud_aprobar' solicitud.id %}">
-        {% csrf_token %}
-        <button class="px-2 py-1 text-white bg-green-600 rounded hover:bg-green-700">Autorizar</button>
-      </form>
-      <form method="post" action="{% url 'vacaciones:solicitud_devolver' solicitud.id %}">
-        {% csrf_token %}
-        <button class="px-2 py-1 text-white bg-yellow-600 rounded hover:bg-yellow-700">Devolver</button>
-      </form>
-      <form method="post" action="{% url 'vacaciones:solicitud_rechazar' solicitud.id %}">
-        {% csrf_token %}
-        <button class="px-2 py-1 text-white bg-red-600 rounded hover:bg-red-700">Rechazar</button>
-      </form>
+    {% if not request.user|es_secretaria %}
+      {% if request.user.is_superuser or request.user|has_group:"RRHH" %}
+        <form method="post" action="{% url 'vacaciones:solicitud_aprobar' solicitud.id %}">
+          {% csrf_token %}
+          <button class="px-2 py-1 text-white bg-green-600 rounded hover:bg-green-700">Autorizar</button>
+        </form>
+        <form method="post" action="{% url 'vacaciones:solicitud_devolver' solicitud.id %}">
+          {% csrf_token %}
+          <button class="px-2 py-1 text-white bg-yellow-600 rounded hover:bg-yellow-700">Devolver</button>
+        </form>
+        <form method="post" action="{% url 'vacaciones:solicitud_rechazar' solicitud.id %}">
+          {% csrf_token %}
+          <button class="px-2 py-1 text-white bg-red-600 rounded hover:bg-red-700">Rechazar</button>
+        </form>
+      {% endif %}
     {% endif %}
   {% endif %}
-
 </div>

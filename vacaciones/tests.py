@@ -1,12 +1,14 @@
 from datetime import date, timedelta
 from unittest import skip
 
+from django.contrib.auth.models import Group
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 
 from usuarios.models import Funcionario
 from core.models import Estamento, FacultadDependencia, Sede
+from core.permissions import es_secretaria
 
 from .forms import SolicitudVacacionesForm
 from .models import (
@@ -509,3 +511,250 @@ class TestFlagsHitosReintegro(_BaseSetupAprobacionesMixin, TestCase):
         rein.aprobaciones.filter(etapa='RRHH').update(estado='autorizada')
         rein.refresh_from_db()
         self.assertTrue(rein.autorizada_rrhh)
+
+# ==========================================================
+# TESTS: Secretaria
+# ==========================================================
+class RolSecretariaTests(TestCase):
+    """Tests para verificar el comportamiento del rol Secretaria"""
+
+    def setUp(self):
+        """Setup base para los tests de Secretaria"""
+        self.est_admin = Estamento.objects.create(nombre="Administrativo", descripcion="Admin")
+        self.dep1 = FacultadDependencia.objects.create(nombre="Dependencia 1", descripcion="Dependencia 1")
+        self.dep2 = FacultadDependencia.objects.create(nombre="Dependencia 2", descripcion="Dependencia 2")
+        self.sede = Sede.objects.create(nombre="Sede Central", direccion="Calle X")
+        
+        self.grupo_secretaria, _ = Group.objects.get_or_create(name="Secretaria")
+        self.grupo_jefe, _ = Group.objects.get_or_create(name="Jefe Inmediato")
+        
+        # Jefe inmediato J1
+        self.user_jefe = User.objects.create_user(email="jefe@test.com", password="test123")
+        self.func_jefe = Funcionario.objects.create(
+            user=self.user_jefe,
+            nombre="Jefe",
+            apellido="Inmediato",
+            numero_identificacion="J1",
+            telefono="3000000001",
+            fecha_ingreso_universidad=date.today() - timedelta(days=1000),
+            decreto_resolucion="",
+            estamento=self.est_admin,
+            facultad_dependencia=self.dep1,
+            sede=self.sede,
+        )
+        
+        # Secretaria S1 (misma dependencia y jefe que la secretaria)
+        self.user_secretaria = User.objects.create_user(email="secretaria@test.com", password="test123")
+        self.grupo_secretaria.user_set.add(self.user_secretaria)
+        self.func_secretaria = Funcionario.objects.create(
+            user=self.user_secretaria,
+            nombre="Secretaria",
+            apellido="Uno",
+            numero_identificacion="S1",
+            telefono="3000000002",
+            fecha_ingreso_universidad=date.today() - timedelta(days=800),
+            decreto_resolucion="",
+            estamento=self.est_admin,
+            facultad_dependencia=self.dep1,
+            sede=self.sede,
+            jefe_inmediato=self.func_jefe,
+        )
+        
+        # Funcionario F1 (misma dependencia y jefe que la secretaria)
+        self.user_f1 = User.objects.create_user(email="func1@test.com", password="test123")
+        self.func_f1 = Funcionario.objects.create(
+            user=self.user_f1,
+            nombre="Funcionario",
+            apellido="Uno",
+            numero_identificacion="F1",
+            telefono="3000000003",
+            fecha_ingreso_universidad=date.today() - timedelta(days=600),
+            decreto_resolucion="",
+            estamento=self.est_admin,
+            facultad_dependencia=self.dep1,
+            sede=self.sede,
+            jefe_inmediato=self.func_jefe,
+        )
+        
+        # Funcionario F2 (diferente dependencia)
+        self.user_f2 = User.objects.create_user(email="func2@test.com", password="test123")
+        self.func_f2 = Funcionario.objects.create(
+            user=self.user_f2,
+            nombre="Funcionario",
+            apellido="Dos",
+            numero_identificacion="F2",
+            telefono="3000000004",
+            fecha_ingreso_universidad=date.today() - timedelta(days=700),
+            decreto_resolucion="",
+            estamento=self.est_admin,
+            facultad_dependencia=self.dep2,
+            sede=self.sede,
+            jefe_inmediato=self.func_jefe,
+        )
+        
+        # Funcionario F3 (misma dependencia pero diferente jefe)
+        self.user_jefe2 = User.objects.create_user(email="jefe2@test.com", password="test123")
+        self.func_jefe2 = Funcionario.objects.create(
+            user=self.user_jefe2,
+            nombre="Jefe",
+            apellido="Dos",
+            numero_identificacion="J2",
+            telefono="3000000005",
+            fecha_ingreso_universidad=date.today() - timedelta(days=900),
+            decreto_resolucion="",
+            estamento=self.est_admin,
+            facultad_dependencia=self.dep1,
+            sede=self.sede,
+        )
+        
+        self.user_f3 = User.objects.create_user(email="func3@test.com", password="test123")
+        self.func_f3 = Funcionario.objects.create(
+            user=self.user_f3,
+            nombre="Funcionario",
+            apellido="Tres",
+            numero_identificacion="F3",
+            telefono="3000000006",
+            fecha_ingreso_universidad=date.today() - timedelta(days=500),
+            decreto_resolucion="",
+            estamento=self.est_admin,
+            facultad_dependencia=self.dep1,
+            sede=self.sede,
+            jefe_inmediato=self.func_jefe2,
+        )
+        
+        # Periodos vacacionales para los funcionarios
+        self.periodo_f1 = PeriodoVacacional.objects.create(
+            funcionario=self.func_f1,
+            fecha_inicio_periodo=date.today() - timedelta(days=365),
+            fecha_fin_periodo=date.today() - timedelta(days=200),
+            dias_disfrutados_periodo=0,
+        )
+        self.periodo_f2 = PeriodoVacacional.objects.create(
+            funcionario=self.func_f2,
+            fecha_inicio_periodo=date.today() - timedelta(days=365),
+            fecha_fin_periodo=date.today() - timedelta(days=200),
+            dias_disfrutados_periodo=0,
+        )
+        self.periodo_f3 = PeriodoVacacional.objects.create(
+            funcionario=self.func_f3,
+            fecha_inicio_periodo=date.today() - timedelta(days=365),
+            fecha_fin_periodo=date.today() - timedelta(days=200),
+            dias_disfrutados_periodo=0,
+        )
+        
+        # Solicitudes
+        self.solicitud_f1_pendiente = SolicitudVacaciones.objects.create(
+            funcionario=self.func_f1,
+            periodo_vacacional=self.periodo_f1,
+            fecha_inicio_vacaciones=date.today() + timedelta(days=10),
+            fecha_fin_vacaciones=date.today() + timedelta(days=20),
+            tiene_dias_pendientes=False,
+            estado_solicitud='pendiente',
+            creada_por=self.user_f1,
+        )
+        
+        self.solicitud_f2_pendiente = SolicitudVacaciones.objects.create(
+            funcionario=self.func_f2,
+            periodo_vacacional=self.periodo_f2,
+            fecha_inicio_vacaciones=date.today() + timedelta(days=15),
+            fecha_fin_vacaciones=date.today() + timedelta(days=25),
+            tiene_dias_pendientes=False,
+            estado_solicitud='pendiente',
+            creada_por=self.user_f2,
+        )
+        
+        self.solicitud_f1_en_revision = SolicitudVacaciones.objects.create(
+            funcionario=self.func_f1,
+            periodo_vacacional=self.periodo_f1,
+            fecha_inicio_vacaciones=date.today() + timedelta(days=30),
+            fecha_fin_vacaciones=date.today() + timedelta(days=40),
+            tiene_dias_pendientes=False,
+            estado_solicitud='en_revision',
+            creada_por=self.user_f1,
+        )
+
+    def test_secretaria_ve_solo_solicitudes_de_su_dependencia_y_mismo_jefe(self):
+        """Verifica que la secretaria solo ve solicitudes de funcionarios con el mismo jefe_inmediato"""
+        client = Client()
+        client.force_login(self.user_secretaria)
+        
+        url = reverse('vacaciones:secretaria-solicitudes-list')
+        response = client.get(url)
+        
+        self.assertEqual(response.status_code, 200)
+        solicitudes = response.context['solicitudes']
+        
+        self.assertIn(self.solicitud_f1_pendiente, solicitudes)
+        self.assertIn(self.solicitud_f1_en_revision, solicitudes)
+        
+        self.assertIn(self.solicitud_f2_pendiente, solicitudes)
+        
+        solicitudes_f3 = [s for s in solicitudes if s.funcionario_id == self.func_f3.id]
+        self.assertEqual(len(solicitudes_f3), 0)
+
+    def test_secretaria_no_puede_crear_doble_solicitud_para_mismo_funcionario(self):
+        """Verifica que la secretaria no puede crear doble solicitud para el mismo funcionario"""
+        client = Client()
+        client.force_login(self.user_secretaria)
+        
+        url = reverse('vacaciones:secretaria-solicitud-create')
+        response = client.get(url)
+        
+        self.assertNotEqual(response.status_code, 200)
+        response = client.get(url + f'?funcionario_id={self.func_f1.id}')
+        self.assertNotEqual(response.status_code, 200)
+
+    def test_secretaria_puede_editar_solo_si_pendiente(self):
+        """Verifica que la secretaria solo puede editar solicitudes en estado pendiente"""
+        client = Client()
+        client.force_login(self.user_secretaria)
+        
+        url = reverse('vacaciones:secretaria-solicitud-update', kwargs={'pk': self.solicitud_f1_pendiente.pk})
+        response = client.get(url)
+        self.assertEqual(response.status_code, 200)
+        
+        url_en_revision = reverse('vacaciones:secretaria-solicitud-update', kwargs={'pk': self.solicitud_f1_en_revision.pk})
+        response = client.get(url_en_revision)
+        self.assertNotEqual(response.status_code, 200)
+
+    def test_secretaria_puede_eliminar_solo_si_pendiente(self):
+        """Verifica que la secretaria solo puede eliminar solicitudes en estado pendiente"""
+        client = Client()
+        client.force_login(self.user_secretaria)
+        
+        url = reverse('vacaciones:secretaria-solicitud-delete', kwargs={'pk': self.solicitud_f1_pendiente.pk})
+        response = client.get(url)
+        self.assertEqual(response.status_code, 200)
+        
+        url_en_revision = reverse('vacaciones:secretaria-solicitud-delete', kwargs={'pk': self.solicitud_f1_en_revision.pk})
+        response = client.get(url_en_revision)
+        self.assertNotEqual(response.status_code, 200)
+
+    def test_es_secretaria_helper(self):
+        """Verifica que el helper es_secretaria funciona correctamente"""
+        self.assertTrue(es_secretaria(self.user_secretaria))
+        self.assertFalse(es_secretaria(self.user_f1))
+        self.assertFalse(es_secretaria(self.user_jefe))
+
+    def test_form_secretaria_muestra_campo_funcionario(self):
+        """Verifica que el form para secretaria muestra el campo funcionario"""
+        form = SolicitudVacacionesForm(user=self.user_secretaria)
+        self.assertIn('funcionario', form.fields.keys())
+        
+        form_normal = SolicitudVacacionesForm(user=self.user_f1)
+        self.assertNotIn('funcionario', form_normal.fields.keys())
+    
+    def test_form_secretaria_filtra_funcionarios_por_permisos(self):
+        """Verifica que el form de secretaria filtra correctamente los funcionarios"""
+        form = SolicitudVacacionesForm(user=self.user_secretaria)
+        
+        queryset = form.fields['funcionario'].queryset
+        self.assertIn(self.func_f1, queryset)
+        self.assertIn(self.func_f2, queryset)
+        self.assertNotIn(self.func_f3, queryset)
+    
+    def test_secretaria_no_ve_boton_aprobar_en_template(self):
+        """Verifica que la secretaria no ve botones de aprobar en las acciones"""
+        from vacaciones.templatetags.grupos_tags import es_secretaria
+        self.assertTrue(es_secretaria(self.user_secretaria))
+        self.assertFalse(es_secretaria(self.user_f1))

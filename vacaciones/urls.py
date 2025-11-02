@@ -6,6 +6,10 @@ from .views import (
     PeriodoVacacionalCreateView,
     PeriodoVacacionalUpdateView,
     PeriodoVacacionalDeleteView,
+    SecretariaSolicitudesListView,
+    SecretariaSolicitudCreateView,
+    SecretariaSolicitudUpdateView,
+    SecretariaSolicitudDeleteView,
     SolicitudVacacionesListView,
     SolicitudVacacionesCreateView,
     SolicitudVacacionesUpdateView,
@@ -49,6 +53,14 @@ urlpatterns = [
     path("jefe/solicitudes/",                         views_jefe.SolicitudesJefeListView.as_view(), name="jefe_solicitudes_list"),
     path("jefe/solicitudes/<int:pk>/aprobar/",        views_jefe.aprobar_solicitud,               name="jefe_aprobar_solicitud"),
     path("jefe/solicitudes/<int:pk>/devolver/",       views_jefe.devolver_solicitud,              name="jefe_devolver_solicitud"),
+
+    # -----------------------------------------
+    # Secretaria
+    # -----------------------------------------
+    path("secretaria/solicitudes/",                         SecretariaSolicitudesListView.as_view(),   name="secretaria-solicitudes-list"),
+    path("secretaria/solicitudes/crear/",                   SecretariaSolicitudCreateView.as_view(),   name="secretaria-solicitud-create"),
+    path("secretaria/solicitudes/<int:pk>/editar/",         SecretariaSolicitudUpdateView.as_view(),   name="secretaria-solicitud-update"),
+    path("secretaria/solicitudes/<int:pk>/eliminar/",       SecretariaSolicitudDeleteView.as_view(),   name="secretaria-solicitud-delete"),
 
     # --- API REST
     path("api/", include("vacaciones.urls_api")),
