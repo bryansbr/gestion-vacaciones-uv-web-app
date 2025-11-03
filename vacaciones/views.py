@@ -47,8 +47,16 @@ class PeriodoVacacionalListView(LoginRequiredMixin, ListView):
     context_object_name = "periodos"
     paginate_by = 20
 
+    def get(self, request, *args, **kwargs):
+        if request.htmx:
+            self.object_list = self.get_queryset()
+            context = self.get_context_data()
+            html = render_to_string('vacaciones/partials/_tabla-periodos-vacacionales.html', context, request)
+            return HttpResponse(html)
+        return super().get(request, *args, **kwargs)
+
     def get_queryset(self):
-        qs = PeriodoVacacional.objects.all().order_by('-fecha_inicio_periodo')
+        qs = PeriodoVacacional.objects.select_related('funcionario').order_by('-fecha_inicio_periodo')
         
         q = self.request.GET.get("q", "").strip()
         
@@ -275,6 +283,14 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
     template_name = "vacaciones/solicitud-vacaciones-list.html"
     context_object_name = "solicitudes"
     paginate_by = 20
+
+    def get(self, request, *args, **kwargs):
+        if request.htmx:
+            self.object_list = self.get_queryset()
+            context = self.get_context_data()
+            html = render_to_string('vacaciones/partials/_tabla-funcionario-solicitudes.html', context, request)
+            return HttpResponse(html)
+        return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
         qs = SolicitudVacaciones.objects.filter(funcionario=self.request.user.funcionario).order_by('-fecha_solicitud')
@@ -665,6 +681,14 @@ class SecretariaSolicitudesListView(LoginRequiredMixin, ListView):
     template_name = "vacaciones/secretaria-solicitudes-list.html"
     context_object_name = "solicitudes"
     paginate_by = 20
+
+    def get(self, request, *args, **kwargs):
+        if request.htmx:
+            self.object_list = self.get_queryset()
+            context = self.get_context_data()
+            html = render_to_string('vacaciones/partials/_tabla-secretaria-solicitudes.html', context, request)
+            return HttpResponse(html)
+        return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
         secretaria_func = getattr(self.request.user, "funcionario", None)

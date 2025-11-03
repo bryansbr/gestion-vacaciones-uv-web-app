@@ -11,6 +11,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.http import Http404, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
 from django.utils.decorators import method_decorator
 from django.views.generic import CreateView, ListView
@@ -50,6 +51,14 @@ class SolicitudesJefeListView(LoginRequiredMixin, ListView):
     template_name = "vacaciones/jefe-solicitudes-list.html"
     context_object_name = "solicitudes"
     paginate_by = 20
+
+    def get(self, request, *args, **kwargs):
+        if request.htmx:
+            self.object_list = self.get_queryset()
+            context = self.get_context_data()
+            html = render_to_string('vacaciones/partials/_tabla-jefe-solicitudes.html', context, request)
+            return HttpResponse(html)
+        return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
         jefe_func = getattr(self.request.user, "funcionario", None)

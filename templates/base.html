@@ -1,5 +1,6 @@
 {% load static %}
 {% load grupos_tags %}
+{% load django_htmx %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -9,6 +10,7 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  {% htmx_script %}
   {% block extra_head %}{% endblock %}
 </head>
 
@@ -39,7 +41,7 @@
               aria-expanded="false"
               aria-controls="user-menu-dropdown">
         <span class="text-gray-700 text-sm">
-          Bienvenido, <strong>{{ request.user.funcionario.nombre }} {{ request.user.funcionario.apellido }}</strong>
+          Bienvenido(a), <strong>{{ request.user.funcionario.nombre }} {{ request.user.funcionario.apellido }}</strong>
         </span>
         <span class="inline-block cursor-pointer">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32" class="align-middle" aria-label="Menú usuario">

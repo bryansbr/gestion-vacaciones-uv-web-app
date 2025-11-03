@@ -21,85 +21,28 @@
              name="q" 
              value="{{ request.GET.q }}" 
              placeholder="Nombre, apellido o identificación..." 
+             hx-get="{% url 'vacaciones:periodo-vacacional-list' %}"
+             hx-target="#tabla-contenedor"
+             hx-trigger="input changed delay:500ms"
+             hx-swap="innerHTML"
              class="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500">
     </div>
     <div class="flex items-end gap-2">
-      <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200 w-full">
-        Buscar
-      </button>
       {% if request.GET.q %}
-      <a href="{% url 'vacaciones:periodo-vacacional-list' %}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-md transition-colors duration-200">
+      <a href="{% url 'vacaciones:periodo-vacacional-list' %}"
+         hx-get="{% url 'vacaciones:periodo-vacacional-list' %}"
+         hx-target="#tabla-contenedor"
+         hx-swap="innerHTML"
+         class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-md transition-colors duration-200">
         Limpiar
       </a>
       {% endif %}
     </div>
   </form>
 
-  <div class="overflow-x-auto bg-white shadow rounded-lg">
-    <table class="min-w-full divide-y divide-gray-200">
-      <thead class="bg-red-600 text-white">
-        <tr>
-          <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Funcionario</th>
-          <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Fecha Inicio</th>
-          <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Fecha Fin</th>
-          <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Días Totales</th>
-          <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Días Pendientes</th>
-          <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Días Disfrutados</th>
-          <th class="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Acciones</th>
-        </tr>
-      </thead>
-      <tbody class="bg-white divide-y divide-gray-200">
-        {% for periodo in periodos %}
-        <tr class="hover:bg-gray-50">
-          <td class="px-6 py-4 whitespace-nowrap">{{ periodo.funcionario.nombre }} {{ periodo.funcionario.apellido }}</td>
-          <td class="px-6 py-4 whitespace-nowrap">{{ periodo.fecha_inicio_periodo|date:"d/m/Y" }}</td>
-          <td class="px-6 py-4 whitespace-nowrap">{{ periodo.fecha_fin_periodo|date:"d/m/Y" }}</td>
-          <td class="px-6 py-4 whitespace-nowrap">{{ periodo.dias_totales_periodo }}</td>
-          <td class="px-6 py-4 whitespace-nowrap">{{ periodo.dias_pendientes_periodo }}</td>
-          <td class="px-6 py-4 whitespace-nowrap">{{ periodo.dias_disfrutados_periodo }}</td>
-          <td class="px-6 py-4 whitespace-nowrap text-center flex justify-center gap-2">
-            <a href="{% url 'vacaciones:periodo_vacacional_update' periodo.pk %}" class="bg-yellow-400 hover:bg-yellow-500 text-white px-2 py-1 rounded text-sm font-semibold">
-              Editar
-            </a>
-            <a href="{% url 'vacaciones:periodo_vacacional_delete' periodo.pk %}" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm font-semibold">
-              Eliminar
-            </a>
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="7" class="px-6 py-4 text-center text-gray-500">No hay periodos vacacionales registrados.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div id="tabla-contenedor">
+  {% include 'vacaciones/partials/_tabla-periodos-vacacionales.html' %}
   </div>
-
-  {% if is_paginated %}
-  <div class="mt-6 flex justify-center items-center gap-2">
-    {% if page_obj.has_previous %}
-    <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" 
-       class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200">
-      Anterior
-    </a>
-    {% else %}
-    <span class="px-4 py-2 bg-gray-200 text-gray-400 rounded-md cursor-not-allowed">Anterior</span>
-    {% endif %}
-
-    <span class="text-gray-700">
-      Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
-    </span>
-
-    {% if page_obj.has_next %}
-    <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" 
-       class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200">
-      Siguiente
-    </a>
-    {% else %}
-    <span class="px-4 py-2 bg-gray-200 text-gray-400 rounded-md cursor-not-allowed">Siguiente</span>
-    {% endif %}
-  </div>
-  {% endif %}
 
 </div>
 {% endblock %}

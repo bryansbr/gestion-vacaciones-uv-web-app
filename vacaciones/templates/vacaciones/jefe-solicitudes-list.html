@@ -24,12 +24,20 @@
              name="q" 
              value="{{ request.GET.q }}" 
              placeholder="Código, nombre o apellido..." 
+             hx-get="{% url 'vacaciones:jefe_solicitudes_list' %}"
+             hx-target="#tabla-contenedor"
+             hx-trigger="input changed delay:500ms"
+             hx-swap="innerHTML"
              class="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
     <div>
       <label for="estado" class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
       <select id="estado" 
               name="estado" 
+              hx-get="{% url 'vacaciones:jefe_solicitudes_list' %}"
+              hx-target="#tabla-contenedor"
+              hx-trigger="change"
+              hx-swap="innerHTML"
               class="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
         <option value="">Todos</option>
         <option value="pendiente" {% if request.GET.estado == 'pendiente' %}selected{% endif %}>Pendiente</option>
@@ -40,158 +48,26 @@
       </select>
     </div>
     <div class="flex items-end gap-2">
-      <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200 w-full">
-        Buscar
-      </button>
       {% if request.GET.q or request.GET.estado %}
-      <a href="{% url 'vacaciones:jefe_solicitudes_list' %}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-md transition-colors duration-200">
+      <a href="{% url 'vacaciones:jefe_solicitudes_list' %}" 
+         hx-get="{% url 'vacaciones:jefe_solicitudes_list' %}"
+         hx-target="#tabla-contenedor"
+         hx-swap="innerHTML"
+         class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-md transition-colors duration-200">
         Limpiar
       </a>
       {% endif %}
     </div>
   </form>
 
-  {% if solicitudes %}
-  <div class="overflow-x-auto">
-    <table class="min-w-full border border-gray-300 text-sm solicitud-vacaciones-table">
-      <thead class="bg-gray-100 text-gray-600">
-        <tr>
-          <th class="px-4 py-2 border">Código SABS</th>
-          <th class="px-4 py-2 border">Funcionario</th>
-          <th class="px-4 py-2 border">Periodo disfrute vacaciones</th>
-          <th class="px-4 py-2 border">Días</th>
-          <th class="px-4 py-2 border">Fecha de pago</th>
-          <th class="px-4 py-2 border">Avance</th>
-          <th class="px-4 py-2 border">Estado</th>
-          <th class="px-4 py-2 border">Fecha de creación</th>
-          <th class="px-4 py-2 border">Acciones</th>
-        </tr>
-      </thead>
-      <tbody class="text-center">
-        {% for solicitud in solicitudes %}
-        <tr class="border-b hover:bg-gray-50">
-          <td class="px-4 py-2 border">{{ solicitud.codigo_sabs }}</td>
-
-          <td class="px-4 py-2 border">
-            <div class="text-left">
-              <div class="font-medium">{{ solicitud.funcionario.nombre }} {{ solicitud.funcionario.apellido }}</div>
-              <div class="text-xs text-gray-500">{{ solicitud.funcionario.facultad_dependencia.nombre }}</div>
-              {% if solicitud.creada_por %}
-              <div class="text-xs text-blue-600 mt-1">
-                Creada por: {{ solicitud.creada_por.funcionario.nombre }} {{ solicitud.creada_por.funcionario.apellido }}
-              </div>
-              {% endif %}
-            </div>
-          </td>
-
-          <td class="px-4 py-2 border">
-            {{ solicitud.fecha_inicio_vacaciones|date:"d/m/Y" }} -
-            {{ solicitud.fecha_fin_vacaciones|date:"d/m/Y" }}
-          </td>
-
-          <td class="px-4 py-2 border">
-            {{ solicitud.total_dias_solicitados }}
-            {{ solicitud.get_tipo_dias_solicitados_display }}
-          </td>
-
-          <td class="px-4 py-2 border">{{ solicitud.fecha_pago|date:"d/m/Y" }}</td>
-
-          <td class="px-4 py-2 border"
-              hx-get="{% url 'vacaciones:semaforo_cell' solicitud.id %}"
-              hx-trigger="load, every 25s"
-              hx-swap="innerHTML">
-            {% include 'vacaciones/partials/_semaforo-cell.html' with solicitud=solicitud %}
-          </td>
-
-          <td class="px-4 py-2 border font-medium text-indigo-600">
-            {{ solicitud.get_estado_solicitud_display }}
-          </td>
-
-          <td class="px-4 py-2 border">{{ solicitud.fecha_solicitud|date:"d/m/Y" }}</td>
-
-          <td class="px-4 py-2 border">
-            <div class="flex justify-center items-center space-x-2">
-              <a href="{% url 'vacaciones:solicitud_vacaciones_pdf' solicitud.id %}"
-                 class="p-1 rounded border border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-500 transition-colors duration-200"
-                 title="Ver PDF" target="_blank" rel="noopener">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M21 21l-4.35-4.35m1.6-4.4a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                </svg>
-              </a>
-
-              {% if solicitud.estado_solicitud == 'pendiente' %}
-              <form method="post" 
-                    action="{% url 'vacaciones:jefe_aprobar_solicitud' solicitud.id %}"
-                    class="form-aprobar-solicitud-jefe inline"
-                    data-codigo="{{ solicitud.codigo_sabs }}">
-                {% csrf_token %}
-                <button type="button"
-                        class="p-1 rounded border border-green-500 text-green-600 hover:text-green-800 hover:border-green-700 transition-colors duration-200 btn-aprobar-jefe"
-                        title="Aprobar solicitud">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M5 13l4 4L19 7"/>
-                  </svg>
-                </button>
-              </form>
-              <form method="post"
-                    action="{% url 'vacaciones:jefe_devolver_solicitud' solicitud.id %}"
-                    class="form-devolver-solicitud-jefe inline"
-                    data-codigo="{{ solicitud.codigo_sabs }}">
-                {% csrf_token %}
-                <button type="button"
-                        class="p-1 rounded border border-yellow-500 text-yellow-600 hover:text-yellow-800 hover:border-yellow-700 transition-colors duration-200 btn-devolver-jefe"
-                        title="Devolver solicitud">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                  </svg>
-                </button>
-              </form>
-              {% endif %}
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div id="tabla-contenedor">
+  {% include 'vacaciones/partials/_tabla-jefe-solicitudes.html' %}
   </div>
-
-  {% if is_paginated %}
-  <div class="mt-6 flex justify-center items-center gap-2">
-    {% if page_obj.has_previous %}
-    <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.estado %}&estado={{ request.GET.estado }}{% endif %}" 
-       class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200">
-      Anterior
-    </a>
-    {% else %}
-    <span class="px-4 py-2 bg-gray-200 text-gray-400 rounded-md cursor-not-allowed">Anterior</span>
-    {% endif %}
-
-    <span class="text-gray-700">
-      Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
-    </span>
-
-    {% if page_obj.has_next %}
-    <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.estado %}&estado={{ request.GET.estado }}{% endif %}" 
-       class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200">
-      Siguiente
-    </a>
-    {% else %}
-    <span class="px-4 py-2 bg-gray-200 text-gray-400 rounded-md cursor-not-allowed">Siguiente</span>
-    {% endif %}
-  </div>
-  {% endif %}
-  {% else %}
-  <p class="text-gray-600">No hay solicitudes registradas.</p>
-  {% endif %}
 </div>
 {% endblock %}
 
 {% block extra_scripts %}
 {{ block.super }}
-<script src="https://unpkg.com/htmx.org@1.9.12"></script>
 <script src="{% static 'vacaciones/js/components/vacaciones/acciones-jefe-aprobar.js' %}"></script>
 <script src="{% static 'vacaciones/js/components/vacaciones/acciones-jefe-devolver.js' %}"></script>
 <script src="{% static 'vacaciones/js/components/vacaciones/creacion-exitosa-solicitud.js' %}"></script>
