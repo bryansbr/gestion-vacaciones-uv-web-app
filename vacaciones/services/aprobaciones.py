@@ -56,11 +56,11 @@ def _validar_propietario_o_permiso(user: CustomUser, solicitud: SolicitudVacacio
     - RRHH  ⇒ grupo 'RRHH' o permiso 'autorizar_solicitud' / 'rechazar_solicitud'
     """
 
-    if etapa == 'JEFE' and not (user.has_perm('vacaciones.dar_visto_bueno_solicitud') or user.groups.filter(name__iexact='JEFE_INMEDIATO').exists()):
+    if etapa == 'JEFE' and not (user.has_perm('vacaciones.dar_visto_bueno_solicitud') or user.groups.filter(name__in=['Jefe Inmediato', 'JEFE_INMEDIATO']).exists()):
         raise PermissionDenied("No tienes permisos para aprobar/devolver como Jefe Inmediato.")
-    if etapa == 'COORD' and not (user.has_perm('vacaciones.dar_visto_bueno_solicitud') or user.groups.filter(name__iexact='COORD_ADMIN').exists()):
+    if etapa == 'COORD' and not (user.has_perm('vacaciones.dar_visto_bueno_solicitud') or user.groups.filter(name__in=['Coordinador Administrativo', 'COORD_ADMIN']).exists()):
         raise PermissionDenied("No tienes permisos para aprobar/devolver como Coordinación Administrativa.")
-    if etapa == 'RRHH' and not (user.has_perm('vacaciones.autorizar_solicitud') or user.has_perm('vacaciones.rechazar_solicitud') or user.groups.filter(name__iexact='RRHH').exists()):
+    if etapa == 'RRHH' and not (user.has_perm('vacaciones.autorizar_solicitud') or user.has_perm('vacaciones.rechazar_solicitud') or user.groups.filter(name='RRHH').exists()):
         raise PermissionDenied("No tienes permisos para autorizar/rechazar como RRHH.")
 
 def _refrescar_estado_global(solicitud: SolicitudVacaciones):

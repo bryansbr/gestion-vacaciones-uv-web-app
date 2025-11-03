@@ -51,6 +51,7 @@ urlpatterns = [
     # Jefe Inmediato
     # -----------------------------------------
     path("jefe/solicitudes/",                         views_jefe.SolicitudesJefeListView.as_view(), name="jefe_solicitudes_list"),
+    path("jefe/solicitudes/crear/",                   views_jefe.JefeSolicitudCreateView.as_view(), name="jefe-solicitud-create"),
     path("jefe/solicitudes/<int:pk>/aprobar/",        views_jefe.aprobar_solicitud,               name="jefe_aprobar_solicitud"),
     path("jefe/solicitudes/<int:pk>/devolver/",       views_jefe.devolver_solicitud,              name="jefe_devolver_solicitud"),
 

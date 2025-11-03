@@ -45,6 +45,21 @@ class PeriodoVacacionalListView(LoginRequiredMixin, ListView):
     model = PeriodoVacacional
     template_name = "vacaciones/periodo-vacacional-list.html"
     context_object_name = "periodos"
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = PeriodoVacacional.objects.all().order_by('-fecha_inicio_periodo')
+        
+        q = self.request.GET.get("q", "").strip()
+        
+        if q:
+            qs = qs.filter(
+                Q(funcionario__nombre__icontains=q) |
+                Q(funcionario__apellido__icontains=q) |
+                Q(funcionario__numero_identificacion__icontains=q)
+            )
+
+        return qs
 
 class PeriodoVacacionalCreateView(LoginRequiredMixin, CreateView):
     model = PeriodoVacacional
@@ -259,9 +274,20 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
     model = SolicitudVacaciones
     template_name = "vacaciones/solicitud-vacaciones-list.html"
     context_object_name = "solicitudes"
+    paginate_by = 20
 
     def get_queryset(self):
-        return SolicitudVacaciones.objects.filter(funcionario=self.request.user.funcionario).order_by('-fecha_solicitud')
+        qs = SolicitudVacaciones.objects.filter(funcionario=self.request.user.funcionario).order_by('-fecha_solicitud')
+        
+        q = self.request.GET.get("q", "").strip()
+        estado = self.request.GET.get("estado", "").strip()
+
+        if q:
+            qs = qs.filter(codigo_sabs__icontains=q)
+        if estado:
+            qs = qs.filter(estado_solicitud=estado)
+
+        return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -509,6 +535,8 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
         try:
             solicitud = SolicitudVacaciones.objects.select_related(
                 "funcionario", "periodo_vacacional"
+            ).prefetch_related(
+                "aprobaciones__actualizado_por__funcionario"
             ).get(pk=pk)
         except SolicitudVacaciones.DoesNotExist:
             raise Http404("Solicitud no encontrada")
@@ -570,6 +598,16 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
             static("vacaciones/img/logosimbolo_univalle_negro.png")
         )
 
+        # Obtener información de quien aprobó (Jefe Inmediato)
+        aprobacion_jefe = solicitud.aprobaciones.filter(etapa='JEFE', estado='aprobada').first()
+        autorizado_por = ""
+        fecha_aprobacion_jefe = None
+        if aprobacion_jefe and aprobacion_jefe.actualizado_por:
+            user_aprobador = aprobacion_jefe.actualizado_por
+            if hasattr(user_aprobador, 'funcionario') and user_aprobador.funcionario:
+                autorizado_por = f"{user_aprobador.funcionario.nombre} {user_aprobador.funcionario.apellido}"
+            fecha_aprobacion_jefe = aprobacion_jefe.actualizado_en
+
         context = {
             "logo_url": logo_url,
             "pie_pagina": "F-01-MP-10-04-01 V-04-2014  |  Elaborado por: División de Recursos Humanos",
@@ -595,6 +633,7 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
             "observaciones": solicitud.observaciones or "",
 
             "solicitado_por": f"{funcionario.nombre} {funcionario.apellido}",
+            "autorizado_por": autorizado_por,
         }
 
         html_string = render_to_string("vacaciones/pdf/solicitud-vacaciones.html", context)

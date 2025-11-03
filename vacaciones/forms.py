@@ -2,7 +2,7 @@ from datetime import date
 
 from django import forms
 
-from core.permissions import es_secretaria
+from core.permissions import es_secretaria, es_jefe_inmediato
 from usuarios.models import Funcionario
 
 from .models import PeriodoVacacional, ReintegroVacaciones, SolicitudVacaciones
@@ -156,6 +156,20 @@ class SolicitudVacacionesForm(forms.ModelForm):
             f = funcionario
             self.fields['funcionario'] = forms.ModelChoiceField(
                 queryset=Funcionario.objects.filter(jefe_inmediato=f.jefe_inmediato),
+                widget=forms.Select(attrs={'class': 'form-select'}),
+                required=True,
+                empty_label="Seleccione un funcionario"
+            )
+
+            if funcionario_id:
+                try:
+                    self.fields['funcionario'].initial = Funcionario.objects.get(pk=funcionario_id)
+                except Funcionario.DoesNotExist:
+                    pass
+        elif user and es_jefe_inmediato(user) and funcionario:
+            f = funcionario
+            self.fields['funcionario'] = forms.ModelChoiceField(
+                queryset=Funcionario.objects.filter(jefe_inmediato=f),
                 widget=forms.Select(attrs={'class': 'form-select'}),
                 required=True,
                 empty_label="Seleccione un funcionario"

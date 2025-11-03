@@ -1,57 +1,75 @@
+import holidays
+import json
+import urllib.parse
+
+from datetime import date
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Q
-from django.http import HttpResponseBadRequest, HttpResponseForbidden
+from django.http import Http404, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.utils.decorators import method_decorator
-from django.views.generic import ListView
+from django.views.generic import CreateView, ListView
+from weasyprint import HTML
 
 from core.permissions import group_required
 from usuarios.models import Funcionario
-from vacaciones.services.flujo import (
-    transicion_aprobar_por_jefe as _transicion_aprobar_por_jefe,
-    transicion_devolver_por_jefe as _transicion_devolver_por_jefe,
+from .forms import SolicitudVacacionesForm
+from .models import (
+    AprobacionEtapa,
+    HistoricoAcciones,
+    PeriodoVacacional,
+    ReintegroVacaciones,
+    SolicitudVacaciones,
+    generar_codigo_sabs
 )
-
-from .models import HistoricoAcciones, ReintegroVacaciones, SolicitudVacaciones
+from .services.aprobaciones import (
+    aprobar_etapa,
+    devolver_etapa,
+)
+from .utils import get_current_date_colombia
 
 def _es_jefe_de(solicitud, user):
-    return getattr(solicitud.funcionario, "jefe_inmediato_id", None) == getattr(user, "id", None)
+    user_func = getattr(user, "funcionario", None)
+    if not user_func:
+        return False
+    return solicitud.funcionario.jefe_inmediato_id == user_func.pk
 
 @method_decorator(group_required("Jefe Inmediato"), name="dispatch")
 class SolicitudesJefeListView(LoginRequiredMixin, ListView):
+    """
+    Lista las solicitudes de vacaciones que el jefe puede ver:
+    - De funcionarios que tienen el mismo jefe_inmediato que él
+    - Incluye todas las solicitudes de los subordinados
+    """
     model = SolicitudVacaciones
-    template_name = "vacaciones/solicitudes-jefe-list.html"
+    template_name = "vacaciones/jefe-solicitudes-list.html"
     context_object_name = "solicitudes"
     paginate_by = 20
 
     def get_queryset(self):
         jefe_func = getattr(self.request.user, "funcionario", None)
-
-        if jefe_func is None:
-            jefe_func = (Funcionario.objects.filter(usuario=self.request.user).first()
-                         or Funcionario.objects.filter(user=self.request.user).first())
-        if jefe_func is None:
-            jefe_func = Funcionario.objects.filter(correo_institucional=self.request.user.email).first()
-
-        if jefe_func is None:
+        
+        if not jefe_func:
             return SolicitudVacaciones.objects.none()
 
         qs = (SolicitudVacaciones.objects
-              .select_related("funcionario", "periodo_vacacional")
+              .select_related("funcionario", "periodo_vacacional", "creada_por", "creada_por__funcionario")
               .filter(funcionario__jefe_inmediato=jefe_func)
               .order_by("-fecha_solicitud", "-id"))
-
+        
         q = self.request.GET.get("q", "").strip()
         estado = self.request.GET.get("estado", "").strip()
 
         if q:
             qs = qs.filter(
                 Q(codigo_sabs__icontains=q) |
-                Q(funcionario__nombres__icontains=q) |
-                Q(funcionario__apellidos__icontains=q)
+                Q(funcionario__nombre__icontains=q) |
+                Q(funcionario__apellido__icontains=q)
             )
         if estado:
             qs = qs.filter(estado_solicitud=estado)
@@ -65,7 +83,6 @@ def solicitud_pdf(request, pk):
     return redirect(solicitud.pdf_url)
 
 @group_required("Jefe Inmediato")
-@transaction.atomic
 def aprobar_solicitud(request, pk):
     if request.method != "POST":
         return HttpResponseBadRequest("Método no permitido")
@@ -73,17 +90,15 @@ def aprobar_solicitud(request, pk):
     if not _es_jefe_de(solicitud, request.user) and not request.user.is_superuser:
         return HttpResponseForbidden()
 
-    # Reglas de transición: de "PENDIENTE_JEFE" → "PENDIENTE_COORD"
-    ok, msg = _transicion_aprobar_por_jefe(solicitud, request.user, comentario=request.POST.get("comentario", ""))
-    status = 200 if ok else 400
-    messages.add_message(request, messages.INFO if ok else messages.ERROR, msg)
-
-    if request.headers.get("HX-Request"):
-        return render(request, "vacaciones/partials/_solicitud-row-jefe.html", {"s": solicitud})
-    return redirect(reverse("vacaciones:solicitudes_jefe"))
+    try:
+        aprobar_etapa(request.user, solicitud, observacion=request.POST.get('obs', ''))
+        messages.success(request, "Solicitud aprobada correctamente.")
+    except (ValidationError, PermissionDenied) as e:
+        messages.error(request, str(e))
+    
+    return redirect(reverse("vacaciones:jefe_solicitudes_list"))
 
 @group_required("Jefe Inmediato")
-@transaction.atomic
 def devolver_solicitud(request, pk):
     if request.method != "POST":
         return HttpResponseBadRequest("Método no permitido")
@@ -91,11 +106,202 @@ def devolver_solicitud(request, pk):
     if not _es_jefe_de(solicitud, request.user) and not request.user.is_superuser:
         return HttpResponseForbidden()
 
-    motivo = request.POST.get("comentario", "").strip()
-    ok, msg = _transicion_devolver_por_jefe(solicitud, request.user, comentario=motivo)
-    status = 200 if ok else 400
-    messages.add_message(request, messages.INFO if ok else messages.ERROR, msg)
+    try:
+        devolver_etapa(request.user, solicitud, observacion=request.POST.get('obs', ''))
+        messages.info(request, "Solicitud devuelta correctamente.")
+    except (ValidationError, PermissionDenied) as e:
+        messages.error(request, str(e))
+    
+    return redirect(reverse("vacaciones:jefe_solicitudes_list"))
 
-    if request.headers.get("HX-Request"):
-        return render(request, "vacaciones/partials/solicitud-row-jefe.html", {"s": solicitud})
-    return redirect(reverse("vacaciones:solicitudes_jefe"))
+@method_decorator(group_required("Jefe Inmediato"), name="dispatch")
+class JefeSolicitudCreateView(LoginRequiredMixin, CreateView):
+    """
+    Permite al jefe crear solicitudes en nombre de funcionarios
+    que tienen a él como jefe_inmediato.
+    """
+    model = SolicitudVacaciones
+    form_class = SolicitudVacacionesForm
+    template_name = "vacaciones/jefe-solicitud-form.html"
+    success_url = reverse_lazy("vacaciones:jefe_solicitudes_list")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        kwargs['initial'] = kwargs.get('initial', {})
+        
+        funcionario_id = self.request.GET.get('funcionario_id')
+        if funcionario_id:
+            kwargs['initial']['user_id'] = funcionario_id
+        
+        return kwargs
+
+    def get_initial(self):
+        initial = super().get_initial()
+        hoy_colombia = get_current_date_colombia()
+        initial['fecha_solicitud'] = hoy_colombia
+        initial['codigo_sabs'] = generar_codigo_sabs('VAC', hoy_colombia.year)
+        return initial
+
+    def dispatch(self, request, *args, **kwargs):
+        funcionario_id = request.GET.get('funcionario_id')
+        if not funcionario_id:
+            messages.error(request, "Debe seleccionar un funcionario para crear la solicitud.")
+            return redirect("vacaciones:jefe_solicitudes_list")
+        
+        jefe_func = getattr(request.user, "funcionario", None)
+        if not jefe_func:
+            messages.error(request, "No se encontró información del funcionario asociado.")
+            return redirect("vacaciones:jefe_solicitudes_list")
+        
+        try:
+            funcionario_target = Funcionario.objects.get(pk=funcionario_id)
+        except Funcionario.DoesNotExist:
+            messages.error(request, "Funcionario no encontrado.")
+            return redirect("vacaciones:jefe_solicitudes_list")
+        
+        if funcionario_target.jefe_inmediato != jefe_func:
+            messages.error(request, "No tiene permisos para crear solicitudes para este funcionario.")
+            return redirect("vacaciones:jefe_solicitudes_list")
+        
+        solicitudes_activas = SolicitudVacaciones.objects.filter(
+            funcionario=funcionario_target,
+            estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
+        ).prefetch_related('reintegrovacaciones_set')
+        
+        solicitudes_sin_reintegro = []
+        for solicitud in solicitudes_activas:
+            tiene_reintegro = any(
+                reintegro.estado_solicitud == 'aprobado' 
+                for reintegro in solicitud.reintegrovacaciones_set.all()
+            )
+            if not tiene_reintegro:
+                solicitudes_sin_reintegro.append(solicitud)
+        
+        if solicitudes_sin_reintegro:
+            messages.error(
+                request, 
+                "El funcionario seleccionado ya tiene una solicitud de vacaciones activa y no puede crear otra."
+            )
+            return redirect("vacaciones:jefe_solicitudes_list")
+        
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        hoy_colombia = get_current_date_colombia()
+        years = [hoy_colombia.year, hoy_colombia.year + 1]
+        festivos = []
+
+        for y in years:
+            festivos += [d.strftime('%d/%m/%Y') for d in holidays.Colombia(years=[y]).keys()]
+        
+        context['festivos_colombia'] = json.dumps(festivos)
+
+        funcionario_id = self.request.GET.get('funcionario_id')
+        try:
+            funcionario = Funcionario.objects.get(pk=funcionario_id)
+        except Funcionario.DoesNotExist:
+            funcionario = None
+        
+        if funcionario:
+            context['funcionario_target'] = funcionario
+            context['funcionario_estamento'] = funcionario.estamento.nombre.lower()
+            context['funcionario_decreto'] = (funcionario.decreto_resolucion or '').strip()
+
+            periodos_vacacionales = PeriodoVacacional.objects.filter(funcionario=funcionario)
+            context['tiene_periodos_vacacionales'] = periodos_vacacionales.exists()
+            
+            periodos_dias_pendientes = {}
+            for periodo in periodos_vacacionales:
+                periodos_dias_pendientes[periodo.pk] = periodo.dias_pendientes_periodo
+            context['periodos_dias_pendientes'] = json.dumps(periodos_dias_pendientes)
+            
+            reintegros_pendientes = ReintegroVacaciones.objects.filter(
+                funcionario=funcionario,
+                estado_solicitud='aprobado',
+                dias_pendientes__gt=0
+            )
+
+            reintegros_data = []
+            for reintegro in reintegros_pendientes:
+                reintegros_data.append({
+                    'id': reintegro.id,
+                    'dias_pendientes': reintegro.dias_pendientes,
+                    'tipo_dias': reintegro.tipo_dias_pendientes,
+                    'periodo_vacacional_id': reintegro.periodo_vacacional_id,
+                    'fecha_disfrute_desde': reintegro.fecha_disfrute_desde.strftime('%d/%m/%Y'),
+                    'fecha_disfrute_hasta': reintegro.fecha_disfrute_hasta.strftime('%d/%m/%Y')
+                })
+
+            context['reintegros_pendientes'] = json.dumps(reintegros_data)
+            context['tiene_reintegros_pendientes'] = len(reintegros_data) > 0
+
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = None
+        funcionario_id = request.GET.get('funcionario_id')
+        
+        if not funcionario_id:
+            messages.error(request, "Debe seleccionar un funcionario para crear la solicitud.")
+            return self.form_invalid(self.get_form())
+
+        try:
+            funcionario_target = Funcionario.objects.get(pk=funcionario_id)
+        except Funcionario.DoesNotExist:
+            messages.error(request, "Funcionario no encontrado.")
+            return self.form_invalid(self.get_form())
+
+        jefe_func = getattr(request.user, "funcionario", None)
+        if not jefe_func:
+            messages.error(request, "No se encontró información del funcionario asociado.")
+            return self.form_invalid(self.get_form())
+
+        if funcionario_target.jefe_inmediato != jefe_func:
+            messages.error(request, "No tiene permisos para crear solicitudes para este funcionario.")
+            return self.form_invalid(self.get_form())
+
+        periodos_vacacionales = PeriodoVacacional.objects.filter(funcionario=funcionario_target)
+        if not periodos_vacacionales.exists():
+            messages.error(request, "No puede crear una solicitud de vacaciones sin tener periodos vacacionales registrados.")
+            return self.form_invalid(self.get_form())
+
+        solicitudes_activas = SolicitudVacaciones.objects.filter(
+            funcionario=funcionario_target,
+            estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
+        ).prefetch_related('reintegrovacaciones_set')
+        
+        solicitudes_sin_reintegro = []
+        for solicitud in solicitudes_activas:
+            tiene_reintegro = any(
+                reintegro.estado_solicitud == 'aprobado' 
+                for reintegro in solicitud.reintegrovacaciones_set.all()
+            )
+            if not tiene_reintegro:
+                solicitudes_sin_reintegro.append(solicitud)
+        
+        if solicitudes_sin_reintegro:
+            messages.error(request, "El funcionario seleccionado ya tiene una solicitud de vacaciones activa y no puede crear otra.")
+            return self.form_invalid(self.get_form())
+
+        form = self.get_form()
+        form.instance.funcionario = funcionario_target
+        form.instance.creada_por = request.user
+        
+        hoy_colombia = get_current_date_colombia()
+        form.instance.fecha_solicitud = hoy_colombia
+        
+        if form.is_valid():
+            return self.form_valid(form)
+        
+        return self.form_invalid(form)
+
+    def form_valid(self, form):
+        try:
+            self.object = form.save()
+            messages.success(self.request, "Solicitud registrada correctamente.")
+            return super().form_valid(form)
+        except Exception as e:
+            messages.error(self.request, f"Error al guardar la solicitud: {e}")
+            return self.form_invalid(form)
