@@ -551,9 +551,17 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_queryset(self):
         return SolicitudVacaciones.objects.filter(
-            funcionario=self.request.user.funcionario,
-            estado_solicitud='pendiente'
+            funcionario=self.request.user.funcionario
         )
+
+    def dispatch(self, request, *args, **kwargs):
+        solicitud = self.get_object()
+        
+        if not solicitud.puede_editar_eliminar:
+            messages.error(request, "Solo puede editar solicitudes en estado 'pendiente' o 'devuelta' (no rechazadas por RRHH).")
+            return redirect("vacaciones:solicitud-vacaciones-list")
+        
+        return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
         messages.success(self.request, "Solicitud actualizada correctamente.")
@@ -566,9 +574,17 @@ class SolicitudVacacionesDeleteView(LoginRequiredMixin, DeleteView):
 
     def get_queryset(self):
         return SolicitudVacaciones.objects.filter(
-            funcionario=self.request.user.funcionario,
-            estado_solicitud='pendiente'
+            funcionario=self.request.user.funcionario
         )
+
+    def dispatch(self, request, *args, **kwargs):
+        solicitud = self.get_object()
+        
+        if not solicitud.puede_editar_eliminar:
+            messages.error(request, "Solo puede eliminar solicitudes en estado 'pendiente' o 'devuelta' (no rechazadas por RRHH).")
+            return redirect("vacaciones:solicitud-vacaciones-list")
+        
+        return super().dispatch(request, *args, **kwargs)
 
     def delete(self, request, *args, **kwargs):
         messages.success(request, "Solicitud eliminada correctamente.")
@@ -1077,8 +1093,7 @@ class SecretariaSolicitudUpdateView(LoginRequiredMixin, UpdateView):
             return SolicitudVacaciones.objects.none()
 
         return SolicitudVacaciones.objects.filter(
-            funcionario__jefe_inmediato=secretaria_func.jefe_inmediato,
-            estado_solicitud='pendiente'  # Solo puede editar solicitudes en estado pendiente
+            funcionario__jefe_inmediato=secretaria_func.jefe_inmediato
         )
 
     def get_form_kwargs(self):
@@ -1140,8 +1155,8 @@ class SecretariaSolicitudUpdateView(LoginRequiredMixin, UpdateView):
     def dispatch(self, request, *args, **kwargs):
         solicitud = self.get_object()
         
-        if solicitud.estado_solicitud != 'pendiente':
-            messages.error(request, "Solo puede editar solicitudes en estado 'pendiente'.")
+        if not solicitud.puede_editar_eliminar:
+            messages.error(request, "Solo puede editar solicitudes en estado 'pendiente' o 'devuelta' (no rechazadas por RRHH).")
             return redirect("vacaciones:secretaria-solicitudes-list")
         
         return super().dispatch(request, *args, **kwargs)
@@ -1169,15 +1184,14 @@ class SecretariaSolicitudDeleteView(LoginRequiredMixin, DeleteView):
             return SolicitudVacaciones.objects.none()
 
         return SolicitudVacaciones.objects.filter(
-            funcionario__jefe_inmediato=secretaria_func.jefe_inmediato,
-            estado_solicitud='pendiente'  # Solo puede eliminar solicitudes en estado pendiente
+            funcionario__jefe_inmediato=secretaria_func.jefe_inmediato
         )
 
     def dispatch(self, request, *args, **kwargs):
         solicitud = self.get_object()
         
-        if solicitud.estado_solicitud != 'pendiente':
-            messages.error(request, "Solo puede eliminar solicitudes en estado 'pendiente'.")
+        if not solicitud.puede_editar_eliminar:
+            messages.error(request, "Solo puede eliminar solicitudes en estado 'pendiente' o 'devuelta' (no rechazadas por RRHH).")
             return redirect("vacaciones:secretaria-solicitudes-list")
         
         return super().dispatch(request, *args, **kwargs)

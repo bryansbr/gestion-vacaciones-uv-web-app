@@ -28,3 +28,20 @@ def es_jefe_inmediato(user):
     Filtro de template que verifica si un usuario pertenece al grupo "Jefe Inmediato".
     """
     return has_group(user, "Jefe Inmediato")
+
+@register.filter(name='es_funcionario')
+def es_funcionario(user):
+    """
+    Filtro de template que verifica si un usuario es un funcionario regular
+    (no es secretaria ni jefe inmediato).
+    """
+    if not user or not user.is_authenticated:
+        return False
+    
+    if user.is_superuser:
+        return False
+    
+    has_secretaria = user.groups.filter(name="Secretaria").exists()
+    has_jefe = user.groups.filter(name="Jefe Inmediato").exists()
+    
+    return not has_secretaria and not has_jefe

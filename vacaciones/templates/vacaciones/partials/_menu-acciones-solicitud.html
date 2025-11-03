@@ -1,0 +1,123 @@
+{% load grupos_tags %}
+
+<div class="relative inline-block text-left">
+  <button type="button"
+    class="p-2 text-gray-600 hover:text-gray-900 transition-colors duration-200"
+    id="actions-menu-{{ solicitud.id }}"
+    aria-expanded="false"
+    aria-haspopup="true"
+    aria-label="Menú de acciones">
+    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+      <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
+    </svg>
+  </button>
+  
+  <div class="hidden absolute right-0 z-50 mt-2 w-44 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+    id="dropdown-{{ solicitud.id }}">
+    <ul class="py-1">
+      <li>
+        <a href="{% url 'vacaciones:solicitud_vacaciones_pdf' solicitud.id %}"
+          class="flex items-center justify-start px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          target="_blank"
+          rel="noopener">
+          <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+          </svg>
+          <span class="text-left">Ver PDF</span>
+        </a>
+      </li>
+      
+      {% if request.user|es_funcionario or request.user|es_secretaria %}
+        {% if solicitud.puede_editar_eliminar %}
+          {% if request.user|es_funcionario %}
+            <li>
+              <a href="{% url 'vacaciones:solicitud_vacaciones_update' solicitud.id %}"
+                class="flex items-center justify-start px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                <span class="text-left">Editar</span>
+              </a>
+            </li>
+            <li>
+              <button type="button"
+                data-action="delete"
+                data-url="{% url 'vacaciones:solicitud_vacaciones_delete' solicitud.id %}"
+                class="flex items-center justify-start w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 btn-eliminar-solicitud">
+                <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+                <span class="text-left">Eliminar</span>
+              </button>
+            </li>
+          {% elif request.user|es_secretaria %}
+            <li>
+              <a href="{% url 'vacaciones:secretaria-solicitud-update' solicitud.id %}"
+                class="flex items-center justify-start px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                <span class="text-left">Editar</span>
+              </a>
+            </li>
+            <li>
+              <button type="button"
+                data-action="delete"
+                data-url="{% url 'vacaciones:secretaria-solicitud-delete' solicitud.id %}"
+                class="flex items-center justify-start w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 btn-eliminar-solicitud">
+                <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+                <span class="text-left">Eliminar</span>
+              </button>
+            </li>
+          {% endif %}
+        {% endif %}
+      {% endif %}
+      
+      {% if request.user|es_jefe_inmediato %}
+        {% if solicitud.estado_solicitud == 'pendiente' %}
+          <li>
+            <form method="post"
+              action="{% url 'vacaciones:jefe_aprobar_solicitud' solicitud.id %}"
+              class="form-aprobar-solicitud-jefe"
+              data-codigo="{{ solicitud.codigo_sabs }}">
+              {% csrf_token %}
+              <button type="button"
+                class="flex items-center justify-start w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 btn-aprobar-jefe">
+                <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M5 13l4 4L19 7"/>
+                </svg>
+                <span class="text-left">Aprobar</span>
+              </button>
+            </form>
+          </li>
+          <li>
+            <form method="post"
+              action="{% url 'vacaciones:jefe_devolver_solicitud' solicitud.id %}"
+              class="form-devolver-solicitud-jefe"
+              data-codigo="{{ solicitud.codigo_sabs }}">
+              {% csrf_token %}
+              <button type="button"
+                class="flex items-center justify-start w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 btn-devolver-jefe">
+                <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                <span class="text-left">Devolver</span>
+              </button>
+            </form>
+          </li>
+        {% endif %}
+      {% endif %}
+    </ul>
+  </div>
+</div>

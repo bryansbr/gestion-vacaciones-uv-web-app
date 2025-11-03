@@ -265,6 +265,28 @@ class SolicitudVacaciones(models.Model):
 
         return colores
 
+    @property
+    def puede_editar_eliminar(self) -> bool:
+        """
+        Permite editar/eliminar la solicitud en los siguientes casos:
+        - Estado 'pendiente': solicitud inicial o reenvío por funcionario
+        - Estado 'en_revision' y hay una devolución en JEFE o COORD (no rechazada por RRHH)
+        
+        NO permite editar/eliminar si:
+        - RRHH rechazó la solicitud (estado_global == 'rechazada')
+        - RRHH autorizó la solicitud (estado_global == 'autorizada')
+        """
+        if self.estado_solicitud == 'pendiente':
+            return True
+        
+        if self.estado_global == 'rechazada':
+            return False
+        
+        if self.estado_global == 'devuelta':
+            return True
+        
+        return False
+
     def _obtener_siguiente_dia_habil(self, fecha):
         festivos = holidays.Colombia(years=[fecha.year])
         siguiente_dia = fecha

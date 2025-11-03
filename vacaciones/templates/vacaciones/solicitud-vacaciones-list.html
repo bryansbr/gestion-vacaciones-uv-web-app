@@ -5,6 +5,7 @@
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'vacaciones/css/tabla-solicitudes-vacaciones.css' %}">
   <link rel="stylesheet" href="{% static 'vacaciones/css/semaforo.css' %}">
+  <link rel="stylesheet" href="{% static 'vacaciones/css/menu-acciones-solicitud.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -131,8 +132,9 @@
 
 {% block extra_scripts %}
   {{ block.super }}
-  <script src="{% static 'vacaciones/js/components/vacaciones/confirmar-envio-solicitud.js' %}"></script>
-  <script src="{% static 'vacaciones/js/components/vacaciones/acciones-solicitud-vacaciones.js' %}"></script>
+  <script src="{% static 'vacaciones/js/components/vacaciones/menu-acciones-solicitud.js' %}"></script>
+  <script src="{% static 'vacaciones/js/components/vacaciones/acciones-jefe-aprobar.js' %}"></script>
+  <script src="{% static 'vacaciones/js/components/vacaciones/acciones-jefe-devolver.js' %}"></script>
   
   <script src="{% static 'vacaciones/js/components/vacaciones/creacion-exitosa-solicitud.js' %}"></script>
   <script src="{% static 'vacaciones/js/components/vacaciones/eliminacion-exitosa-solicitud.js' %}"></script>
