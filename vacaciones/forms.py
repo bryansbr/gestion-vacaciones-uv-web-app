@@ -149,24 +149,24 @@ class SolicitudVacacionesForm(forms.ModelForm):
         
         if self.instance and self.instance.pk:
             funcionario = self.instance.funcionario
+        elif funcionario_id:
+            try:
+                funcionario = Funcionario.objects.get(pk=funcionario_id)
+            except Funcionario.DoesNotExist:
+                pass
         elif user and hasattr(user, 'funcionario'):
             funcionario = user.funcionario
 
-        if user and es_secretaria(user) and funcionario and funcionario.jefe_inmediato:
-            f = funcionario
-            self.fields['funcionario'] = forms.ModelChoiceField(
-                queryset=Funcionario.objects.filter(jefe_inmediato=f.jefe_inmediato),
-                widget=forms.Select(attrs={'class': 'form-select'}),
-                required=True,
-                empty_label="Seleccione un funcionario"
-            )
-
-            if funcionario_id:
-                try:
-                    self.fields['funcionario'].initial = Funcionario.objects.get(pk=funcionario_id)
-                except Funcionario.DoesNotExist:
-                    pass
-        elif user and es_jefe_inmediato(user) and funcionario:
+        if user and es_secretaria(user) and not (self.instance and self.instance.pk) and not funcionario_id:
+            secretaria_func = user.funcionario
+            if secretaria_func and secretaria_func.jefe_inmediato:
+                self.fields['funcionario'] = forms.ModelChoiceField(
+                    queryset=Funcionario.objects.filter(jefe_inmediato=secretaria_func.jefe_inmediato),
+                    widget=forms.Select(attrs={'class': 'form-select'}),
+                    required=True,
+                    empty_label="Seleccione un funcionario"
+                )
+        elif user and es_jefe_inmediato(user) and not (self.instance and self.instance.pk) and not funcionario_id:
             f = funcionario
             self.fields['funcionario'] = forms.ModelChoiceField(
                 queryset=Funcionario.objects.filter(jefe_inmediato=f),
@@ -174,12 +174,6 @@ class SolicitudVacacionesForm(forms.ModelForm):
                 required=True,
                 empty_label="Seleccione un funcionario"
             )
-
-            if funcionario_id:
-                try:
-                    self.fields['funcionario'].initial = Funcionario.objects.get(pk=funcionario_id)
-                except Funcionario.DoesNotExist:
-                    pass
 
         if funcionario:
             periodos_funcionario = PeriodoVacacional.objects.filter(funcionario=funcionario).order_by('fecha_inicio_periodo')

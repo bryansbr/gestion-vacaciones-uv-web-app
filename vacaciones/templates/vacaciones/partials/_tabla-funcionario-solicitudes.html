@@ -4,6 +4,7 @@
     <thead class="bg-gray-100 text-gray-600">
       <tr>
         <th class="px-4 py-2 border">Código SABS</th>
+        <th class="px-4 py-2 border">Funcionario</th>
         <th class="px-4 py-2 border">Periodo disfrute vacaciones</th>
         <th class="px-4 py-2 border">Días</th>
         <th class="px-4 py-2 border">Fecha de pago</th>
@@ -17,6 +18,18 @@
       {% for solicitud in solicitudes %}
       <tr class="border-b hover:bg-gray-50">
         <td class="px-4 py-2 border">{{ solicitud.codigo_sabs }}</td>
+
+        <td class="px-4 py-2 border">
+          <div class="text-left">
+            <div class="font-medium">{{ solicitud.funcionario.nombre }} {{ solicitud.funcionario.apellido }}</div>
+            <div class="text-xs text-gray-500">{{ solicitud.funcionario.facultad_dependencia.nombre }}</div>
+            {% if solicitud.creada_por %}
+            <div class="text-xs text-blue-600 mt-1">
+              Creada por: {{ solicitud.creada_por.funcionario.nombre }} {{ solicitud.creada_por.funcionario.apellido }}
+            </div>
+            {% endif %}
+          </div>
+        </td>
 
         <td class="px-4 py-2 border">
           {{ solicitud.fecha_inicio_vacaciones|date:"d/m/Y" }} -

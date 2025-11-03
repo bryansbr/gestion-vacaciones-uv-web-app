@@ -19,7 +19,7 @@ from django.views import View
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 from weasyprint import HTML
 
-from core.permissions import group_required, es_secretaria
+from core.permissions import group_required, es_secretaria, es_jefe_inmediato
 from .forms import PeriodoVacacionalForm, SolicitudVacacionesForm
 from .models import (
     AprobacionEtapa,
@@ -253,6 +253,7 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
 
         form = self.get_form()
         form.instance.funcionario = funcionario
+        form.instance.creada_por = request.user
         
         hoy_colombia = get_current_date_colombia()
         form.instance.fecha_solicitud = hoy_colombia
@@ -293,13 +294,29 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
         return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
-        qs = SolicitudVacaciones.objects.filter(funcionario=self.request.user.funcionario).order_by('-fecha_solicitud')
+        if es_secretaria(self.request.user):
+            qs = SolicitudVacaciones.objects.filter(creada_por=self.request.user).order_by('-fecha_solicitud')
+        elif es_jefe_inmediato(self.request.user):
+            qs = SolicitudVacaciones.objects.filter(
+                Q(funcionario=self.request.user.funcionario) | Q(creada_por=self.request.user)
+            ).distinct().order_by('-fecha_solicitud')
+        else:
+            qs = SolicitudVacaciones.objects.filter(funcionario=self.request.user.funcionario).order_by('-fecha_solicitud')
+        
+        qs = qs.select_related('funcionario', 'periodo_vacacional', 'creada_por', 'creada_por__funcionario')
         
         q = self.request.GET.get("q", "").strip()
         estado = self.request.GET.get("estado", "").strip()
 
         if q:
-            qs = qs.filter(codigo_sabs__icontains=q)
+            if es_secretaria(self.request.user) or es_jefe_inmediato(self.request.user):
+                qs = qs.filter(
+                    Q(codigo_sabs__icontains=q) |
+                    Q(funcionario__nombre__icontains=q) |
+                    Q(funcionario__apellido__icontains=q)
+                )
+            else:
+                qs = qs.filter(codigo_sabs__icontains=q)
         if estado:
             qs = qs.filter(estado_solicitud=estado)
 
@@ -309,32 +326,140 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         funcionario = self.request.user.funcionario
         
-        solicitudes_activas = SolicitudVacaciones.objects.filter(
-            funcionario=funcionario,
-            estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
-        ).prefetch_related('reintegrovacaciones_set')
-        
-        solicitudes_sin_reintegro = []
-        
-        for solicitud in solicitudes_activas:
-            tiene_reintegro = any(
-                reintegro.estado_solicitud == 'aprobado' 
-                for reintegro in solicitud.reintegrovacaciones_set.all()
+        if es_secretaria(self.request.user) or es_jefe_inmediato(self.request.user):
+            context['puede_crear_solicitud'] = True
+            
+            solicitudes_activas = SolicitudVacaciones.objects.filter(
+                funcionario=funcionario,
+                estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
+            ).prefetch_related('reintegrovacaciones_set')
+            
+            solicitudes_sin_reintegro = []
+            
+            for solicitud in solicitudes_activas:
+                tiene_reintegro = any(
+                    reintegro.estado_solicitud == 'aprobado' 
+                    for reintegro in solicitud.reintegrovacaciones_set.all()
+                )
+                
+                if not tiene_reintegro:
+                    solicitudes_sin_reintegro.append(solicitud)
+            
+            context['solicitud_activa'] = solicitudes_sin_reintegro[0] if solicitudes_sin_reintegro else None
+            context['tiene_solicitud_activa'] = len(solicitudes_sin_reintegro) > 0
+            context['mensaje_plazo'] = None
+            context['tiene_periodos'] = PeriodoVacacional.objects.filter(funcionario=funcionario).exists()
+        else:
+            solicitudes_activas = SolicitudVacaciones.objects.filter(
+                funcionario=funcionario,
+                estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
+            ).prefetch_related('reintegrovacaciones_set')
+            
+            solicitudes_sin_reintegro = []
+            
+            for solicitud in solicitudes_activas:
+                tiene_reintegro = any(
+                    reintegro.estado_solicitud == 'aprobado' 
+                    for reintegro in solicitud.reintegrovacaciones_set.all()
+                )
+                
+                if not tiene_reintegro:
+                    solicitudes_sin_reintegro.append(solicitud)
+            
+            puede_solicitar_hoy, mensaje_plazo = puede_solicitar_vacaciones_hoy(
+                funcionario.estamento.nombre.lower(),
+                funcionario.decreto_resolucion
             )
             
-            if not tiene_reintegro:
-                solicitudes_sin_reintegro.append(solicitud)
+            context['puede_crear_solicitud'] = len(solicitudes_sin_reintegro) == 0
+            context['solicitud_activa'] = solicitudes_sin_reintegro[0] if solicitudes_sin_reintegro else None
+            context['mensaje_plazo'] = None
+            
+            context['tiene_periodos'] = PeriodoVacacional.objects.filter(funcionario=funcionario).exists()
         
-        puede_solicitar_hoy, mensaje_plazo = puede_solicitar_vacaciones_hoy(
-            funcionario.estamento.nombre.lower(),
-            funcionario.decreto_resolucion
-        )
+        if es_secretaria(self.request.user):
+            secretaria_func = self.request.user.funcionario
+            
+            if secretaria_func and secretaria_func.jefe_inmediato:
+                funcionarios_bajo_jefe = Funcionario.objects.filter(
+                    jefe_inmediato=secretaria_func.jefe_inmediato
+                ).exclude(pk=secretaria_func.pk).select_related('facultad_dependencia')
+                
+                funcionarios_data = []
+                for func in funcionarios_bajo_jefe:
+                    solicitudes_activas_func = SolicitudVacaciones.objects.filter(
+                        funcionario=func,
+                        estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
+                    ).prefetch_related('reintegrovacaciones_set')
+                    
+                    solicitudes_sin_reintegro_func = []
+                    for solicitud in solicitudes_activas_func:
+                        tiene_reintegro = any(
+                            reintegro.estado_solicitud == 'aprobado' 
+                            for reintegro in solicitud.reintegrovacaciones_set.all()
+                        )
+                        if not tiene_reintegro:
+                            solicitudes_sin_reintegro_func.append(solicitud)
+                    
+                    tiene_periodos_func = PeriodoVacacional.objects.filter(funcionario=func).exists()
+                    
+                    funcionarios_data.append({
+                        'id': func.pk,
+                        'nombre': func.nombre,
+                        'apellido': func.apellido,
+                        'facultad_dependencia': func.facultad_dependencia.nombre,
+                        'tiene_solicitud_activa': len(solicitudes_sin_reintegro_func) > 0,
+                        'solicitud_activa_codigo': solicitudes_sin_reintegro_func[0].codigo_sabs if solicitudes_sin_reintegro_func else None,
+                        'tiene_periodos': tiene_periodos_func
+                    })
+                
+                context['funcionarios_bajo_jefe'] = json.dumps(funcionarios_data)
+                context['secretaria_id'] = secretaria_func.pk
+            else:
+                context['funcionarios_bajo_jefe'] = '[]'
+                context['secretaria_id'] = None
         
-        context['puede_crear_solicitud'] = len(solicitudes_sin_reintegro) == 0
-        context['solicitud_activa'] = solicitudes_sin_reintegro[0] if solicitudes_sin_reintegro else None
-        context['mensaje_plazo'] = None
-        
-        context['tiene_periodos'] = PeriodoVacacional.objects.filter(funcionario=funcionario).exists()
+        if es_jefe_inmediato(self.request.user):
+            jefe_func = self.request.user.funcionario
+            
+            if jefe_func:
+                funcionarios_bajo_jefe = Funcionario.objects.filter(
+                    jefe_inmediato=jefe_func
+                ).exclude(pk=jefe_func.pk).select_related('facultad_dependencia')
+                
+                funcionarios_data = []
+                for func in funcionarios_bajo_jefe:
+                    solicitudes_activas_func = SolicitudVacaciones.objects.filter(
+                        funcionario=func,
+                        estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
+                    ).prefetch_related('reintegrovacaciones_set')
+                    
+                    solicitudes_sin_reintegro_func = []
+                    for solicitud in solicitudes_activas_func:
+                        tiene_reintegro = any(
+                            reintegro.estado_solicitud == 'aprobado' 
+                            for reintegro in solicitud.reintegrovacaciones_set.all()
+                        )
+                        if not tiene_reintegro:
+                            solicitudes_sin_reintegro_func.append(solicitud)
+                    
+                    tiene_periodos_func = PeriodoVacacional.objects.filter(funcionario=func).exists()
+                    
+                    funcionarios_data.append({
+                        'id': func.pk,
+                        'nombre': func.nombre,
+                        'apellido': func.apellido,
+                        'facultad_dependencia': func.facultad_dependencia.nombre,
+                        'tiene_solicitud_activa': len(solicitudes_sin_reintegro_func) > 0,
+                        'solicitud_activa_codigo': solicitudes_sin_reintegro_func[0].codigo_sabs if solicitudes_sin_reintegro_func else None,
+                        'tiene_periodos': tiene_periodos_func
+                    })
+                
+                context['funcionarios_bajo_jefe'] = json.dumps(funcionarios_data)
+                context['jefe_id'] = jefe_func.pk
+            else:
+                context['funcionarios_bajo_jefe'] = '[]'
+                context['jefe_id'] = None
         
         return context
 
@@ -697,7 +822,7 @@ class SecretariaSolicitudesListView(LoginRequiredMixin, ListView):
             return SolicitudVacaciones.objects.none()
 
         qs = (SolicitudVacaciones.objects
-              .select_related("funcionario", "periodo_vacacional")
+              .select_related("funcionario", "periodo_vacacional", "creada_por", "creada_por__funcionario")
               .filter(funcionario__jefe_inmediato=secretaria_func.jefe_inmediato)
               .order_by("-fecha_solicitud", "-id"))
         
@@ -715,6 +840,7 @@ class SecretariaSolicitudesListView(LoginRequiredMixin, ListView):
 
         return qs
 
+
 @method_decorator(group_required("Secretaria"), name="dispatch")
 class SecretariaSolicitudCreateView(LoginRequiredMixin, CreateView):
     """
@@ -729,11 +855,10 @@ class SecretariaSolicitudCreateView(LoginRequiredMixin, CreateView):
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs['user'] = self.request.user
-        kwargs['initial'] = kwargs.get('initial', {})
         
         funcionario_id = self.request.GET.get('funcionario_id')
         if funcionario_id:
-            kwargs['initial']['user_id'] = funcionario_id
+            kwargs['funcionario_id'] = funcionario_id
         
         return kwargs
 
@@ -783,6 +908,14 @@ class SecretariaSolicitudCreateView(LoginRequiredMixin, CreateView):
             messages.error(
                 request, 
                 "El funcionario seleccionado ya tiene una solicitud de vacaciones activa y no puede crear otra."
+            )
+            return redirect("vacaciones:secretaria-solicitudes-list")
+        
+        periodos_vacacionales = PeriodoVacacional.objects.filter(funcionario=funcionario_target)
+        if not periodos_vacacionales.exists():
+            messages.error(
+                request,
+                "El funcionario seleccionado no tiene periodos vacacionales registrados y no puede crear una solicitud."
             )
             return redirect("vacaciones:secretaria-solicitudes-list")
         
@@ -837,6 +970,23 @@ class SecretariaSolicitudCreateView(LoginRequiredMixin, CreateView):
 
             context['reintegros_pendientes'] = json.dumps(reintegros_data)
             context['tiene_reintegros_pendientes'] = len(reintegros_data) > 0
+
+        form = context.get('form')
+        context['mostrar_alerta_periodos_acumulados'] = False
+        
+        if hasattr(form, 'periodos_acumulados') and form.periodos_acumulados:
+            context['periodos_acumulados'] = form.periodos_acumulados
+            context['periodo_mas_antiguo'] = form.periodo_mas_antiguo
+            context['periodo_mas_reciente'] = form.periodo_mas_reciente
+            context['periodo_mas_antiguo_habilitado'] = form.periodo_mas_antiguo_habilitado
+            context['periodo_mas_reciente_habilitado'] = form.periodo_mas_reciente_habilitado
+            
+            if funcionario:
+                solicitudes_periodos_acumulados = SolicitudVacaciones.objects.filter(
+                    funcionario=funcionario,
+                    periodo_vacacional__in=[form.periodo_mas_antiguo, form.periodo_mas_reciente]
+                ).exists()
+                context['mostrar_alerta_periodos_acumulados'] = not solicitudes_periodos_acumulados
 
         return context
 
@@ -938,6 +1088,54 @@ class SecretariaSolicitudUpdateView(LoginRequiredMixin, UpdateView):
         if hasattr(self.get_object(), 'funcionario'):
             kwargs['initial']['user_id'] = self.get_object().funcionario.user.pk
         return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        solicitud = self.object
+        
+        hoy_colombia = get_current_date_colombia()
+        years = [hoy_colombia.year, hoy_colombia.year + 1]
+        festivos = []
+        
+        for y in years:
+            festivos += [d.strftime('%d/%m/%Y') for d in holidays.Colombia(years=[y]).keys()]
+        
+        context['festivos_colombia'] = json.dumps(festivos)
+        
+        funcionario = solicitud.funcionario
+        context['funcionario_target'] = funcionario
+        context['funcionario_estamento'] = funcionario.estamento.nombre.lower()
+        context['funcionario_decreto'] = (funcionario.decreto_resolucion or '').strip()
+        
+        periodos_vacacionales = PeriodoVacacional.objects.filter(funcionario=funcionario)
+        context['tiene_periodos_vacacionales'] = True
+        
+        periodos_dias_pendientes = {}
+        for periodo in periodos_vacacionales:
+            periodos_dias_pendientes[periodo.pk] = periodo.dias_pendientes_periodo
+        context['periodos_dias_pendientes'] = json.dumps(periodos_dias_pendientes)
+        
+        reintegros_pendientes = ReintegroVacaciones.objects.filter(
+            funcionario=funcionario,
+            estado_solicitud='aprobado',
+            dias_pendientes__gt=0
+        )
+        
+        reintegros_data = []
+        for reintegro in reintegros_pendientes:
+            reintegros_data.append({
+                'id': reintegro.id,
+                'dias_pendientes': reintegro.dias_pendientes,
+                'tipo_dias': reintegro.tipo_dias_pendientes,
+                'periodo_vacacional_id': reintegro.periodo_vacacional_id,
+                'fecha_disfrute_desde': reintegro.fecha_disfrute_desde.strftime('%d/%m/%Y'),
+                'fecha_disfrute_hasta': reintegro.fecha_disfrute_hasta.strftime('%d/%m/%Y')
+            })
+        
+        context['reintegros_pendientes'] = json.dumps(reintegros_data)
+        context['tiene_reintegros_pendientes'] = len(reintegros_data) > 0
+        
+        return context
 
     def dispatch(self, request, *args, **kwargs):
         solicitud = self.get_object()

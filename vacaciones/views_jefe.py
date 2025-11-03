@@ -1,28 +1,21 @@
 import holidays
 import json
-import urllib.parse
-
-from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
 from django.db.models import Q
-from django.http import Http404, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
 from django.utils.decorators import method_decorator
 from django.views.generic import CreateView, ListView
-from weasyprint import HTML
 
 from core.permissions import group_required
 from usuarios.models import Funcionario
 from .forms import SolicitudVacacionesForm
 from .models import (
-    AprobacionEtapa,
-    HistoricoAcciones,
     PeriodoVacacional,
     ReintegroVacaciones,
     SolicitudVacaciones,
@@ -62,7 +55,7 @@ class SolicitudesJefeListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         jefe_func = getattr(self.request.user, "funcionario", None)
-        
+
         if not jefe_func:
             return SolicitudVacaciones.objects.none()
 
@@ -70,7 +63,7 @@ class SolicitudesJefeListView(LoginRequiredMixin, ListView):
               .select_related("funcionario", "periodo_vacacional", "creada_por", "creada_por__funcionario")
               .filter(funcionario__jefe_inmediato=jefe_func)
               .order_by("-fecha_solicitud", "-id"))
-        
+
         q = self.request.GET.get("q", "").strip()
         estado = self.request.GET.get("estado", "").strip()
 
@@ -137,11 +130,10 @@ class JefeSolicitudCreateView(LoginRequiredMixin, CreateView):
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs['user'] = self.request.user
-        kwargs['initial'] = kwargs.get('initial', {})
         
         funcionario_id = self.request.GET.get('funcionario_id')
         if funcionario_id:
-            kwargs['initial']['user_id'] = funcionario_id
+            kwargs['funcionario_id'] = funcionario_id
         
         return kwargs
 
@@ -191,6 +183,14 @@ class JefeSolicitudCreateView(LoginRequiredMixin, CreateView):
             messages.error(
                 request, 
                 "El funcionario seleccionado ya tiene una solicitud de vacaciones activa y no puede crear otra."
+            )
+            return redirect("vacaciones:jefe_solicitudes_list")
+        
+        periodos_vacacionales = PeriodoVacacional.objects.filter(funcionario=funcionario_target)
+        if not periodos_vacacionales.exists():
+            messages.error(
+                request,
+                "El funcionario seleccionado no tiene periodos vacacionales registrados y no puede crear una solicitud."
             )
             return redirect("vacaciones:jefe_solicitudes_list")
         
@@ -245,6 +245,23 @@ class JefeSolicitudCreateView(LoginRequiredMixin, CreateView):
 
             context['reintegros_pendientes'] = json.dumps(reintegros_data)
             context['tiene_reintegros_pendientes'] = len(reintegros_data) > 0
+
+        form = context.get('form')
+        context['mostrar_alerta_periodos_acumulados'] = False
+        
+        if hasattr(form, 'periodos_acumulados') and form.periodos_acumulados:
+            context['periodos_acumulados'] = form.periodos_acumulados
+            context['periodo_mas_antiguo'] = form.periodo_mas_antiguo
+            context['periodo_mas_reciente'] = form.periodo_mas_reciente
+            context['periodo_mas_antiguo_habilitado'] = form.periodo_mas_antiguo_habilitado
+            context['periodo_mas_reciente_habilitado'] = form.periodo_mas_reciente_habilitado
+            
+            if funcionario:
+                solicitudes_periodos_acumulados = SolicitudVacaciones.objects.filter(
+                    funcionario=funcionario,
+                    periodo_vacacional__in=[form.periodo_mas_antiguo, form.periodo_mas_reciente]
+                ).exists()
+                context['mostrar_alerta_periodos_acumulados'] = not solicitudes_periodos_acumulados
 
         return context
 

@@ -145,6 +145,10 @@
       </div>
       {% endif %}
 
+      {% if mostrar_alerta_periodos_acumulados %}
+      <div id="marcador-alerta-periodos" class="hidden" aria-hidden="true"></div>
+      {% endif %}
+
       {% for field in form %}
       {% if field.name not in 'funcionario numero_identificacion nombre_funcionario estamento facultad_dependencia dias_derecho dias_pendientes periodos_pendientes tipo_habiles tipo_calendario fecha_solicitud codigo_sabs periodo_vacacional tiene_dias_pendientes' %}
       <div class="mb-4">
@@ -196,6 +200,10 @@
 
 {% if periodos_acumulados %}
 <script src="{% static 'vacaciones/js/components/vacaciones/periodos-acumulados.js' %}"></script>
+{% endif %}
+
+{% if mostrar_alerta_periodos_acumulados %}
+<script src="{% static 'vacaciones/js/components/vacaciones/alerta-periodos-acumulados.js' %}"></script>
 {% endif %}
 
 <script src="{% static 'vacaciones/js/components/vacaciones/alertas-solicitudes-vacaciones.js' %}"></script>

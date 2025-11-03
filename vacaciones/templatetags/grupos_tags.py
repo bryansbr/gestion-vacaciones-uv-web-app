@@ -21,3 +21,10 @@ def es_secretaria(user):
     Filtro de template que verifica si un usuario pertenece al grupo "Secretaria".
     """
     return has_group(user, "Secretaria")
+
+@register.filter(name='es_jefe_inmediato')
+def es_jefe_inmediato(user):
+    """
+    Filtro de template que verifica si un usuario pertenece al grupo "Jefe Inmediato".
+    """
+    return has_group(user, "Jefe Inmediato")

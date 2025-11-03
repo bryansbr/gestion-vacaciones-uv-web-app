@@ -12,7 +12,29 @@
   <div class="flex justify-between items-center mb-6">
     <h2 class="text-2xl font-bold text-gray-700">Mis solicitudes de vacaciones</h2>
     {% if puede_crear_solicitud %}
-      {% if tiene_periodos %}
+      {% if request.user|es_secretaria %}
+        <button id="btn-crear-solicitud-secretaria" 
+                data-secretaria-id="{{ secretaria_id }}"
+                data-url-crear="{% url 'vacaciones:secretaria-solicitud-create' %}"
+                data-funcionarios='{{ funcionarios_bajo_jefe }}'
+                data-tiene-periodos="{{ tiene_periodos|yesno:'true,false' }}"
+                data-tiene-solicitud-activa="{{ tiene_solicitud_activa|yesno:'true,false' }}"
+                data-solicitud-activa-codigo="{% if solicitud_activa %}{{ solicitud_activa.codigo_sabs }}{% endif %}"
+                class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200">
+          Crear
+        </button>
+      {% elif request.user|es_jefe_inmediato %}
+        <button id="btn-crear-solicitud-jefe" 
+                data-jefe-id="{{ jefe_id }}"
+                data-url-crear="{% url 'vacaciones:jefe-solicitud-create' %}"
+                data-funcionarios='{{ funcionarios_bajo_jefe }}'
+                data-tiene-periodos="{{ tiene_periodos|yesno:'true,false' }}"
+                data-tiene-solicitud-activa="{{ tiene_solicitud_activa|yesno:'true,false' }}"
+                data-solicitud-activa-codigo="{% if solicitud_activa %}{{ solicitud_activa.codigo_sabs }}{% endif %}"
+                class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200">
+          Crear
+        </button>
+      {% elif tiene_periodos %}
         <a href="{% url 'vacaciones:solicitud_vacaciones_create' %}" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200">
           Crear
         </a>
@@ -53,7 +75,11 @@
              id="q" 
              name="q" 
              value="{{ request.GET.q }}" 
-             placeholder="Código SABS..." 
+             {% if request.user|es_secretaria or request.user|es_jefe_inmediato %}
+             placeholder="Código, nombre o apellido..."
+             {% else %}
+             placeholder="Código SABS..."
+             {% endif %}
              hx-get="{% url 'vacaciones:solicitud-vacaciones-list' %}"
              hx-target="#tabla-contenedor"
              hx-trigger="input changed delay:500ms"
@@ -111,7 +137,13 @@
   <script src="{% static 'vacaciones/js/components/vacaciones/creacion-exitosa-solicitud.js' %}"></script>
   <script src="{% static 'vacaciones/js/components/vacaciones/eliminacion-exitosa-solicitud.js' %}"></script>
   
-  {% if not tiene_periodos and puede_crear_solicitud %}
+  {% if not tiene_periodos and puede_crear_solicitud and not request.user|es_secretaria and not request.user|es_jefe_inmediato %}
   <script src="{% static 'vacaciones/js/components/vacaciones/alerta-sin-periodos.js' %}"></script>
+  {% endif %}
+  {% if request.user|es_secretaria and puede_crear_solicitud %}
+  <script src="{% static 'vacaciones/js/components/secretaria/selector-crear-solicitud.js' %}"></script>
+  {% endif %}
+  {% if request.user|es_jefe_inmediato and puede_crear_solicitud %}
+  <script src="{% static 'vacaciones/js/components/jefe/selector-crear-solicitud.js' %}"></script>
   {% endif %}
 {% endblock %}
