@@ -135,8 +135,11 @@
   <script src="{% static 'vacaciones/js/components/vacaciones/menu-acciones-solicitud.js' %}"></script>
   <script src="{% static 'vacaciones/js/components/vacaciones/acciones-jefe-aprobar.js' %}"></script>
   <script src="{% static 'vacaciones/js/components/vacaciones/acciones-jefe-devolver.js' %}"></script>
+  <script src="{% static 'vacaciones/js/components/vacaciones/acciones-jefe-enviar-proximo.js' %}"></script>
+  <script src="{% static 'vacaciones/js/components/vacaciones/acciones-reenviar-solicitud.js' %}"></script>
   
   <script src="{% static 'vacaciones/js/components/vacaciones/creacion-exitosa-solicitud.js' %}"></script>
+  <script src="{% static 'vacaciones/js/components/vacaciones/edicion-exitosa-solicitud.js' %}"></script>
   <script src="{% static 'vacaciones/js/components/vacaciones/eliminacion-exitosa-solicitud.js' %}"></script>
   
   {% if not tiene_periodos and puede_crear_solicitud and not request.user|es_secretaria and not request.user|es_jefe_inmediato %}

@@ -54,6 +54,7 @@ urlpatterns = [
     path("jefe/solicitudes/crear/",                   views_jefe.JefeSolicitudCreateView.as_view(), name="jefe-solicitud-create"),
     path("jefe/solicitudes/<int:pk>/aprobar/",        views_jefe.aprobar_solicitud,               name="jefe_aprobar_solicitud"),
     path("jefe/solicitudes/<int:pk>/devolver/",       views_jefe.devolver_solicitud,              name="jefe_devolver_solicitud"),
+    path("jefe/solicitudes/<int:pk>/enviar-proximo/", views_jefe.enviar_solicitud_proximo_revisor, name="jefe_enviar_proximo_revisor"),
 
     # -----------------------------------------
     # Secretaria

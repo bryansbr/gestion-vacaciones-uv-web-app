@@ -24,6 +24,7 @@ from .models import (
 from .services.aprobaciones import (
     aprobar_etapa,
     devolver_etapa,
+    enviar_al_proximo_revisor,
 )
 from .utils import get_current_date_colombia
 
@@ -111,6 +112,22 @@ def devolver_solicitud(request, pk):
     try:
         devolver_etapa(request.user, solicitud, observacion=request.POST.get('obs', ''))
         messages.info(request, "Solicitud devuelta correctamente.")
+    except (ValidationError, PermissionDenied) as e:
+        messages.error(request, str(e))
+    
+    return redirect(reverse("vacaciones:jefe_solicitudes_list"))
+
+@group_required("Jefe Inmediato")
+def enviar_solicitud_proximo_revisor(request, pk):
+    if request.method != "POST":
+        return HttpResponseBadRequest("Método no permitido")
+    solicitud = get_object_or_404(SolicitudVacaciones, pk=pk)
+    if not _es_jefe_de(solicitud, request.user) and not request.user.is_superuser:
+        return HttpResponseForbidden()
+
+    try:
+        enviar_al_proximo_revisor(request.user, solicitud, observacion=request.POST.get('obs', ''))
+        messages.success(request, "Solicitud enviada al próximo revisor correctamente.")
     except (ValidationError, PermissionDenied) as e:
         messages.error(request, str(e))
     

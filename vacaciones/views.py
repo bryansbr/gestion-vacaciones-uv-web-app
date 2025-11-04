@@ -567,6 +567,13 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
         messages.success(self.request, "Solicitud actualizada correctamente.")
         return super().form_valid(form)
 
+    def get_success_url(self):
+        url = super().get_success_url()
+        separador = '&' if ('?' in url) else '?'
+        codigo = getattr(self.object, 'codigo_sabs', '') or ''
+        codigo_q = urllib.parse.quote(codigo)
+        return f"{url}{separador}actualizada=1&codigo={codigo_q}"
+
 class SolicitudVacacionesDeleteView(LoginRequiredMixin, DeleteView):
     model = SolicitudVacaciones
     template_name = "vacaciones/solicitud-vacaciones-confirm-delete.html"
@@ -1164,6 +1171,13 @@ class SecretariaSolicitudUpdateView(LoginRequiredMixin, UpdateView):
     def form_valid(self, form):
         messages.success(self.request, "Solicitud actualizada correctamente.")
         return super().form_valid(form)
+
+    def get_success_url(self):
+        url = super().get_success_url()
+        separador = '&' if ('?' in url) else '?'
+        codigo = getattr(self.object, 'codigo_sabs', '') or ''
+        codigo_q = urllib.parse.quote(codigo)
+        return f"{url}{separador}actualizada=1&codigo={codigo_q}"
 
 @method_decorator(group_required("Secretaria"), name="dispatch")
 class SecretariaSolicitudDeleteView(LoginRequiredMixin, DeleteView):

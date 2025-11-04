@@ -47,6 +47,7 @@
               <button type="button"
                 data-action="delete"
                 data-url="{% url 'vacaciones:solicitud_vacaciones_delete' solicitud.id %}"
+                data-codigo="{{ solicitud.codigo_sabs }}"
                 class="flex items-center justify-start w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 btn-eliminar-solicitud">
                 <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -70,6 +71,7 @@
               <button type="button"
                 data-action="delete"
                 data-url="{% url 'vacaciones:secretaria-solicitud-delete' solicitud.id %}"
+                data-codigo="{{ solicitud.codigo_sabs }}"
                 class="flex items-center justify-start w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 btn-eliminar-solicitud">
                 <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -82,42 +84,69 @@
         {% endif %}
       {% endif %}
       
-      {% if request.user|es_jefe_inmediato %}
-        {% if solicitud.estado_solicitud == 'pendiente' %}
-          <li>
-            <form method="post"
-              action="{% url 'vacaciones:jefe_aprobar_solicitud' solicitud.id %}"
-              class="form-aprobar-solicitud-jefe"
-              data-codigo="{{ solicitud.codigo_sabs }}">
-              {% csrf_token %}
-              <button type="button"
-                class="flex items-center justify-start w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 btn-aprobar-jefe">
-                <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M5 13l4 4L19 7"/>
-                </svg>
-                <span class="text-left">Aprobar</span>
-              </button>
-            </form>
-          </li>
-          <li>
-            <form method="post"
-              action="{% url 'vacaciones:jefe_devolver_solicitud' solicitud.id %}"
-              class="form-devolver-solicitud-jefe"
-              data-codigo="{{ solicitud.codigo_sabs }}">
-              {% csrf_token %}
-              <button type="button"
-                class="flex items-center justify-start w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 btn-devolver-jefe">
-                <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                </svg>
-                <span class="text-left">Devolver</span>
-              </button>
-            </form>
-          </li>
+      {% if solicitud.estado_solicitud == 'pendiente' or solicitud.estado_global == 'devuelta' %}
+        {% if solicitud.funcionario.user_id == request.user.id or solicitud.creada_por_id == request.user.id or request.user.is_superuser %}
+          {% if not request.user|es_jefe_inmediato or solicitud.creada_por_id == request.user.id %}
+            <li>
+              <form method="post"
+                action="{% url 'vacaciones:reenviar_funcionario' solicitud.id %}"
+                class="form-reenviar-solicitud"
+                data-codigo="{{ solicitud.codigo_sabs }}">
+                {% csrf_token %}
+                <button type="button"
+                  class="flex items-center justify-start w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 btn-reenviar-solicitud">
+                  <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                  </svg>
+                  <span class="text-left">Enviar</span>
+                </button>
+              </form>
+            </li>
+          {% endif %}
         {% endif %}
       {% endif %}
+      
+             {% if request.user|es_jefe_inmediato %}
+         {% for ap in solicitud.aprobaciones.all %}
+           {% if ap.etapa == 'JEFE' %}
+             {% if solicitud.estado_solicitud == 'en_revision' and ap.estado == 'pendiente' or solicitud.estado_solicitud == 'pendiente' %}
+               <li>
+                 <form method="post"
+                   action="{% url 'vacaciones:jefe_aprobar_solicitud' solicitud.id %}"
+                   class="form-aprobar-solicitud-jefe"
+                   data-codigo="{{ solicitud.codigo_sabs }}">
+                   {% csrf_token %}
+                   <button type="button"
+                     class="flex items-center justify-start w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 btn-aprobar-jefe">
+                     <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                         d="M5 13l4 4L19 7"/>
+                     </svg>
+                     <span class="text-left">Aprobar</span>
+                   </button>
+                 </form>
+               </li>
+               <li>
+                 <form method="post"
+                   action="{% url 'vacaciones:jefe_devolver_solicitud' solicitud.id %}"
+                   class="form-devolver-solicitud-jefe"
+                   data-codigo="{{ solicitud.codigo_sabs }}">
+                   {% csrf_token %}
+                   <button type="button"
+                     class="flex items-center justify-start w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 btn-devolver-jefe">
+                     <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                         d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                     </svg>
+                     <span class="text-left">Devolver</span>
+                   </button>
+                 </form>
+               </li>
+             {% endif %}
+           {% endif %}
+         {% endfor %}
+       {% endif %}
     </ul>
   </div>
 </div>

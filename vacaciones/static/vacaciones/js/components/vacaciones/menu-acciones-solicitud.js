@@ -2,46 +2,41 @@
   'use strict';
 
   document.addEventListener('DOMContentLoaded', function() {
-    const menuButtons = document.querySelectorAll('[id^="actions-menu-"]');
+    const btnsMenu = document.querySelectorAll('[id^="actions-menu-"]');
 
-    menuButtons.forEach(btn => {
-      const solicitudId = btn.id.replace('actions-menu-', '');
-      const dropdown = document.getElementById(`dropdown-${solicitudId}`);
+    btnsMenu.forEach(btn => {
+      const idSolicitud = btn.id.replace('actions-menu-', '');
+      const desplegable = document.getElementById(`dropdown-${idSolicitud}`);
 
-      if (!dropdown) return;
+      if (!desplegable) return;
 
       btn.addEventListener('click', function(e) {
         e.stopPropagation();
 
-        const estaAbierto = !dropdown.classList.contains('hidden');
+        const estaAbierto = !desplegable.classList.contains('hidden');
 
-        document.querySelectorAll('[id^="dropdown-"]').forEach(d => {
-          d.classList.add('hidden');
-          d.classList.remove('bottom-full', 'mb-2');
-          d.classList.add('mt-2');
+        document.querySelectorAll('[id^="dropdown-"]').forEach(menuDesplegable => {
+          menuDesplegable.classList.add('hidden');
+          menuDesplegable.classList.remove('bottom-full', 'mb-2');
+          menuDesplegable.classList.add('mt-2');
         });
 
         if (!estaAbierto) {
-          const rect = btn.getBoundingClientRect();
-          const spaceBelow = window.innerHeight - rect.bottom;
-          const spaceAbove = rect.top;
-          
-          dropdown.classList.remove('hidden');
+          desplegable.classList.remove('hidden');
           
           requestAnimationFrame(function() {
-            const originalVisibility = dropdown.style.visibility;
-            const originalTop = dropdown.style.top;
-            dropdown.style.visibility = 'hidden';
-            dropdown.style.top = '-9999px';
+            const posicion = btn.getBoundingClientRect();
+            const posicionDesplegable = desplegable.getBoundingClientRect();
+            const alturaDesplegable = posicionDesplegable.height || desplegable.offsetHeight || 200;
+            const espacioAbajo = window.innerHeight - posicion.bottom;
+            const espacioArriba = posicion.top;
             
-            const dropdownHeight = dropdown.offsetHeight || 200;
-            
-            dropdown.style.visibility = originalVisibility;
-            dropdown.style.top = originalTop;
-            
-            if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
-              dropdown.classList.remove('mt-2');
-              dropdown.classList.add('bottom-full', 'mb-2');
+            if (espacioAbajo < alturaDesplegable && espacioArriba > espacioAbajo) {
+              desplegable.classList.remove('mt-2');
+              desplegable.classList.add('bottom-full', 'mb-2');
+            } else {
+              desplegable.classList.remove('bottom-full', 'mb-2');
+              desplegable.classList.add('mt-2');
             }
           });
           
@@ -54,8 +49,8 @@
 
     document.addEventListener('click', function(e) {
       if (!e.target.closest('[id^="actions-menu-"]') && !e.target.closest('[id^="dropdown-"]')) {
-        document.querySelectorAll('[id^="dropdown-"]').forEach(d => {
-          d.classList.add('hidden');
+        document.querySelectorAll('[id^="dropdown-"]').forEach(menuDesplegable => {
+          menuDesplegable.classList.add('hidden');
         });
         document.querySelectorAll('[id^="actions-menu-"]').forEach(btn => {
           btn.setAttribute('aria-expanded', 'false');
@@ -66,12 +61,14 @@
     const btnEliminar = document.querySelectorAll('.btn-eliminar-solicitud');
     btnEliminar.forEach(btn => {
       btn.addEventListener('click', function() {
-        const url = btn.dataset.url;
+        const urlEliminar = btn.dataset.url;
         const codigo = btn.dataset.codigo || '';
 
         Swal.fire({
           title: '¿Está seguro?',
-          text: `¿Desea eliminar esta solicitud${codigo ? ` (${codigo})` : ''}?`,
+          html: codigo 
+            ? `Está a punto de eliminar la solicitud <strong>${codigo}</strong>. La acción no se podrá deshacer.`
+            : 'Está a punto de eliminar la solicitud. La acción no se podrá deshacer.',
           icon: 'warning',
           showCancelButton: true,
           confirmButtonColor: '#d33',
@@ -80,9 +77,9 @@
           cancelButtonText: 'Cancelar'
         }).then((resultado) => {
           if (resultado.isConfirmed) {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = url;
+            const formulario = document.createElement('form');
+            formulario.method = 'POST';
+            formulario.action = urlEliminar;
 
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
             if (csrfToken) {
@@ -90,11 +87,11 @@
               csrfInput.type = 'hidden';
               csrfInput.name = 'csrfmiddlewaretoken';
               csrfInput.value = csrfToken.value;
-              form.appendChild(csrfInput);
+              formulario.appendChild(csrfInput);
             }
 
-            document.body.appendChild(form);
-            form.submit();
+            document.body.appendChild(formulario);
+            formulario.submit();
           }
         });
       });
