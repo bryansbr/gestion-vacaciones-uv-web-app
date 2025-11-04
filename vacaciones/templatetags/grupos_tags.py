@@ -29,11 +29,19 @@ def es_jefe_inmediato(user):
     """
     return has_group(user, "Jefe Inmediato")
 
+@register.filter(name='es_coordinador_administrativo')
+def es_coordinador_administrativo(user):
+    """
+    Filtro de template que verifica si un usuario pertenece al grupo "Coordinador Administrativo".
+    """
+    return has_group(user, "Coordinador Administrativo")
+
 @register.filter(name='es_funcionario')
 def es_funcionario(user):
     """
     Filtro de template que verifica si un usuario es un funcionario regular
     (no es secretaria ni jefe inmediato).
+    Nota: Coordinador Administrativo también puede acceder a funcionalidades de funcionario.
     """
     if not user or not user.is_authenticated:
         return False

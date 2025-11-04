@@ -25,3 +25,12 @@ def es_jefe_inmediato(user) -> bool:
     if not user or not user.is_authenticated:
         return False
     return user.groups.filter(name="Jefe Inmediato").exists()
+
+
+def es_coordinador_administrativo(user) -> bool:
+    """
+    Verifica si el usuario pertenece al grupo "Coordinador Administrativo".
+    """
+    if not user or not user.is_authenticated:
+        return False
+    return user.groups.filter(name="Coordinador Administrativo").exists()

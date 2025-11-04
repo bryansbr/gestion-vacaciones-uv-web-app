@@ -162,7 +162,7 @@
     <tr class="altura-firma">
       <td class="firma">{{ solicitado_por }}</td>
       <td class="firma">{% if autorizado_por %}{{ autorizado_por }}{% endif %}</td>
-      <td class="firma"></td>
+      <td class="firma">{% if coordinado_por %}{{ coordinado_por }}{% endif %}</td>
       <td class="firma"></td>
     </tr>
 
@@ -176,7 +176,7 @@
     <tr class="nombres">
       <td>NOMBRE: {{ solicitado_por }}</td>
       <td>NOMBRE: {% if autorizado_por %}{{ autorizado_por }}{% endif %}</td>
-      <td>NOMBRE:</td>
+      <td>NOMBRE: {% if coordinado_por %}{{ coordinado_por }}{% endif %}</td>
       <td>NOMBRE:</td>
     </tr>
   </table>

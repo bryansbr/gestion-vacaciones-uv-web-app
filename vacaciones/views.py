@@ -19,7 +19,7 @@ from django.views import View
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 from weasyprint import HTML
 
-from core.permissions import group_required, es_secretaria, es_jefe_inmediato
+from core.permissions import group_required, es_secretaria, es_jefe_inmediato, es_coordinador_administrativo
 from .forms import PeriodoVacacionalForm, SolicitudVacacionesForm
 from .models import (
     AprobacionEtapa,
@@ -300,6 +300,10 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
             qs = SolicitudVacaciones.objects.filter(
                 Q(funcionario=self.request.user.funcionario) | Q(creada_por=self.request.user)
             ).distinct().order_by('-fecha_solicitud')
+        elif es_coordinador_administrativo(self.request.user):
+            qs = SolicitudVacaciones.objects.filter(
+                Q(funcionario=self.request.user.funcionario) | Q(creada_por=self.request.user)
+            ).distinct().order_by('-fecha_solicitud')
         else:
             qs = SolicitudVacaciones.objects.filter(funcionario=self.request.user.funcionario).order_by('-fecha_solicitud')
         
@@ -309,7 +313,7 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
         estado = self.request.GET.get("estado", "").strip()
 
         if q:
-            if es_secretaria(self.request.user) or es_jefe_inmediato(self.request.user):
+            if es_secretaria(self.request.user) or es_jefe_inmediato(self.request.user) or es_coordinador_administrativo(self.request.user):
                 qs = qs.filter(
                     Q(codigo_sabs__icontains=q) |
                     Q(funcionario__nombre__icontains=q) |
@@ -326,7 +330,7 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         funcionario = self.request.user.funcionario
         
-        if es_secretaria(self.request.user) or es_jefe_inmediato(self.request.user):
+        if es_secretaria(self.request.user) or es_jefe_inmediato(self.request.user) or es_coordinador_administrativo(self.request.user):
             context['puede_crear_solicitud'] = True
             
             solicitudes_activas = SolicitudVacaciones.objects.filter(
@@ -709,6 +713,7 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
         user_funcionario_id = None
         es_jefe_del_funcionario = False
         es_secretaria_autorizada = False
+        es_coordinador_autorizado = False
         if hasattr(request.user, "funcionario") and request.user.funcionario is not None:
             user_funcionario_id = request.user.funcionario.pk
             try:
@@ -723,6 +728,13 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
                         es_secretaria_autorizada = (secretaria_func.jefe_inmediato.pk == solicitud.funcionario.jefe_inmediato.pk)
             except Exception:
                 es_secretaria_autorizada = False
+            
+            try:
+                if es_coordinador_administrativo(request.user):
+                    coord_func = request.user.funcionario
+                    es_coordinador_autorizado = (coord_func.facultad_dependencia_id == solicitud.funcionario.facultad_dependencia_id)
+            except Exception:
+                es_coordinador_autorizado = False
 
         if not (
             request.user.is_staff
@@ -730,6 +742,7 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
             or user_funcionario_id == owner_id
             or es_jefe_del_funcionario
             or es_secretaria_autorizada
+            or es_coordinador_autorizado
         ):
             raise Http404("No autorizado")
 
@@ -772,6 +785,16 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
                 autorizado_por = f"{user_aprobador.funcionario.nombre} {user_aprobador.funcionario.apellido}"
             fecha_aprobacion_jefe = aprobacion_jefe.actualizado_en
 
+        # Obtener información de quien aprobó (Coordinador Administrativo)
+        aprobacion_coord = solicitud.aprobaciones.filter(etapa='COORD', estado='aprobada').first()
+        coordinado_por = ""
+        fecha_aprobacion_coord = None
+        if aprobacion_coord and aprobacion_coord.actualizado_por:
+            user_coordinador = aprobacion_coord.actualizado_por
+            if hasattr(user_coordinador, 'funcionario') and user_coordinador.funcionario:
+                coordinado_por = f"{user_coordinador.funcionario.nombre} {user_coordinador.funcionario.apellido}"
+            fecha_aprobacion_coord = aprobacion_coord.actualizado_en
+
         context = {
             "logo_url": logo_url,
             "pie_pagina": "F-01-MP-10-04-01 V-04-2014  |  Elaborado por: División de Recursos Humanos",
@@ -798,6 +821,7 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
 
             "solicitado_por": f"{funcionario.nombre} {funcionario.apellido}",
             "autorizado_por": autorizado_por,
+            "coordinado_por": coordinado_por,
         }
 
         html_string = render_to_string("vacaciones/pdf/solicitud-vacaciones.html", context)
@@ -817,7 +841,6 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
 # ==========================================================
 # VISTA: Secretaria
 # ==========================================================
-
 @method_decorator(group_required("Secretaria"), name="dispatch")
 class SecretariaSolicitudesListView(LoginRequiredMixin, ListView):
     """
@@ -862,7 +885,6 @@ class SecretariaSolicitudesListView(LoginRequiredMixin, ListView):
             qs = qs.filter(estado_solicitud=estado)
 
         return qs
-
 
 @method_decorator(group_required("Secretaria"), name="dispatch")
 class SecretariaSolicitudCreateView(LoginRequiredMixin, CreateView):
