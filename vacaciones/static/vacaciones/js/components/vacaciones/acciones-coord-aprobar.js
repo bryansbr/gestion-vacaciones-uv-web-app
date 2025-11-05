@@ -66,7 +66,6 @@ document.addEventListener('DOMContentLoaded', function () {
         position: 'top-end',
         icon: 'success',
         title: titulo,
-        html: 'Se ha enviado a Recursos Humanos.',
         showConfirmButton: false,
         timer: 3000
       });

@@ -20,10 +20,14 @@ document.addEventListener('click', function (e) {
     cancelButtonText: "Cancelar",
     input: "textarea",
     inputPlaceholder: "Indique el motivo de la devolución...",
+    inputAttributes: {
+      'aria-label': 'Motivo de la devolución'
+    },
     inputValidator: (value) => {
       if (!value || value.trim() === '') {
         return 'Debe proporcionar un motivo de devolución';
       }
+      return null;
     }
   }).then((resultado) => {
     if (resultado.isConfirmed) {
@@ -61,4 +65,3 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   } catch (_) {}
 });
-

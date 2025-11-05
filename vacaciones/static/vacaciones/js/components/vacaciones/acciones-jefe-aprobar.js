@@ -17,9 +17,32 @@ document.addEventListener('click', function (e) {
     confirmButtonColor: "#10b981",
     cancelButtonColor: "#6b7280",
     confirmButtonText: "Sí, aprobar",
-    cancelButtonText: "Cancelar"
+    cancelButtonText: "Cancelar",
+    input: 'textarea',
+    inputPlaceholder: 'Observaciones (opcional)',
+    inputAttributes: {
+      'aria-label': 'Observaciones'
+    },
+    inputValidator: (value) => {
+      return new Promise((resolve) => {
+        resolve();
+      });
+    }
   }).then((resultado) => {
     if (resultado.isConfirmed) {
+      const observacion = resultado.value || '';
+      if (observacion) {
+        const inputObs = formulario.querySelector('input[name="obs"]');
+        if (inputObs) {
+          inputObs.value = observacion;
+        } else {
+          const hiddenInput = document.createElement('input');
+          hiddenInput.type = 'hidden';
+          hiddenInput.name = 'obs';
+          hiddenInput.value = observacion;
+          formulario.appendChild(hiddenInput);
+        }
+      }
       try { 
         localStorage.setItem('solicitud_aprobada_jefe', '1');
         localStorage.setItem('solicitud_aprobada_jefe_codigo', codigo);
@@ -49,4 +72,3 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   } catch (_) {}
 });
-

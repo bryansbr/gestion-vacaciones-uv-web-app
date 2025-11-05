@@ -174,6 +174,7 @@ def devolver_etapa(user: CustomUser, solicitud: SolicitudVacaciones, observacion
     """
     JEFE/COORD: pendiente → devuelta (requiere observación)
     Cuando se devuelve, la solicitud queda en estado 'pendiente' para que el funcionario pueda corregirla.
+    Al devolver, todas las etapas se reinician a 'pendiente' para que el flujo vuelva a empezar desde el inicio.
     """
     if not observacion or not observacion.strip():
         raise ValidationError("Debes proporcionar el motivo de la devolución.")
@@ -193,6 +194,14 @@ def devolver_etapa(user: CustomUser, solicitud: SolicitudVacaciones, observacion
     etapa.observacion = observacion.strip()
     etapa.actualizado_por = user
     etapa.save(update_fields=['estado', 'observacion', 'actualizado_por', 'actualizado_en'])
+
+    # Cuando JEFE o COORD devuelven, todas las etapas se reinician para que el flujo empiece desde cero
+    for etapa_a_reiniciar in solicitud.aprobaciones.all():
+        if etapa_a_reiniciar.etapa != etapa.etapa:
+            etapa_a_reiniciar.estado = 'pendiente'
+            etapa_a_reiniciar.observacion = ''
+            etapa_a_reiniciar.actualizado_por = None
+            etapa_a_reiniciar.save(update_fields=['estado', 'observacion', 'actualizado_por', 'actualizado_en'])
 
     _registrar_historial(
         solicitud=solicitud,
@@ -411,27 +420,47 @@ def reenviar_funcionario(user: CustomUser, solicitud: SolicitudVacaciones, obser
     
     if devueltas.exists():
         etapa = devueltas.first()
-        estado_anterior = etapa.estado
-        etapa.estado = 'pendiente'
-
-        if observacion:
-            etapa.observacion = _concatenar_observacion_con_limite(
-                etapa.observacion, 
-                observacion
+        
+        # Cuando hay etapas devueltas, reiniciar todas las etapas devueltas a 'pendiente'
+        etapas_devueltas_list = list(devueltas)
+        for etapa_devuelta in etapas_devueltas_list:
+            estado_anterior = etapa_devuelta.estado
+            etapa_devuelta.estado = 'pendiente'
+            
+            if observacion:
+                etapa_devuelta.observacion = _concatenar_observacion_con_limite(
+                    etapa_devuelta.observacion, 
+                    observacion
+                )
+            
+            etapa_devuelta.save(update_fields=['estado', 'observacion', 'actualizado_en'])
+            
+            _registrar_historial(
+                solicitud=solicitud,
+                usuario=user,
+                accion='observacion',
+                grupo_autorizador="Funcionario",
+                nuevo_estado=etapa_devuelta.estado,
+                estado_anterior=estado_anterior,
+                observacion=observacion or 'Reenvío tras devolución',
             )
-
-        etapa.save(update_fields=['estado', 'observacion', 'actualizado_en'])
-
-        _registrar_historial(
-            solicitud=solicitud,
-            usuario=user,
-            accion='observacion',
-            grupo_autorizador="Funcionario",
-            nuevo_estado=etapa.estado,
-            estado_anterior=estado_anterior,
-            observacion=observacion or 'Reenvío tras devolución',
-        )
+        
+        # Reiniciar todas las etapas aprobadas a 'pendiente' para que el flujo vuelva a empezar
+        etapas_aprobadas = solicitud.aprobaciones.exclude(estado__in=('devuelta', 'rechazada', 'pendiente'))
+        for etapa_aprobada in etapas_aprobadas:
+            etapa_aprobada.estado = 'pendiente'
+            etapa_aprobada.observacion = ''
+            etapa_aprobada.actualizado_por = None
+            etapa_aprobada.save(update_fields=['estado', 'observacion', 'actualizado_por', 'actualizado_en'])
     else:
+        etapas_aprobadas = solicitud.aprobaciones.filter(estado__in=('aprobada', 'autorizada'))
+        if etapas_aprobadas.exists():
+            for etapa_aprobada in etapas_aprobadas:
+                etapa_aprobada.estado = 'pendiente'
+                etapa_aprobada.observacion = ''
+                etapa_aprobada.actualizado_por = None
+                etapa_aprobada.save(update_fields=['estado', 'observacion', 'actualizado_por', 'actualizado_en'])
+        
         etapa_activa = solicitud.etapa_activa
         if not etapa_activa:
             raise ValidationError("No hay etapa activa para enviar la solicitud.")

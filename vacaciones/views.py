@@ -884,6 +884,11 @@ class SecretariaSolicitudesListView(LoginRequiredMixin, ListView):
             html = render_to_string('vacaciones/partials/_tabla-secretaria-solicitudes.html', context, request)
             return HttpResponse(html)
         return super().get(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['solo_pdf'] = True
+        return context
 
     def get_queryset(self):
         secretaria_func = getattr(self.request.user, "funcionario", None)
