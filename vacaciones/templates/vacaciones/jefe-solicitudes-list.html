@@ -40,8 +40,8 @@
         <option value="">Todos</option>
         <option value="pendiente" {% if request.GET.estado == 'pendiente' %}selected{% endif %}>Pendiente</option>
         <option value="en_revision" {% if request.GET.estado == 'en_revision' %}selected{% endif %}>En revisión</option>
-        <option value="aprobado" {% if request.GET.estado == 'aprobado' %}selected{% endif %}>Aprobado</option>
-        <option value="rechazado" {% if request.GET.estado == 'rechazado' %}selected{% endif %}>Rechazado</option>
+        <option value="aprobado" {% if request.GET.estado == 'aprobado' %}selected{% endif %}>Aprobada</option>
+        <option value="rechazado" {% if request.GET.estado == 'rechazado' %}selected{% endif %}>Rechazada</option>
         <option value="cancelado" {% if request.GET.estado == 'cancelado' %}selected{% endif %}>Cancelado</option>
       </select>
     </div>

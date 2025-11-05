@@ -123,8 +123,8 @@ class SolicitudVacaciones(models.Model):
     ESTADOS = [
         ('pendiente', 'Pendiente'),
         ('en_revision', 'En revisión'),
-        ('aprobado', 'Aprobado'),
-        ('rechazado', 'Rechazado'),
+        ('aprobado', 'Aprobada'),
+        ('rechazado', 'Rechazada'),
         ('cancelado', 'Cancelado')
     ]
 
@@ -700,8 +700,8 @@ class ReintegroVacaciones(models.Model):
     ESTADOS = [
         ('pendiente', 'Pendiente'),
         ('en_revision', 'En revisión'),
-        ('aprobado', 'Aprobado'),
-        ('rechazado', 'Rechazado'),
+        ('aprobado', 'Aprobada'),
+        ('rechazado', 'Rechazada'),
         ('cancelado', 'Cancelado'),
     ]
 
