@@ -1,4 +1,6 @@
 from django import template
+from django.utils.safestring import mark_safe
+import re
 
 register = template.Library()
 
@@ -60,3 +62,27 @@ def es_funcionario(user):
     has_jefe = user.groups.filter(name="Jefe Inmediato").exists()
     
     return not has_secretaria and not has_jefe
+
+@register.filter(name='resaltar_notificacion')
+def resaltar_notificacion(texto):
+    """
+    Resalta en negrita las frases específicas en las notificaciones:
+    - "Motivo del rechazo:"
+    - "Periodo solicitado:"
+    - "Días solicitados:"
+    """
+    if not texto:
+        return texto
+    
+    frases = [
+        r'Motivo del rechazo:',
+        r'Periodo solicitado:',
+        r'Días solicitados:',
+    ]
+    
+    resultado = texto
+    for frase in frases:
+        patron = re.compile(re.escape(frase), re.IGNORECASE)
+        resultado = patron.sub(r'<strong>\g<0></strong>', resultado)
+    
+    return mark_safe(resultado)
