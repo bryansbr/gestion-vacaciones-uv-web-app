@@ -1,6 +1,6 @@
 from django.urls import path, include
 
-from . import views, views_jefe, views_coord
+from . import views, views_jefe, views_coord, views_rrhh
 from .views import (
     PeriodoVacacionalListView,
     PeriodoVacacionalCreateView,
@@ -70,6 +70,13 @@ urlpatterns = [
     path("coord/solicitudes/",                         views_coord.SolicitudesCoordListView.as_view(), name="coord_solicitudes_list"),
     path("coord/solicitudes/<int:pk>/aprobar/",        views_coord.aprobar_solicitud,               name="coord_aprobar_solicitud"),
     path("coord/solicitudes/<int:pk>/devolver/",       views_coord.devolver_solicitud,              name="coord_devolver_solicitud"),
+
+    # -----------------------------------------
+    # Recursos Humanos (RRHH)
+    # -----------------------------------------
+    path("rrhh/solicitudes/",                         views_rrhh.SolicitudesRRHHListView.as_view(), name="rrhh_solicitudes_list"),
+    path("rrhh/solicitudes/<int:pk>/autorizar/",      views_rrhh.autorizar_solicitud,               name="rrhh_autorizar_solicitud"),
+    path("rrhh/solicitudes/<int:pk>/rechazar/",      views_rrhh.rechazar_solicitud,                name="rrhh_rechazar_solicitud"),
 
     # --- API REST
     path("api/", include("vacaciones.urls_api")),

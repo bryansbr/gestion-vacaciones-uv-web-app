@@ -1,14 +1,11 @@
 from typing import Optional
 
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from django.core.exceptions import ValidationError, PermissionDenied
 
-from ..models import (
-    SolicitudVacaciones,
-    AprobacionEtapa,
-    HistoricoAcciones,
-    CustomUser,
-)
+from notificaciones.models import Notificacion
+from ..models import AprobacionEtapa, CustomUser, HistoricoAcciones, SolicitudVacaciones
+
 
 # -----------------------------------------------------------
 # Constantes
@@ -51,17 +48,24 @@ def _validar_propietario_o_permiso(user: CustomUser, solicitud: SolicitudVacacio
     """
     Base:
     - El funcionario dueño puede ver, pero NO transicionar.
-    - JEFE ⇒ grupo 'JEFE_INMEDIATO' o permiso 'dar_visto_bueno_solicitud'
-    - COORD ⇒ grupo 'COORD_ADMIN' o permiso 'dar_visto_bueno_solicitud'
-    - RRHH  ⇒ grupo 'RRHH' o permiso 'autorizar_solicitud' / 'rechazar_solicitud'
+    - JEFE ⇒ grupo 'Jefe Inmediato' o permiso 'dar_visto_bueno_solicitud'
+    - COORD ⇒ grupo 'Coordinador Administrativo' o permiso 'dar_visto_bueno_solicitud'
+    - RRHH  ⇒ grupo 'Recursos Humanos' o permiso 'autorizar_solicitud' / 'rechazar_solicitud' o email de RRHH
     """
 
     if etapa == 'JEFE' and not (user.has_perm('vacaciones.dar_visto_bueno_solicitud') or user.groups.filter(name__in=['Jefe Inmediato', 'JEFE_INMEDIATO']).exists()):
         raise PermissionDenied("No tienes permisos para aprobar/devolver como Jefe Inmediato.")
     if etapa == 'COORD' and not (user.has_perm('vacaciones.dar_visto_bueno_solicitud') or user.groups.filter(name__in=['Coordinador Administrativo', 'COORD_ADMIN']).exists()):
         raise PermissionDenied("No tienes permisos para aprobar/devolver como Coordinación Administrativa.")
-    if etapa == 'RRHH' and not (user.has_perm('vacaciones.autorizar_solicitud') or user.has_perm('vacaciones.rechazar_solicitud') or user.groups.filter(name='RRHH').exists()):
-        raise PermissionDenied("No tienes permisos para autorizar/rechazar como RRHH.")
+    if etapa == 'RRHH':
+        tiene_permiso = (
+            user.has_perm('vacaciones.autorizar_solicitud') or 
+            user.has_perm('vacaciones.rechazar_solicitud') or 
+            user.groups.filter(name='Recursos Humanos').exists() or
+            (hasattr(user, 'email') and user.email and "recursos.humanos" in user.email.lower())
+        )
+        if not tiene_permiso:
+            raise PermissionDenied("No tienes permisos para autorizar/rechazar como RRHH.")
 
 def _refrescar_estado_global(solicitud: SolicitudVacaciones):
     """
@@ -250,6 +254,7 @@ def rechazar_rrhh(user: CustomUser, solicitud: SolicitudVacaciones, observacion:
     """
     RRHH: pendiente → rechazada (requiere observación).
     Deja la solicitud en estado final (no reenviable).
+    Envía notificaciones al funcionario, C.A. y Jefe Inmediato.
     """
     if not observacion or not observacion.strip():
         raise ValidationError("Debes proporcionar el motivo del rechazo.")
@@ -281,6 +286,53 @@ def rechazar_rrhh(user: CustomUser, solicitud: SolicitudVacaciones, observacion:
     )
 
     _refrescar_estado_global(solicitud)  # → 'rechazado'
+
+    try:
+        funcionario = solicitud.funcionario
+        jefe_inmediato = funcionario.jefe_inmediato
+        
+        aprobacion_coord = solicitud.aprobaciones.filter(etapa='COORD', estado='aprobada').first()
+        coord_funcionario = None
+        if aprobacion_coord and aprobacion_coord.actualizado_por:
+            coord_funcionario = getattr(aprobacion_coord.actualizado_por, 'funcionario', None)
+        
+        mensaje = (
+            f"La solicitud de vacaciones {solicitud.codigo_sabs} ha sido rechazada por Recursos Humanos.\n\n"
+            f"Motivo del rechazo: {observacion.strip()}\n\n"
+            f"Periodo solicitado: {solicitud.fecha_inicio_vacaciones.strftime('%d/%m/%Y')} - "
+            f"{solicitud.fecha_fin_vacaciones.strftime('%d/%m/%Y')}\n"
+            f"Días solicitados: {solicitud.total_dias_solicitados}"
+        )
+        
+        Notificacion.objects.create(
+            asunto=f"Solicitud de vacaciones {solicitud.codigo_sabs} rechazada",
+            mensaje=mensaje,
+            funcionario=funcionario,
+            solicitud_vacaciones=solicitud,
+            tipo_notificacion="solicitud",
+        )
+        
+        if jefe_inmediato:
+            Notificacion.objects.create(
+                asunto=f"Solicitud de vacaciones {solicitud.codigo_sabs} rechazada",
+                mensaje=mensaje,
+                funcionario=jefe_inmediato,
+                funcionario_cc=funcionario,
+                solicitud_vacaciones=solicitud,
+                tipo_notificacion="solicitud",
+            )
+        
+        if coord_funcionario:
+            Notificacion.objects.create(
+                asunto=f"Solicitud de vacaciones {solicitud.codigo_sabs} rechazada",
+                mensaje=mensaje,
+                funcionario=coord_funcionario,
+                funcionario_cc=funcionario,
+                solicitud_vacaciones=solicitud,
+                tipo_notificacion="solicitud",
+            )
+    except Exception:
+        pass
 
     return etapa
 

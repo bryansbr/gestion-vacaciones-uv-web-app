@@ -163,7 +163,7 @@
       <td class="firma">{{ solicitado_por }}</td>
       <td class="firma">{% if autorizado_por %}{{ autorizado_por }}{% endif %}</td>
       <td class="firma">{% if coordinado_por %}{{ coordinado_por }}{% endif %}</td>
-      <td class="firma"></td>
+      <td class="firma">{% if autorizado_rrhh_por %}{{ autorizado_rrhh_por }}{% endif %}</td>
     </tr>
 
     <tr class="etiquetas-firma">
@@ -177,7 +177,7 @@
       <td>NOMBRE: {{ solicitado_por }}</td>
       <td>NOMBRE: {% if autorizado_por %}{{ autorizado_por }}{% endif %}</td>
       <td>NOMBRE: {% if coordinado_por %}{{ coordinado_por }}{% endif %}</td>
-      <td>NOMBRE:</td>
+      <td>NOMBRE: {% if autorizado_rrhh_por %}{{ autorizado_rrhh_por }}{% endif %}</td>
     </tr>
   </table>
 </section>

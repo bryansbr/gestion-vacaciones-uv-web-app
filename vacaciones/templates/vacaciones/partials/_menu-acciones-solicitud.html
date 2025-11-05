@@ -220,6 +220,51 @@
            {% endif %}
          {% endfor %}
        {% endif %}
+       
+       {% if request.user|es_rrhh or "recursos.humanos" in request.user.email|lower %}
+         {% for ap in solicitud.aprobaciones.all %}
+           {% if ap.etapa == 'RRHH' %}
+             {% if ap.estado == 'pendiente' and solicitud.aprobada_por_jefe and solicitud.aprobada_por_coord %}
+               <li>
+                 <form method="post"
+                   action="{% url 'vacaciones:rrhh_autorizar_solicitud' solicitud.id %}"
+                   class="form-autorizar-solicitud-rrhh"
+                   data-codigo="{{ solicitud.codigo_sabs }}">
+                   {% csrf_token %}
+                   <input type="hidden" name="obs" value="">
+                   <button type="button"
+                     class="flex items-center justify-start w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 btn-autorizar-rrhh">
+                     <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                         d="M5 13l4 4L19 7"/>
+                     </svg>
+                     <span class="text-left">Autorizar</span>
+                   </button>
+                 </form>
+               </li>
+               <li>
+                 <form method="post"
+                   action="{% url 'vacaciones:rrhh_rechazar_solicitud' solicitud.id %}"
+                   class="form-rechazar-solicitud-rrhh"
+                   data-codigo="{{ solicitud.codigo_sabs }}">
+                   {% csrf_token %}
+                   <input type="hidden" name="obs" value="">
+                   <button type="button"
+                     class="flex items-center justify-start w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 btn-rechazar-rrhh">
+                     <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                         d="M6 18L18 6M6 6l12 12"/>
+                     </svg>
+                     <span class="text-left">Rechazar</span>
+                   </button>
+                 </form>
+               </li>
+             {% elif ap.estado == 'autorizada' %}
+               {# Los botones de Autorizar/Rechazar ya no se muestran cuando está autorizada #}
+             {% endif %}
+           {% endif %}
+         {% endfor %}
+       {% endif %}
     </ul>
   </div>
 </div>

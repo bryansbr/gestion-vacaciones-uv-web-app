@@ -19,7 +19,7 @@ from django.views import View
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 from weasyprint import HTML
 
-from core.permissions import group_required, es_secretaria, es_jefe_inmediato, es_coordinador_administrativo
+from core.permissions import group_required, es_secretaria, es_jefe_inmediato, es_coordinador_administrativo, es_rrhh
 from .forms import PeriodoVacacionalForm, SolicitudVacacionesForm
 from .models import (
     AprobacionEtapa,
@@ -714,6 +714,16 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
         es_jefe_del_funcionario = False
         es_secretaria_autorizada = False
         es_coordinador_autorizado = False
+        es_rrhh_autorizado = False
+        
+        try:
+            es_rrhh_autorizado = (
+                es_rrhh(request.user) or 
+                (hasattr(request.user, 'email') and request.user.email and "recursos.humanos" in request.user.email.lower())
+            )
+        except Exception:
+            es_rrhh_autorizado = False
+        
         if hasattr(request.user, "funcionario") and request.user.funcionario is not None:
             user_funcionario_id = request.user.funcionario.pk
             try:
@@ -743,6 +753,7 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
             or es_jefe_del_funcionario
             or es_secretaria_autorizada
             or es_coordinador_autorizado
+            or es_rrhh_autorizado
         ):
             raise Http404("No autorizado")
 
@@ -795,6 +806,18 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
                 coordinado_por = f"{user_coordinador.funcionario.nombre} {user_coordinador.funcionario.apellido}"
             fecha_aprobacion_coord = aprobacion_coord.actualizado_en
 
+        # Obtener información de quien autorizó (RRHH)
+        aprobacion_rrhh = solicitud.aprobaciones.filter(etapa='RRHH', estado='autorizada').first()
+        autorizado_rrhh_por = ""
+        fecha_aprobacion_rrhh = None
+        if aprobacion_rrhh and aprobacion_rrhh.actualizado_por:
+            user_rrhh = aprobacion_rrhh.actualizado_por
+            if hasattr(user_rrhh, 'funcionario') and user_rrhh.funcionario:
+                autorizado_rrhh_por = f"{user_rrhh.funcionario.nombre} {user_rrhh.funcionario.apellido}"
+            else:
+                autorizado_rrhh_por = f"{user_rrhh.get_full_name()}" if user_rrhh.get_full_name() else user_rrhh.email
+            fecha_aprobacion_rrhh = aprobacion_rrhh.actualizado_en
+
         context = {
             "logo_url": logo_url,
             "pie_pagina": "F-01-MP-10-04-01 V-04-2014  |  Elaborado por: División de Recursos Humanos",
@@ -822,6 +845,7 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
             "solicitado_por": f"{funcionario.nombre} {funcionario.apellido}",
             "autorizado_por": autorizado_por,
             "coordinado_por": coordinado_por,
+            "autorizado_rrhh_por": autorizado_rrhh_por,
         }
 
         html_string = render_to_string("vacaciones/pdf/solicitud-vacaciones.html", context)
