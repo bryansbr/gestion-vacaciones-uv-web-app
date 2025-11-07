@@ -34,7 +34,7 @@ def _es_jefe_de(solicitud, user):
         return False
     return solicitud.funcionario.jefe_inmediato_id == user_func.pk
 
-@method_decorator(group_required("Jefe Inmediato"), name="dispatch")
+@method_decorator(group_required("Jefe Inmediato", "Coordinador Administrativo"), name="dispatch")
 class SolicitudesJefeListView(LoginRequiredMixin, ListView):
     """
     Lista las solicitudes de vacaciones que el jefe puede ver:
@@ -79,13 +79,21 @@ class SolicitudesJefeListView(LoginRequiredMixin, ListView):
 
         return qs
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        context["rol_actual"] = "jefe_inmediato"
+        context["mostrar_alerta_rol"] = user.groups.filter(name="Coordinador Administrativo").exists()
+        context["etiqueta_rol_actual"] = "Jefe Inmediato"
+        return context
+
 def solicitud_pdf(request, pk):
     solicitud = get_object_or_404(SolicitudVacaciones, pk=pk)
     if not _es_jefe_de(solicitud, request.user) and not request.user.is_superuser:
         return HttpResponseForbidden()
     return redirect(solicitud.pdf_url)
 
-@group_required("Jefe Inmediato")
+@group_required("Jefe Inmediato", "Coordinador Administrativo")
 def aprobar_solicitud(request, pk):
     if request.method != "POST":
         return HttpResponseBadRequest("Método no permitido")
@@ -101,7 +109,7 @@ def aprobar_solicitud(request, pk):
     
     return redirect(reverse("vacaciones:jefe_solicitudes_list"))
 
-@group_required("Jefe Inmediato")
+@group_required("Jefe Inmediato", "Coordinador Administrativo")
 def devolver_solicitud(request, pk):
     if request.method != "POST":
         return HttpResponseBadRequest("Método no permitido")
@@ -117,7 +125,7 @@ def devolver_solicitud(request, pk):
     
     return redirect(reverse("vacaciones:jefe_solicitudes_list"))
 
-@group_required("Jefe Inmediato")
+@group_required("Jefe Inmediato", "Coordinador Administrativo")
 def enviar_solicitud_proximo_revisor(request, pk):
     if request.method != "POST":
         return HttpResponseBadRequest("Método no permitido")
@@ -133,7 +141,7 @@ def enviar_solicitud_proximo_revisor(request, pk):
     
     return redirect(reverse("vacaciones:jefe_solicitudes_list"))
 
-@method_decorator(group_required("Jefe Inmediato"), name="dispatch")
+@method_decorator(group_required("Jefe Inmediato", "Coordinador Administrativo"), name="dispatch")
 class JefeSolicitudCreateView(LoginRequiredMixin, CreateView):
     """
     Permite al jefe crear solicitudes en nombre de funcionarios
@@ -279,6 +287,10 @@ class JefeSolicitudCreateView(LoginRequiredMixin, CreateView):
                     periodo_vacacional__in=[form.periodo_mas_antiguo, form.periodo_mas_reciente]
                 ).exists()
                 context['mostrar_alerta_periodos_acumulados'] = not solicitudes_periodos_acumulados
+
+        context["rol_actual"] = "jefe_inmediato"
+        context["mostrar_alerta_rol"] = self.request.user.groups.filter(name="Coordinador Administrativo").exists()
+        context["etiqueta_rol_actual"] = "Jefe Inmediato"
 
         return context
 

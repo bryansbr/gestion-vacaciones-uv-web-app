@@ -14,46 +14,56 @@
       <h2 class="text-2xl font-bold text-gray-700">Solicitudes de vacaciones a cargo</h2>
     </div>
 
+    <div class="mb-6 bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded">
+      <p>Estás revisando solicitudes como <strong>{{ etiqueta_rol_actual }}</strong>. Recuerda aprobar las solicitudes de tu personal a cargo aquí.</p>
+    </div>
+
     <form method="get" class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
       <div>
         <label for="q" class="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
-        <input type="text" 
-          id="q" 
-          name="q" 
-          value="{{ request.GET.q }}" 
-          placeholder="Código, nombre o apellido..." 
+        <input
+          type="text"
+          id="q"
+          name="q"
+          value="{{ request.GET.q }}"
+          placeholder="Código, nombre o apellido..."
           hx-get="{% url 'vacaciones:coord_solicitudes_list' %}"
           hx-target="#tabla-contenedor"
           hx-trigger="input changed delay:500ms"
           hx-swap="innerHTML"
+          hx-push-url="true"
           class="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
       </div>
+
       <div>
         <label for="estado" class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-        <select id="estado" 
-          name="estado" 
+        <select
+          id="estado"
+          name="estado"
           hx-get="{% url 'vacaciones:coord_solicitudes_list' %}"
           hx-target="#tabla-contenedor"
           hx-trigger="change"
           hx-swap="innerHTML"
+          hx-push-url="true"
           class="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="">Todos</option>
-          <option value="pendiente" {% if request.GET.estado == 'pendiente' %}selected{% endif %}>Pendiente</option>
+          <option value="pendiente"   {% if request.GET.estado == 'pendiente' %}selected{% endif %}>Pendiente</option>
           <option value="en_revision" {% if request.GET.estado == 'en_revision' %}selected{% endif %}>En revisión</option>
-          <option value="aprobado" {% if request.GET.estado == 'aprobado' %}selected{% endif %}>Aprobada</option>
-          <option value="rechazado" {% if request.GET.estado == 'rechazado' %}selected{% endif %}>Rechazada</option>
-          <option value="cancelado" {% if request.GET.estado == 'cancelado' %}selected{% endif %}>Cancelado</option>
+          <option value="aprobado"    {% if request.GET.estado == 'aprobado' %}selected{% endif %}>Aprobada</option>
+          <option value="rechazado"   {% if request.GET.estado == 'rechazado' %}selected{% endif %}>Rechazada</option>
+          <option value="cancelado"   {% if request.GET.estado == 'cancelado' %}selected{% endif %}>Cancelado</option>
         </select>
       </div>
+
       <div class="flex items-end gap-2">
         {% if request.GET.q or request.GET.estado %}
-          <a href="{% url 'vacaciones:coord_solicitudes_list' %}" 
-            hx-get="{% url 'vacaciones:coord_solicitudes_list' %}"
-            hx-target="#tabla-contenedor"
-            hx-swap="innerHTML"
-            class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-md transition-colors duration-200">
-            Limpiar
-          </a>
+        <a href="{% url 'vacaciones:coord_solicitudes_list' %}"
+           hx-get="{% url 'vacaciones:coord_solicitudes_list' %}"
+           hx-target="#tabla-contenedor"
+           hx-swap="innerHTML"
+           class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-md transition-colors duration-200">
+          Limpiar
+        </a>
         {% endif %}
       </div>
     </form>

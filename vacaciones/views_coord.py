@@ -1,6 +1,3 @@
-import holidays
-import json
-
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -80,6 +77,14 @@ class SolicitudesCoordListView(LoginRequiredMixin, ListView):
             qs = qs.filter(estado_solicitud=estado)
 
         return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        context["rol_actual"] = "coordinador_administrativo"
+        context["mostrar_alerta_rol"] = user.groups.filter(name="Jefe Inmediato").exists()
+        context["etiqueta_rol_actual"] = "Coordinación Administrativa"
+        return context
 
 def solicitud_pdf(request, pk):
     solicitud = get_object_or_404(SolicitudVacaciones, pk=pk)
