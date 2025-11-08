@@ -15,6 +15,12 @@ from .services.aprobaciones import (
     rechazar_rrhh,
 )
 
+# ==========================================================
+# CONSTANTES
+# ==========================================================
+RRHH_SOLICITUDES_TEMPLATE = "vacaciones/roles/rrhh/rrhh-solicitudes-list.html"
+RRHH_SOLICITUDES_TABLE_PARTIAL = "vacaciones/partials/_tabla-rrhh-solicitudes.html"
+
 def _es_rrhh_o_email(user):
     """
     Verifica si el usuario es RRHH o tiene email de RRHH (temporal hasta asignar grupo).
@@ -36,7 +42,7 @@ class SolicitudesRRHHListView(LoginRequiredMixin, UserPassesTestMixin, ListView)
     - Solo aquellas que han sido aprobadas por el Coordinador Administrativo (etapa COORD aprobada)
     """
     model = SolicitudVacaciones
-    template_name = "vacaciones/rrhh-solicitudes-list.html"
+    template_name = RRHH_SOLICITUDES_TEMPLATE
     context_object_name = "solicitudes"
     paginate_by = 20
     raise_exception = False
@@ -54,7 +60,7 @@ class SolicitudesRRHHListView(LoginRequiredMixin, UserPassesTestMixin, ListView)
         if request.htmx:
             self.object_list = self.get_queryset()
             context = self.get_context_data()
-            html = render_to_string('vacaciones/partials/_tabla-rrhh-solicitudes.html', context, request)
+            html = render_to_string(RRHH_SOLICITUDES_TABLE_PARTIAL, context, request)
             return HttpResponse(html)
         return super().get(request, *args, **kwargs)
 

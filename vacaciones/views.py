@@ -38,12 +38,32 @@ from .services.aprobaciones import (
 from .utils import get_current_date_colombia, puede_solicitar_vacaciones_hoy
 from usuarios.models import Funcionario
 
+# ==========================================================
+# CONSTANTES
+# ==========================================================
+PERIODO_VACACIONAL_LIST_TEMPLATE = "vacaciones/prd-vac/periodo-vacacional-list.html"
+PERIODO_VACACIONAL_FORM_TEMPLATE = "vacaciones/prd-vac/periodo-vacacional-form.html"
+PERIODO_VACACIONAL_CONFIRM_DELETE_TEMPLATE = "vacaciones/prd-vac/periodo-vacacional-confirm-delete.html"
+TABLA_PERIODOS_VACACIONALES_PARTIAL = "vacaciones/partials/_tabla-periodos-vacacionales.html"
+
+SOLICITUD_VACACIONES_FORM_TEMPLATE = "vacaciones/solicitud-vac/solicitud-vacaciones-form.html"
+SOLICITUD_VACACIONES_LIST_TEMPLATE = "vacaciones/solicitud-vac/solicitud-vacaciones-list.html"
+SOLICITUD_VACACIONES_CONFIRM_DELETE_TEMPLATE = "vacaciones/solicitud-vac/solicitud-vacaciones-confirm-delete.html"
+TABLA_FUNCIONARIO_SOLICITUDES_PARTIAL = "vacaciones/partials/_tabla-funcionario-solicitudes.html"
+SEMAFORO_CELL_PARTIAL = "vacaciones/partials/_semaforo-cell.html"
+SOLICITUD_VACACIONES_PDF_TEMPLATE = "vacaciones/pdf/solicitud-vacaciones.html"
+
+SECRETARIA_SOLICITUDES_LIST_TEMPLATE = "vacaciones/roles/secretaria/secretaria-solicitudes-list.html"
+SECRETARIA_SOLICITUD_FORM_TEMPLATE = "vacaciones/roles/secretaria/secretaria-solicitud-form.html"
+SECRETARIA_SOLICIT_CONFIRM_DELETE_TEMPLATE = "vacaciones/roles/secretaria/secretaria-solicitud-confirm-delete.html"
+TABLA_SECRETARIA_SOLICITUDES_PARTIAL = "vacaciones/partials/_tabla-secretaria-solicitudes.html"
+
 # -----------------------------------------
 # VISTA: PeriodoVacacional
 # -----------------------------------------
 class PeriodoVacacionalListView(LoginRequiredMixin, ListView):
     model = PeriodoVacacional
-    template_name = "vacaciones/periodo-vacacional-list.html"
+    template_name = PERIODO_VACACIONAL_LIST_TEMPLATE
     context_object_name = "periodos"
     paginate_by = 20
 
@@ -51,7 +71,7 @@ class PeriodoVacacionalListView(LoginRequiredMixin, ListView):
         if request.htmx:
             self.object_list = self.get_queryset()
             context = self.get_context_data()
-            html = render_to_string('vacaciones/partials/_tabla-periodos-vacacionales.html', context, request)
+            html = render_to_string(TABLA_PERIODOS_VACACIONALES_PARTIAL, context, request)
             return HttpResponse(html)
         return super().get(request, *args, **kwargs)
 
@@ -72,7 +92,7 @@ class PeriodoVacacionalListView(LoginRequiredMixin, ListView):
 class PeriodoVacacionalCreateView(LoginRequiredMixin, CreateView):
     model = PeriodoVacacional
     form_class = PeriodoVacacionalForm
-    template_name = "vacaciones/periodo-vacacional-form.html"
+    template_name = PERIODO_VACACIONAL_FORM_TEMPLATE
     success_url = reverse_lazy("vacaciones:periodo-vacacional-list")
 
     def form_valid(self, form):
@@ -82,7 +102,7 @@ class PeriodoVacacionalCreateView(LoginRequiredMixin, CreateView):
 class PeriodoVacacionalUpdateView(LoginRequiredMixin, UpdateView):
     model = PeriodoVacacional
     form_class = PeriodoVacacionalForm
-    template_name = "vacaciones/periodo-vacacional-form.html"
+    template_name = PERIODO_VACACIONAL_FORM_TEMPLATE
     success_url = reverse_lazy("vacaciones:periodo-vacacional-list")
 
     def form_valid(self, form):
@@ -91,7 +111,7 @@ class PeriodoVacacionalUpdateView(LoginRequiredMixin, UpdateView):
 
 class PeriodoVacacionalDeleteView(LoginRequiredMixin, DeleteView):
     model = PeriodoVacacional
-    template_name = "vacaciones/periodo-vacacional-confirm-delete.html"
+    template_name = PERIODO_VACACIONAL_CONFIRM_DELETE_TEMPLATE
     success_url = reverse_lazy("vacaciones:periodo-vacacional-list")
 
     def delete(self, request, *args, **kwargs):
@@ -104,7 +124,7 @@ class PeriodoVacacionalDeleteView(LoginRequiredMixin, DeleteView):
 class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
     model = SolicitudVacaciones
     form_class = SolicitudVacacionesForm
-    template_name = "vacaciones/solicitud-vacaciones-form.html"
+    template_name = SOLICITUD_VACACIONES_FORM_TEMPLATE
     success_url = reverse_lazy("vacaciones:solicitud-vacaciones-list")
 
     def get_form_kwargs(self):
@@ -281,7 +301,7 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
     
 class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
     model = SolicitudVacaciones
-    template_name = "vacaciones/solicitud-vacaciones-list.html"
+    template_name = SOLICITUD_VACACIONES_LIST_TEMPLATE
     context_object_name = "solicitudes"
     paginate_by = 20
 
@@ -289,7 +309,7 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
         if request.htmx:
             self.object_list = self.get_queryset()
             context = self.get_context_data()
-            html = render_to_string('vacaciones/partials/_tabla-funcionario-solicitudes.html', context, request)
+            html = render_to_string(TABLA_FUNCIONARIO_SOLICITUDES_PARTIAL, context, request)
             return HttpResponse(html)
         return super().get(request, *args, **kwargs)
 
@@ -470,7 +490,7 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
 class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
     model = SolicitudVacaciones
     form_class = SolicitudVacacionesForm
-    template_name = "vacaciones/solicitud-vacaciones-form.html"
+    template_name = SOLICITUD_VACACIONES_FORM_TEMPLATE
     success_url = reverse_lazy("vacaciones:solicitud-vacaciones-list")
 
     def get_form_kwargs(self):
@@ -580,7 +600,7 @@ class SolicitudVacacionesUpdateView(LoginRequiredMixin, UpdateView):
 
 class SolicitudVacacionesDeleteView(LoginRequiredMixin, DeleteView):
     model = SolicitudVacaciones
-    template_name = "vacaciones/solicitud-vacaciones-confirm-delete.html"
+    template_name = SOLICITUD_VACACIONES_CONFIRM_DELETE_TEMPLATE
     success_url = reverse_lazy("vacaciones:solicitud-vacaciones-list")
 
     def get_queryset(self):
@@ -610,7 +630,7 @@ def solicitud_vacaciones_create(request):
         
     festivos_json = json.dumps(festivos)
 
-    return render(request, 'vacaciones/solicitud-vacaciones-form.html', {'festivos_colombia': festivos_json})
+    return render(request, SOLICITUD_VACACIONES_FORM_TEMPLATE, {'festivos_colombia': festivos_json})
 
 # ==========================================================
 # Parcial Semáforo
@@ -627,7 +647,7 @@ def semaforo_cell(request, pk):
         ]
         AprobacionEtapa.objects.bulk_create(bulk)
 
-    return render(request, "vacaciones/partials/_semaforo-cell.html", {"solicitud": sol})
+    return render(request, SEMAFORO_CELL_PARTIAL, {"solicitud": sol})
 
 # ==========================================================
 # Acciones de flujo (JEFE/COORD/RRHH/Funcionario)
@@ -848,7 +868,7 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
             "autorizado_rrhh_por": autorizado_rrhh_por,
         }
 
-        html_string = render_to_string("vacaciones/pdf/solicitud-vacaciones.html", context)
+        html_string = render_to_string(SOLICITUD_VACACIONES_PDF_TEMPLATE, context)
         base_url = request.build_absolute_uri("/")  # resuelve static/imagenes
         pdf_bytes = HTML(string=html_string, base_url=base_url).write_pdf()
 
@@ -873,7 +893,7 @@ class SecretariaSolicitudesListView(LoginRequiredMixin, ListView):
     - Incluye todas las solicitudes de los subordinados del jefe inmediato de la secretaria
     """
     model = SolicitudVacaciones
-    template_name = "vacaciones/secretaria-solicitudes-list.html"
+    template_name = SECRETARIA_SOLICITUDES_LIST_TEMPLATE
     context_object_name = "solicitudes"
     paginate_by = 20
 
@@ -881,7 +901,7 @@ class SecretariaSolicitudesListView(LoginRequiredMixin, ListView):
         if request.htmx:
             self.object_list = self.get_queryset()
             context = self.get_context_data()
-            html = render_to_string('vacaciones/partials/_tabla-secretaria-solicitudes.html', context, request)
+            html = render_to_string(TABLA_SECRETARIA_SOLICITUDES_PARTIAL, context, request)
             return HttpResponse(html)
         return super().get(request, *args, **kwargs)
     
@@ -923,7 +943,7 @@ class SecretariaSolicitudCreateView(LoginRequiredMixin, CreateView):
     """
     model = SolicitudVacaciones
     form_class = SolicitudVacacionesForm
-    template_name = "vacaciones/secretaria-solicitud-form.html"
+    template_name = SECRETARIA_SOLICITUD_FORM_TEMPLATE
     success_url = reverse_lazy("vacaciones:secretaria-solicitudes-list")
 
     def get_form_kwargs(self):
@@ -1138,7 +1158,7 @@ class SecretariaSolicitudUpdateView(LoginRequiredMixin, UpdateView):
     """
     model = SolicitudVacaciones
     form_class = SolicitudVacacionesForm
-    template_name = "vacaciones/secretaria-solicitud-form.html"
+    template_name = SECRETARIA_SOLICITUD_FORM_TEMPLATE
     success_url = reverse_lazy("vacaciones:secretaria-solicitudes-list")
 
     def get_queryset(self):
@@ -1236,7 +1256,7 @@ class SecretariaSolicitudDeleteView(LoginRequiredMixin, DeleteView):
     Permite a la secretaria eliminar solicitudes SOLO si están en estado 'pendiente'.
     """
     model = SolicitudVacaciones
-    template_name = "vacaciones/secretaria-solicitud-confirm-delete.html"
+    template_name = SECRETARIA_SOLICIT_CONFIRM_DELETE_TEMPLATE
     success_url = reverse_lazy("vacaciones:secretaria-solicitudes-list")
 
     def get_queryset(self):

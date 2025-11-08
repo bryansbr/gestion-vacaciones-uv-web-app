@@ -17,6 +17,12 @@ from .services.aprobaciones import (
     devolver_etapa,
 )
 
+# ==========================================================
+# CONSTANTES
+# ==========================================================
+COORD_SOLICITUDES_TEMPLATE = "vacaciones/roles/coord/coord-solicitudes-list.html"
+COORD_SOLICITUDES_TABLE_PARTIAL = "vacaciones/partials/_tabla-coord-solicitudes.html"
+
 def _es_coordinador_de_facultad(solicitud, user):
     """
     Verifica si el usuario es Coordinador Administrativo de la misma 
@@ -35,7 +41,7 @@ class SolicitudesCoordListView(LoginRequiredMixin, ListView):
     - Solo aquellas que han sido aprobadas por el Jefe Inmediato (etapa JEFE aprobada)
     """
     model = SolicitudVacaciones
-    template_name = "vacaciones/coord-solicitudes-list.html"
+    template_name = COORD_SOLICITUDES_TEMPLATE
     context_object_name = "solicitudes"
     paginate_by = 20
 
@@ -43,7 +49,7 @@ class SolicitudesCoordListView(LoginRequiredMixin, ListView):
         if request.htmx:
             self.object_list = self.get_queryset()
             context = self.get_context_data()
-            html = render_to_string('vacaciones/partials/_tabla-coord-solicitudes.html', context, request)
+            html = render_to_string(COORD_SOLICITUDES_TABLE_PARTIAL, context, request)
             return HttpResponse(html)
         return super().get(request, *args, **kwargs)
 

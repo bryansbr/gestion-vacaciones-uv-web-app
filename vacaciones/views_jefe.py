@@ -28,6 +28,13 @@ from .services.aprobaciones import (
 )
 from .utils import get_current_date_colombia
 
+# ==========================================================
+# CONSTANTES
+# ==========================================================
+JEFE_SOLICITUDES_TEMPLATE = "vacaciones/roles/jefe/jefe-solicitudes-list.html"
+JEFE_SOLICITUDES_TABLE_PARTIAL = "vacaciones/partials/_tabla-jefe-solicitudes.html"
+JEFE_SOLICITUD_FORM_TEMPLATE = "vacaciones/roles/jefe/jefe-solicitud-form.html"
+
 def _es_jefe_de(solicitud, user):
     user_func = getattr(user, "funcionario", None)
     if not user_func:
@@ -42,7 +49,7 @@ class SolicitudesJefeListView(LoginRequiredMixin, ListView):
     - Incluye todas las solicitudes de los subordinados
     """
     model = SolicitudVacaciones
-    template_name = "vacaciones/jefe-solicitudes-list.html"
+    template_name = JEFE_SOLICITUDES_TEMPLATE
     context_object_name = "solicitudes"
     paginate_by = 20
 
@@ -50,7 +57,7 @@ class SolicitudesJefeListView(LoginRequiredMixin, ListView):
         if request.htmx:
             self.object_list = self.get_queryset()
             context = self.get_context_data()
-            html = render_to_string('vacaciones/partials/_tabla-jefe-solicitudes.html', context, request)
+            html = render_to_string(JEFE_SOLICITUDES_TABLE_PARTIAL, context, request)
             return HttpResponse(html)
         return super().get(request, *args, **kwargs)
 
@@ -149,7 +156,7 @@ class JefeSolicitudCreateView(LoginRequiredMixin, CreateView):
     """
     model = SolicitudVacaciones
     form_class = SolicitudVacacionesForm
-    template_name = "vacaciones/jefe-solicitud-form.html"
+    template_name = JEFE_SOLICITUD_FORM_TEMPLATE
     success_url = reverse_lazy("vacaciones:jefe_solicitudes_list")
 
     def get_form_kwargs(self):
