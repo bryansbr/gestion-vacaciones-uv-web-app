@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+import json
 from unittest import skip
 
 from django.contrib.auth.models import Group
@@ -15,7 +16,6 @@ from .models import (
     PeriodoVacacional,
     SolicitudVacaciones,
     ReintegroVacaciones,
-    generar_codigo_sabs,
     AprobacionEtapa,
 )
 
@@ -23,23 +23,113 @@ User = get_user_model()
 
 class SolicitudVacacionesListViewTest(TestCase):
     def setUp(self):
-        pass
+        self.user = User.objects.create_user(email="func@test.com", password="x")
+        self.estamento = Estamento.objects.create(nombre="Administrativo", descripcion="Admin")
+        self.dependencia = FacultadDependencia.objects.create(nombre="Dependencia X", descripcion="Desc")
+        self.sede = Sede.objects.create(nombre="Sede Central", direccion="Calle 123")
+
+        self.funcionario = Funcionario.objects.create(
+            user=self.user,
+            nombre="Funcionario",
+            apellido="Principal",
+            numero_identificacion="F001",
+            telefono="3000000000",
+            fecha_ingreso_universidad=date.today() - timedelta(days=400),
+            estamento=self.estamento,
+            facultad_dependencia=self.dependencia,
+            sede=self.sede,
+        )
+
+        self.periodo = PeriodoVacacional.objects.create(
+            funcionario=self.funcionario,
+            fecha_inicio_periodo=date.today() - timedelta(days=365),
+            fecha_fin_periodo=date.today() - timedelta(days=200),
+            dias_disfrutados_periodo=0,
+        )
+
+        self.url = reverse("vacaciones:solicitud-vacaciones-list")
+        self.client.force_login(self.user)
 
     def test_puede_crear_solicitud_sin_solicitudes_activas(self):
-        """Test que verifica que el usuario puede crear solicitud cuando no tiene solicitudes activas"""
-        pass
+        """Debe permitir la creación cuando no existen solicitudes activas ni reintegros pendientes."""
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["puede_crear_solicitud"])
+        self.assertIsNone(response.context["solicitud_activa"])
 
     def test_no_puede_crear_solicitud_con_solicitud_activa(self):
-        """Test que verifica que el usuario no puede crear solicitud cuando tiene una activa"""
-        pass
+        """Debe bloquear la creación cuando existe una solicitud activa sin reintegro aprobado."""
+        solicitud = SolicitudVacaciones.objects.create(
+            funcionario=self.funcionario,
+            periodo_vacacional=self.periodo,
+            fecha_inicio_vacaciones=date(2025, 2, 3),
+            fecha_fin_vacaciones=date(2025, 2, 21),
+            tiene_dias_pendientes=False,
+            creada_por=self.user,
+            estado_solicitud="pendiente",
+        )
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["puede_crear_solicitud"])
+        self.assertIsNotNone(response.context["solicitud_activa"])
+        self.assertEqual(response.context["solicitud_activa"].pk, solicitud.pk)
 
     def test_puede_crear_solicitud_con_reintegro_aprobado(self):
-        """Test que verifica que el usuario puede crear solicitud cuando tiene reintegro aprobado"""
-        pass
+        """Una solicitud con reintegro aprobado no bloquea la creación de una nueva solicitud."""
+        solicitud = SolicitudVacaciones.objects.create(
+            funcionario=self.funcionario,
+            periodo_vacacional=self.periodo,
+            fecha_inicio_vacaciones=date(2025, 2, 3),
+            fecha_fin_vacaciones=date(2025, 2, 21),
+            tiene_dias_pendientes=False,
+            creada_por=self.user,
+            estado_solicitud="pendiente",
+        )
+
+        ReintegroVacaciones.objects.create(
+            codigo_sabs="",
+            fecha_reintegro=date.today() + timedelta(days=30),
+            motivo_reintegro="Vacaciones",
+            observaciones="",
+            fecha_disfrute_desde=solicitud.fecha_inicio_vacaciones,
+            fecha_disfrute_hasta=solicitud.fecha_fin_vacaciones,
+            dias_disfrutados=solicitud.total_dias_solicitados,
+            tipo_dias_disfrutados="C",
+            dias_pendientes=0,
+            tipo_dias_pendientes="C",
+            periodo_vacacional=self.periodo,
+            solicitud_vacaciones=solicitud,
+            funcionario=self.funcionario,
+            creada_por=self.user,
+            estado_solicitud="aprobado",
+        )
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["puede_crear_solicitud"])
+        self.assertIsNone(response.context["solicitud_activa"])
 
     def test_tooltip_se_renderiza_con_solicitud_activa(self):
-        """Test que verifica que el tooltip se renderiza correctamente cuando hay una solicitud activa"""
-        pass
+        """Cuando existe una solicitud activa debe exponerse en el contexto para mostrar la alerta en la UI."""
+        solicitud = SolicitudVacaciones.objects.create(
+            funcionario=self.funcionario,
+            periodo_vacacional=self.periodo,
+            fecha_inicio_vacaciones=date(2025, 2, 3),
+            fecha_fin_vacaciones=date(2025, 2, 21),
+            tiene_dias_pendientes=False,
+            creada_por=self.user,
+            estado_solicitud="pendiente",
+        )
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(response.context["solicitud_activa"])
+        self.assertEqual(response.context["solicitud_activa"].codigo_sabs, solicitud.codigo_sabs)
 
 
 class CodigoSABSTest(TestCase):
@@ -140,28 +230,79 @@ class CodigoSABSTest(TestCase):
         s2 = self._crear_solicitud(date(y, 2, 3), date(y, 2, 21))
         self.assertNotEqual(s1.codigo_sabs, s2.codigo_sabs)
 
-
 class SolicitudVacacionesEdicionTest(TestCase):
     """Test para verificar el comportamiento correcto al editar solicitudes"""
 
     def setUp(self):
-        pass
+        self.user = User.objects.create_user(email="func-edit@test.com", password="x")
+        self.estamento = Estamento.objects.create(nombre="Administrativo", descripcion="Admin")
+        self.dependencia = FacultadDependencia.objects.create(nombre="Dependencia Edit", descripcion="Desc")
+        self.sede = Sede.objects.create(nombre="Sede Central", direccion="Calle 456")
+
+        self.funcionario = Funcionario.objects.create(
+            user=self.user,
+            nombre="Funcionario",
+            apellido="Editable",
+            numero_identificacion="F002",
+            telefono="3000000001",
+            fecha_ingreso_universidad=date.today() - timedelta(days=500),
+            estamento=self.estamento,
+            facultad_dependencia=self.dependencia,
+            sede=self.sede,
+        )
+
+        self.periodo = PeriodoVacacional.objects.create(
+            funcionario=self.funcionario,
+            fecha_inicio_periodo=date.today() - timedelta(days=365),
+            fecha_fin_periodo=date.today() - timedelta(days=200),
+            dias_disfrutados_periodo=0,
+        )
+
+        self.solicitud = SolicitudVacaciones.objects.create(
+            funcionario=self.funcionario,
+            periodo_vacacional=self.periodo,
+            fecha_inicio_vacaciones=date(2025, 2, 3),
+            fecha_fin_vacaciones=date(2025, 2, 21),
+            tiene_dias_pendientes=False,
+            creada_por=self.user,
+            estado_solicitud="pendiente",
+        )
+
+        self.url = reverse("vacaciones:solicitud_vacaciones_update", kwargs={"pk": self.solicitud.pk})
+        self.client.force_login(self.user)
 
     def test_edicion_no_muestra_alerta_solicitud_activa(self):
         """Test que verifica que no se muestre la alerta de solicitud activa en modo edición"""
-        pass
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["puede_crear_solicitud"])
+        self.assertIsNone(response.context["solicitud_activa"])
 
     def test_edicion_no_muestra_alerta_plazo_solicitud(self):
         """Test que verifica que no se muestre la alerta de plazo de solicitud en modo edición"""
-        pass
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["plazo_solicitud"])
 
     def test_edicion_muestra_formulario_correctamente(self):
         """Test que verifica que el formulario de edición se muestre correctamente"""
-        pass
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        formulario = response.context["form"]
+        self.assertEqual(formulario.instance.pk, self.solicitud.pk)
 
     def test_edicion_muestra_codigo_sabs_y_fecha_solicitud(self):
         """Test que verifica que los campos código SABS y fecha de solicitud se muestren en modo edición"""
-        pass
+        response = self.client.get(self.url)
+
+        form = response.context["form"]
+        self.assertIn("codigo_sabs", form.fields)
+        self.assertIn("fecha_solicitud", form.fields)
+        self.assertEqual(form.instance.codigo_sabs, self.solicitud.codigo_sabs)
+        self.assertEqual(form.instance.fecha_solicitud, self.solicitud.fecha_solicitud)
 
 
 class ValidacionesFechasTest(TestCase):
@@ -288,29 +429,134 @@ class ValidacionesFechasTest(TestCase):
         )
         self.assertEqual(s.total_dias_solicitados, 30)
 
+class SolicitudVacacionesCalculoDiasPendientesTests(TestCase):
+    """Pruebas para el ajuste de días solicitados según el periodo disponible."""
 
-class FlatpickrIntegrationTest(TestCase):
-    """Tests de integración con flatpickr (placeholder; requieren templates/vistas)"""
+    @classmethod
+    def setUpTestData(cls):
+        cls.est_admin = Estamento.objects.create(nombre="Administrativo", descripcion="Admin")
+        cls.dep = FacultadDependencia.objects.create(nombre="Dependencia Test", descripcion="Desc")
+        cls.sede = Sede.objects.create(nombre="Sede Central", direccion="Calle 123")
+
+        User = get_user_model()
+        cls.user = User.objects.create_user(email="limit@test.com", password="pwd")
+        cls.funcionario = Funcionario.objects.create(
+            user=cls.user,
+            nombre="Limite",
+            apellido="Dias",
+            numero_identificacion="LD1",
+            telefono="3000000000",
+            fecha_ingreso_universidad=date.today() - timedelta(days=700),
+            decreto_resolucion="",
+            estamento=cls.est_admin,
+            facultad_dependencia=cls.dep,
+            sede=cls.sede,
+        )
+
+        cls.periodo = PeriodoVacacional.objects.create(
+            funcionario=cls.funcionario,
+            fecha_inicio_periodo=date.today() - timedelta(days=365),
+            fecha_fin_periodo=date.today() - timedelta(days=200),
+            dias_disfrutados_periodo=0,
+        )
+
+    def _crear_solicitud(self):
+        return SolicitudVacaciones.objects.create(
+            funcionario=self.funcionario,
+            periodo_vacacional=self.periodo,
+            fecha_inicio_vacaciones=date(2025, 2, 3),
+            fecha_fin_vacaciones=date(2025, 2, 21),
+            tiene_dias_pendientes=False,
+            creada_por=self.user,
+        )
+
+    def test_calculo_total_limita_por_dias_disponibles(self):
+        self.periodo.refresh_from_db()
+        total_periodo = self.periodo.dias_totales_periodo
+        self.periodo.dias_disfrutados_periodo = max(0, total_periodo - 5)
+        self.periodo.save()
+        self.periodo.refresh_from_db()
+
+        solicitud = self._crear_solicitud()
+        solicitud._calcular_total_dias_solicitados()
+
+        self.assertEqual(solicitud.total_dias_solicitados, 5)
+
+    def test_calculo_mantiene_valor_cuando_periodo_no_existe(self):
+        solicitud = self._crear_solicitud()
+        solicitud.periodo_vacacional_id = 999999
+        solicitud.periodo_vacacional = None
+
+        solicitud._calcular_total_dias_solicitados()
+
+        self.assertEqual(solicitud.total_dias_solicitados, 15)
+
+class IntegracionFlatpickrTests(TestCase):
+    """Verifica la configuración necesaria para utilizar Flatpickr en el formulario de solicitudes."""
 
     def setUp(self):
-        pass
+        self.user = User.objects.create_user(email="flatpickr@test.com", password="x")
+        self.estamento = Estamento.objects.create(nombre="Administrativo", descripcion="Admin")
+        self.dependencia = FacultadDependencia.objects.create(nombre="Dependencia Flatpickr", descripcion="Desc")
+        self.sede = Sede.objects.create(nombre="Sede Central", direccion="Calle 789")
 
-    def test_campos_fecha_no_tienen_type_date(self):
-        """Test que verifica que los campos de fecha no tengan type='date' para permitir flatpickr"""
-        pass
+        self.funcionario = Funcionario.objects.create(
+            user=self.user,
+            nombre="Func",
+            apellido="Flatpickr",
+            numero_identificacion="F003",
+            telefono="3000000002",
+            fecha_ingreso_universidad=date.today() - timedelta(days=600),
+            estamento=self.estamento,
+            facultad_dependencia=self.dependencia,
+            sede=self.sede,
+        )
 
-    def test_scripts_flatpickr_se_cargan(self):
-        """Test que verifica que los scripts de flatpickr se carguen correctamente"""
-        pass
+        PeriodoVacacional.objects.create(
+            funcionario=self.funcionario,
+            fecha_inicio_periodo=date.today() - timedelta(days=365),
+            fecha_fin_periodo=date.today() - timedelta(days=200),
+            dias_disfrutados_periodo=0,
+        )
 
-    def test_formulario_tiene_campos_fecha_correctos(self):
-        """Test que verifica que el formulario tenga los campos de fecha con los atributos correctos"""
-        pass
+        self.client.force_login(self.user)
 
-    def test_configuracion_archivos_estaticos(self):
-        """Test que verifica que la configuración de archivos estáticos funcione correctamente"""
-        pass
+    def test_campos_fecha_usan_widget_flatpickr(self):
+        """Los campos de fecha utilizan la clase y atributos esperados por Flatpickr."""
+        form = SolicitudVacacionesForm(user=self.user)
+        inicio_widget = form.fields["fecha_inicio_vacaciones"].widget
+        fin_widget = form.fields["fecha_fin_vacaciones"].widget
 
+        self.assertIn("flatpickr-input", inicio_widget.attrs.get("class", ""))
+        self.assertEqual(inicio_widget.attrs.get("autocomplete"), "off")
+        self.assertIn("flatpickr-input", fin_widget.attrs.get("class", ""))
+
+    def test_vista_creacion_incluye_festivos_en_contexto(self):
+        """La vista de creación expone la lista de festivos para inicializar Flatpickr."""
+        url = reverse("vacaciones:solicitud_vacaciones_create")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        festivos = response.context["festivos_colombia"]
+        festivos_decodificados = json.loads(festivos)
+        self.assertIsInstance(festivos_decodificados, list)
+        self.assertTrue(all(isinstance(item, str) for item in festivos_decodificados))
+
+    def test_vista_creacion_publica_periodos_y_pendientes(self):
+        """La vista adjunta la información de periodos y días pendientes en formato JSON."""
+        url = reverse("vacaciones:solicitud_vacaciones_create")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        periodos_json = response.context["periodos_dias_pendientes"]
+        periodos_decodificados = json.loads(periodos_json)
+        self.assertIsInstance(periodos_decodificados, dict)
+
+    def test_formato_fechas_aceptado_en_formulario(self):
+        """El formulario acepta formatos día/mes/año requeridos por la configuración de Flatpickr."""
+        form = SolicitudVacacionesForm(user=self.user)
+        self.assertIn("%d/%m/%Y", form.fields["fecha_inicio_vacaciones"].input_formats)
+        self.assertIn("%d/%m/%Y", form.fields["fecha_fin_vacaciones"].input_formats)
 
 class _BaseSetupAprobacionesMixin:
     """
@@ -318,12 +564,10 @@ class _BaseSetupAprobacionesMixin:
     y un PeriodoVacacional válido.
     """
     def setUp(self):
-        # Catálogos
         self.est_docente = Estamento.objects.create(nombre="Docente", descripcion="Docente")
         self.dep = FacultadDependencia.objects.create(nombre="Escuela X", descripcion="Escuela")
         self.sede = Sede.objects.create(nombre="Sede Central", direccion="Calle X")
 
-        # Usuario + Funcionario
         self.user = User.objects.create_user(email="user@test.com", password="x")
         self.func = Funcionario.objects.create(
             user=self.user,
@@ -338,14 +582,12 @@ class _BaseSetupAprobacionesMixin:
             sede=self.sede,
         )
 
-        # Periodo vacacional
         self.periodo = PeriodoVacacional.objects.create(
             funcionario=self.func,
             fecha_inicio_periodo=date.today() - timedelta(days=365),
             fecha_fin_periodo=date.today() - timedelta(days=200),
             dias_disfrutados_periodo=0,
         )
-
 
 class TestAprobacionesSolicitud(_BaseSetupAprobacionesMixin, TestCase):
     def test_crea_tres_etapas_al_crear_solicitud(self):
@@ -365,18 +607,15 @@ class TestAprobacionesSolicitud(_BaseSetupAprobacionesMixin, TestCase):
         self.assertCountEqual(etapas, ["JEFE", "COORD", "RRHH"])
         self.assertTrue(all(e == "pendiente" for e in estados))
 
-        # Idempotencia
         sol.save()
         self.assertEqual(sol.aprobaciones.count(), 3)
 
-        # Verificación directa con ContentType
         self.assertEqual(
             AprobacionEtapa.objects.filter(
                 content_type__model="solicitudvacaciones", object_id=sol.id
             ).count(),
             3
         )
-
 
 class TestFlagsHitosSolicitud(_BaseSetupAprobacionesMixin, TestCase):
     def test_flags_hitos_en_solicitud(self):
@@ -390,30 +629,25 @@ class TestFlagsHitosSolicitud(_BaseSetupAprobacionesMixin, TestCase):
             creada_por=self.user,
         )
 
-        # Inicialmente todos False
         self.assertFalse(sol.aprobada_por_jefe)
         self.assertFalse(sol.aprobada_por_coord)
         self.assertFalse(sol.autorizada_rrhh)
 
-        # Aprobar JEFE
         sol.aprobaciones.filter(etapa='JEFE').update(estado='aprobada')
         sol.refresh_from_db()
         self.assertTrue(sol.aprobada_por_jefe)
         self.assertFalse(sol.aprobada_por_coord)
         self.assertFalse(sol.autorizada_rrhh)
 
-        # Aprobar COORD
         sol.aprobaciones.filter(etapa='COORD').update(estado='aprobada')
         sol.refresh_from_db()
         self.assertTrue(sol.aprobada_por_coord)
 
-        # Autorizar RRHH
         sol.aprobaciones.filter(etapa='RRHH').update(estado='autorizada')
         sol.refresh_from_db()
         self.assertTrue(sol.autorizada_rrhh)
 
-
-# ====== REINTEGRO: hoy NO se crean etapas por defecto (no hay señal). ======
+# ====== REINTEGRO ======
 @skip("Actualmente no se crean etapas por defecto al crear ReintegroVacaciones (no hay signal).")
 class TestAprobacionesReintegro(_BaseSetupAprobacionesMixin, TestCase):
     def test_crea_tres_etapas_al_crear_reintegro(self):
@@ -428,7 +662,7 @@ class TestAprobacionesReintegro(_BaseSetupAprobacionesMixin, TestCase):
         )
 
         rein = ReintegroVacaciones.objects.create(
-            codigo_sabs="",  # se autogenera en save()
+            codigo_sabs="",
             fecha_reintegro=date.today() + timedelta(days=16),
             motivo_reintegro="Vacaciones",
             observaciones="",
@@ -450,7 +684,6 @@ class TestAprobacionesReintegro(_BaseSetupAprobacionesMixin, TestCase):
         self.assertCountEqual(etapas, ["JEFE", "COORD", "RRHH"])
         self.assertTrue(all(e == "pendiente" for e in estados))
 
-        # Idempotencia
         rein.save()
         self.assertEqual(rein.aprobaciones.count(), 3)
 
@@ -460,7 +693,6 @@ class TestAprobacionesReintegro(_BaseSetupAprobacionesMixin, TestCase):
             ).count(),
             3
         )
-
 
 @skip("Actualmente no se crean etapas por defecto al crear ReintegroVacaciones (no hay signal).")
 class TestFlagsHitosReintegro(_BaseSetupAprobacionesMixin, TestCase):
@@ -492,7 +724,6 @@ class TestFlagsHitosReintegro(_BaseSetupAprobacionesMixin, TestCase):
             creada_por=self.user,
         )
 
-        # Inicial: todos False
         self.assertFalse(rein.aprobada_por_jefe)
         self.assertFalse(rein.aprobada_por_coord)
         self.assertFalse(rein.autorizada_rrhh)
