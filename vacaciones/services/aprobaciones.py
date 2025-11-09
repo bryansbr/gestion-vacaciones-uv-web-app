@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -5,6 +6,8 @@ from django.db import transaction
 
 from notificaciones.models import Notificacion
 from ..models import AprobacionEtapa, CustomUser, HistoricoAcciones, SolicitudVacaciones
+logger = logging.getLogger(__name__)
+
 
 
 # -----------------------------------------------------------
@@ -340,8 +343,12 @@ def rechazar_rrhh(user: CustomUser, solicitud: SolicitudVacaciones, observacion:
                 solicitud_vacaciones=solicitud,
                 tipo_notificacion="solicitud",
             )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.exception(
+            "Error al enviar notificaciones de rechazo para la solicitud %s: %s",
+            solicitud.codigo_sabs,
+            exc,
+        )
 
     return etapa
 

@@ -388,12 +388,7 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
                 
                 if not tiene_reintegro:
                     solicitudes_sin_reintegro.append(solicitud)
-            
-            puede_solicitar_hoy, mensaje_plazo = puede_solicitar_vacaciones_hoy(
-                funcionario.estamento.nombre.lower(),
-                funcionario.decreto_resolucion
-            )
-            
+
             context['puede_crear_solicitud'] = len(solicitudes_sin_reintegro) == 0
             context['solicitud_activa'] = solicitudes_sin_reintegro[0] if solicitudes_sin_reintegro else None
             context['mensaje_plazo'] = None
@@ -649,7 +644,7 @@ def semaforo_cell(request, pk):
     return render(request, SEMAFORO_CELL_PARTIAL, {"solicitud": sol})
 
 # ==========================================================
-# Acciones de flujo (JEFE/COORD/RRHH/Funcionario)
+# Acciones de flujo (Funcionario/Jefe/Coord/RRHH)
 # ==========================================================
 @login_required
 def aprobar_view(request, pk):
@@ -808,34 +803,28 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
         # Obtener información de quien aprobó (Jefe Inmediato)
         aprobacion_jefe = solicitud.aprobaciones.filter(etapa='JEFE', estado='aprobada').first()
         autorizado_por = ""
-        fecha_aprobacion_jefe = None
         if aprobacion_jefe and aprobacion_jefe.actualizado_por:
             user_aprobador = aprobacion_jefe.actualizado_por
             if hasattr(user_aprobador, 'funcionario') and user_aprobador.funcionario:
                 autorizado_por = f"{user_aprobador.funcionario.nombre} {user_aprobador.funcionario.apellido}"
-            fecha_aprobacion_jefe = aprobacion_jefe.actualizado_en
 
         # Obtener información de quien aprobó (Coordinador Administrativo)
         aprobacion_coord = solicitud.aprobaciones.filter(etapa='COORD', estado='aprobada').first()
         coordinado_por = ""
-        fecha_aprobacion_coord = None
         if aprobacion_coord and aprobacion_coord.actualizado_por:
             user_coordinador = aprobacion_coord.actualizado_por
             if hasattr(user_coordinador, 'funcionario') and user_coordinador.funcionario:
                 coordinado_por = f"{user_coordinador.funcionario.nombre} {user_coordinador.funcionario.apellido}"
-            fecha_aprobacion_coord = aprobacion_coord.actualizado_en
 
         # Obtener información de quien autorizó (RRHH)
         aprobacion_rrhh = solicitud.aprobaciones.filter(etapa='RRHH', estado='autorizada').first()
         autorizado_rrhh_por = ""
-        fecha_aprobacion_rrhh = None
         if aprobacion_rrhh and aprobacion_rrhh.actualizado_por:
             user_rrhh = aprobacion_rrhh.actualizado_por
             if hasattr(user_rrhh, 'funcionario') and user_rrhh.funcionario:
                 autorizado_rrhh_por = f"{user_rrhh.funcionario.nombre} {user_rrhh.funcionario.apellido}"
             else:
                 autorizado_rrhh_por = f"{user_rrhh.get_full_name()}" if user_rrhh.get_full_name() else user_rrhh.email
-            fecha_aprobacion_rrhh = aprobacion_rrhh.actualizado_en
 
         context = {
             "logo_url": logo_url,
@@ -868,7 +857,7 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
         }
 
         html_string = render_to_string(SOLICITUD_VACACIONES_PDF_TEMPLATE, context)
-        base_url = request.build_absolute_uri("/")  # resuelve static/imagenes
+        base_url = request.build_absolute_uri("/")
         pdf_bytes = HTML(string=html_string, base_url=base_url).write_pdf()
 
         file_stem = f"{solicitud.codigo_sabs}_{solicitud.funcionario.numero_identificacion}".replace(" ", "")

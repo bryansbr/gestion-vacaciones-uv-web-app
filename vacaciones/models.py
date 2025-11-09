@@ -341,11 +341,20 @@ class SolicitudVacaciones(models.Model):
             return
         
         total = self._obtener_total_dias_por_estamento()
-        try:
-            if self.periodo_vacacional_id and self.periodo_vacacional and self.periodo_vacacional.dias_pendientes_periodo is not None:
-                total = min(total, max(0, int(self.periodo_vacacional.dias_pendientes_periodo)))
-        except Exception:
-            pass
+
+        if self.periodo_vacacional_id:
+            try:
+                periodo = self.periodo_vacacional
+            except PeriodoVacacional.DoesNotExist:
+                periodo = None
+
+            if periodo and periodo.dias_pendientes_periodo is not None:
+                try:
+                    dias_disponibles = int(periodo.dias_pendientes_periodo)
+                except (TypeError, ValueError):
+                    dias_disponibles = None
+                else:
+                    total = min(total, max(0, dias_disponibles))
 
         self.total_dias_solicitados = total
 

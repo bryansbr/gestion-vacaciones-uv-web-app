@@ -153,7 +153,7 @@ class SolicitudVacacionesForm(forms.ModelForm):
             try:
                 funcionario = Funcionario.objects.get(pk=funcionario_id)
             except Funcionario.DoesNotExist:
-                pass
+                funcionario = None
         elif user and hasattr(user, 'funcionario'):
             funcionario = user.funcionario
 

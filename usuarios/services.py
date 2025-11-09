@@ -1,14 +1,7 @@
-from django.db.models import Count, Q
 from django.utils import timezone
-from datetime import datetime, timedelta
 from types import SimpleNamespace
 
-from vacaciones.models import (
-    SolicitudVacaciones,
-    AprobacionEtapa,
-    PeriodoVacacional,
-    HistoricoAcciones,
-)
+from vacaciones.models import SolicitudVacaciones, HistoricoAcciones
 from notificaciones.models import Notificacion
 from core.permissions import (
     es_secretaria,
@@ -16,9 +9,12 @@ from core.permissions import (
     es_coordinador_administrativo,
     es_rrhh
 )
+from usuarios.models import Funcionario
 
+# ==========================================================
+# CONSTANTES
+# ==========================================================
 ESTADOS_NOVEDADES_INTERES = {'aprobada', 'autorizada', 'devuelta', 'rechazada'}
-
 
 def _actor_desde_historial(historial):
     actor = (historial.grupo_autorizador or '').strip()
@@ -83,7 +79,7 @@ def obtener_datos_dashboard_funcionario(user):
     """
     try:
         funcionario = user.funcionario
-    except:
+    except (AttributeError, Funcionario.DoesNotExist):
         return None
     
     estado_vacaciones = funcionario.estado_de_vacaciones()
@@ -142,7 +138,7 @@ def obtener_datos_dashboard_jefe(user):
     """
     try:
         jefe_func = user.funcionario
-    except:
+    except (AttributeError, Funcionario.DoesNotExist):
         return None
     
     solicitudes_pendientes = SolicitudVacaciones.objects.filter(
@@ -185,7 +181,7 @@ def obtener_datos_dashboard_coordinador(user):
     """
     try:
         coord_func = user.funcionario
-    except:
+    except (AttributeError, Funcionario.DoesNotExist):
         return None
     
     ids_jefe_aprobada = set(
@@ -241,7 +237,7 @@ def obtener_datos_dashboard_secretaria(user):
     """
     try:
         secretaria_func = user.funcionario
-    except:
+    except (AttributeError, Funcionario.DoesNotExist):
         return None
     
     solicitudes_pendientes = SolicitudVacaciones.objects.filter(
@@ -266,7 +262,7 @@ def obtener_datos_dashboard_rrhh(user):
     """
     try:
         rrhh_func = user.funcionario
-    except:
+    except (AttributeError, Funcionario.DoesNotExist):
         return None
     
     ids_jefe_aprobada = set(
