@@ -1,8 +1,14 @@
 from django.db.models import Count, Q
 from django.utils import timezone
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 
-from vacaciones.models import SolicitudVacaciones, AprobacionEtapa, PeriodoVacacional
+from vacaciones.models import (
+    SolicitudVacaciones,
+    AprobacionEtapa,
+    PeriodoVacacional,
+    HistoricoAcciones,
+)
 from notificaciones.models import Notificacion
 from core.permissions import (
     es_secretaria,
@@ -10,6 +16,66 @@ from core.permissions import (
     es_coordinador_administrativo,
     es_rrhh
 )
+
+ESTADOS_NOVEDADES_INTERES = {'aprobada', 'autorizada', 'devuelta', 'rechazada'}
+
+
+def _actor_desde_historial(historial):
+    actor = (historial.grupo_autorizador or '').strip()
+    if actor:
+        return actor
+    funcionario_actor = getattr(historial.usuario, 'funcionario', None)
+    if funcionario_actor:
+        nombre = f"{funcionario_actor.nombre} {funcionario_actor.apellido}".strip()
+        if nombre:
+            return nombre
+    return historial.usuario.get_full_name() or historial.usuario.email
+
+
+def _formatear_novedad_historial(historial):
+    solicitud = historial.solicitud_vacaciones
+    if not solicitud or historial.nuevo_estado is None:
+        return None
+
+    estado = historial.nuevo_estado.lower()
+    if estado not in ESTADOS_NOVEDADES_INTERES:
+        return None
+
+    funcionario = solicitud.funcionario
+    nombre_funcionario = f"{funcionario.nombre} {funcionario.apellido}".strip()
+    actor = _actor_desde_historial(historial)
+
+    estado_texto = {
+        'aprobada': 'aprobada',
+        'autorizada': 'autorizada',
+        'devuelta': 'devuelta',
+        'rechazada': 'rechazada',
+    }.get(estado, historial.get_accion_realizada_display().lower())
+
+    mensaje = f"La solicitud {solicitud.codigo_sabs} de {nombre_funcionario} fue {estado_texto}"
+    if actor:
+        mensaje += f" por {actor}"
+
+    observacion = (historial.observacion or '').strip()
+    if observacion:
+        if estado == 'rechazada':
+            mensaje += f". Motivo del rechazo: {observacion}"
+        else:
+            mensaje += f". Observación: {observacion}"
+
+    return SimpleNamespace(
+        asunto=f"Novedad solicitud {solicitud.codigo_sabs}",
+        mensaje=mensaje,
+        fecha_hora_envio=historial.fecha_hora_accion,
+    )
+
+
+def _combinar_notificaciones(base_queryset, extras, limite=5):
+    elementos = list(base_queryset)
+    elementos.extend([extra for extra in extras if extra is not None])
+    elementos.sort(key=lambda item: getattr(item, 'fecha_hora_envio', timezone.now()), reverse=True)
+    return elementos[:limite]
+
 
 def obtener_datos_dashboard_funcionario(user):
     """
@@ -89,9 +155,23 @@ def obtener_datos_dashboard_jefe(user):
         funcionario__jefe_inmediato=jefe_func
     ).distinct().count()
     
-    notificaciones = Notificacion.objects.filter(
+    notificaciones_qs = Notificacion.objects.filter(
         funcionario=jefe_func
     ).order_by('-fecha_hora_envio')[:5]
+
+    historiales = HistoricoAcciones.objects.filter(
+        tipo_accion='solicitud',
+        solicitud_vacaciones__funcionario__jefe_inmediato=jefe_func,
+        nuevo_estado__in=ESTADOS_NOVEDADES_INTERES,
+    ).exclude(
+        usuario=user
+    ).select_related(
+        'solicitud_vacaciones__funcionario',
+        'usuario__funcionario',
+    ).order_by('-fecha_hora_accion')[:5]
+
+    novedades = [_formatear_novedad_historial(hist) for hist in historiales]
+    notificaciones = _combinar_notificaciones(notificaciones_qs, novedades)
     
     return {
         'solicitudes_pendientes': solicitudes_pendientes,
@@ -131,9 +211,23 @@ def obtener_datos_dashboard_coordinador(user):
         funcionario__facultad_dependencia=coord_func.facultad_dependencia
     ).distinct().count()
     
-    notificaciones = Notificacion.objects.filter(
+    notificaciones_qs = Notificacion.objects.filter(
         funcionario=coord_func
     ).order_by('-fecha_hora_envio')[:5]
+
+    historiales = HistoricoAcciones.objects.filter(
+        tipo_accion='solicitud',
+        solicitud_vacaciones__funcionario__facultad_dependencia=coord_func.facultad_dependencia,
+        nuevo_estado__in=ESTADOS_NOVEDADES_INTERES,
+    ).exclude(
+        usuario=user
+    ).select_related(
+        'solicitud_vacaciones__funcionario',
+        'usuario__funcionario',
+    ).order_by('-fecha_hora_accion')[:5]
+
+    novedades = [_formatear_novedad_historial(hist) for hist in historiales]
+    notificaciones = _combinar_notificaciones(notificaciones_qs, novedades)
     
     return {
         'solicitudes_pendientes': solicitudes_pendientes,

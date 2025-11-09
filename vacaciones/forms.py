@@ -320,3 +320,13 @@ class SolicitudVacacionesForm(forms.ModelForm):
                     raise forms.ValidationError({'periodo_vacacional': 'El periodo vacacional seleccionado no pertenece al funcionario seleccionado.'})
         
         return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        user = getattr(self, 'user', None)
+        if user and not instance.creada_por_id:
+            instance.creada_por = user
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance

@@ -125,7 +125,8 @@ class SolicitudVacaciones(models.Model):
         ('en_revision', 'En revisión'),
         ('aprobado', 'Aprobada'),
         ('rechazado', 'Rechazada'),
-        ('cancelado', 'Cancelado')
+        ('devuelta', 'Devuelta'),
+        ('cancelado', 'Cancelado'),
     ]
 
     aprobaciones = GenericRelation(

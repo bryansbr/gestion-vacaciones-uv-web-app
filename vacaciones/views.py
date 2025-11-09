@@ -273,7 +273,6 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
 
         form = self.get_form()
         form.instance.funcionario = funcionario
-        form.instance.creada_por = request.user
         
         hoy_colombia = get_current_date_colombia()
         form.instance.fecha_solicitud = hoy_colombia
@@ -1132,7 +1131,6 @@ class SecretariaSolicitudCreateView(LoginRequiredMixin, CreateView):
 
         form = self.get_form()
         form.instance.funcionario = funcionario_target
-        form.instance.creada_por = request.user
         
         hoy_colombia = get_current_date_colombia()
         form.instance.fecha_solicitud = hoy_colombia

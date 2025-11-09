@@ -109,7 +109,7 @@ class CodigoSABSTest(TestCase):
         n1 = int(s1.codigo_sabs[len(f"VAC{y}"):])
         n2 = int(s2.codigo_sabs[len(f"VAC{next_year}"):])
 
-        self.assertTrue(n1 >= 1)
+        self.assertGreaterEqual(n1, 1)
         self.assertEqual(n2, 1)
 
     def test_generacion_codigo_sabs_reintegro(self):

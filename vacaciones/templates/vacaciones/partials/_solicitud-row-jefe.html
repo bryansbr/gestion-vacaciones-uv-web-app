@@ -1,5 +1,3 @@
-{% load semaforo_tags %}
-
 <tr id="sol-row-{{ s.id }}">
     <td>{{ s.codigo_sabs }}</td>
     <td>{{ s.funcionario.nombres }} {{ s.funcionario.apellidos }}<br>
@@ -7,7 +5,7 @@
     <td>{{ s.fecha_inicio_vacaciones|date:"d/m/Y" }} - {{ s.fecha_fin_vacaciones|date:"d/m/Y" }}</td>
     <td>{{ s.total_dias_solicitados }}</td>
     <td><span class="badge bg-secondary">{{ s.get_estado_solicitud_display }}</span></td>
-    <td>{% semaforo_estado s.estado_solicitud %}</td>
+    <td>{% include 'vacaciones/partials/_semaforo-cell.html' with solicitud=s %}</td>
     <td class="text-end">
       <a class="btn btn-sm btn-outline-secondary" href="{% url 'vacaciones:solicitud_vacaciones_pdf' s.id %}" target="_blank">PDF</a>
   

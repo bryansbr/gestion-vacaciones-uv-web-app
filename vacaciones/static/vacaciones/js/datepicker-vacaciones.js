@@ -141,7 +141,7 @@
         });
     }
 
-    // ----------------- Función principal refactorizada -----------------
+    // ----------------- Función principal -----------------
     function mostrarErrorFlatpickrNoDisponible() {
         const banner = crearBannerError();
         insertarBannerEnFormulario(banner);
@@ -180,14 +180,18 @@
     function sumarDiasHabiles(fecha, n) {
         let f = new Date(fecha);
         let cont = 0;
-        while (cont < n) {
-          if (!esFinDeSemana(f) && !esFestivo(f)) {
-            cont++;
-            if (cont === n) break;
-          }
-          f.setDate(f.getDate() + 1);
+        let ultimoDiaHabil = new Date(fecha);
+        if (n <= 0) {
+            return ultimoDiaHabil;
         }
-        return f;
+        while (cont < n) {
+            if (!esFinDeSemana(f) && !esFestivo(f)) {
+                cont++;
+                ultimoDiaHabil = new Date(f);
+            }
+            f.setDate(f.getDate() + 1);
+        }
+        return ultimoDiaHabil;
     }
       
     // ----------------- Mensajes de error -----------------
@@ -449,7 +453,7 @@
             }
         }
 
-        // Conversión a YYYY-mm-dd en 'Submit'
+        // Conversión a YYYY-mm-dd
         const form = document.querySelector('form');
         if (form) {
             form.addEventListener('submit', function() {

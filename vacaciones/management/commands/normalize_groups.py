@@ -42,7 +42,7 @@ class Command(BaseCommand):
             "Jefe Inmediato", "jefe inmediato", "Jefe inmediato", "Jefe Inmediato ",
             "Coordinacion Administrativa",
             "Coordinación Administrativa ",
-            "Coordinador administrativo"
+            "Coordinador administrativo",
             "RRHH ", "rrhh", "Recursos humanos",
         ]
         norm = {

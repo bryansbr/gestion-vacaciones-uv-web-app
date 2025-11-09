@@ -156,7 +156,8 @@ document.addEventListener('DOMContentLoaded', function() {
           } else if (estamento === 'administrativo') {
             fechaFinCalculada = addBusinessDays(inicio, diasACalcular, window.FESTIVOS_COLOMBIA);
           } else {
-            fechaFinCalculada = addDays(inicio, diasACalcular - 1);
+            const offsetCalendario = Math.max(0, diasACalcular - 1);
+            fechaFinCalculada = addDays(inicio, offsetCalendario);
           }
         }
 
