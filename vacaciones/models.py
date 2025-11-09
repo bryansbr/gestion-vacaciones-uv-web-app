@@ -350,11 +350,9 @@ class SolicitudVacaciones(models.Model):
 
             if periodo and periodo.dias_pendientes_periodo is not None:
                 try:
-                    dias_disponibles = int(periodo.dias_pendientes_periodo)
+                    total = min(total, max(0, int(periodo.dias_pendientes_periodo)))
                 except (TypeError, ValueError):
-                    dias_disponibles = None
-                else:
-                    total = min(total, max(0, dias_disponibles))
+                    pass
 
         self.total_dias_solicitados = total
 

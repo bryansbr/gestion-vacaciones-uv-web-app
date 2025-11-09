@@ -180,18 +180,14 @@
     function sumarDiasHabiles(fecha, n) {
         let f = new Date(fecha);
         let cont = 0;
-        let ultimoDiaHabil = new Date(fecha);
-        if (n <= 0) {
-            return ultimoDiaHabil;
-        }
         while (cont < n) {
-            if (!esFinDeSemana(f) && !esFestivo(f)) {
-                cont++;
-                ultimoDiaHabil = new Date(f);
-            }
-            f.setDate(f.getDate() + 1);
+          if (!esFinDeSemana(f) && !esFestivo(f)) {
+            cont++;
+            if (cont === n) break;
+          }
+          f.setDate(f.getDate() + 1);
         }
-        return ultimoDiaHabil;
+        return f;
     }
       
     // ----------------- Mensajes de error -----------------
