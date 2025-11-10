@@ -36,7 +36,16 @@
           Crear
         </button>
       {% elif tiene_periodos %}
-        <a href="{% url 'vacaciones:solicitud_vacaciones_create' %}" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200">
+        <a href="{% url 'vacaciones:solicitud_vacaciones_create' %}"
+           class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200"
+           data-has-rechazada="{{ solicitud_rechazada_reciente|yesno:'1,0' }}"
+           data-per-acum="{{ mostrar_alerta_periodos_acumulados|yesno:'1,0' }}"
+           {% if solicitud_rechazada_reciente %}
+           data-solicitud-rechazada="{{ solicitud_rechazada_reciente.codigo_sabs }}"
+           {% endif %}
+           {% if mostrar_alerta_periodos_acumulados %}
+           data-periodos-acumulados="1"
+           {% endif %}>
           Crear
         </a>
       {% else %}
@@ -145,6 +154,7 @@
   {% if not tiene_periodos and puede_crear_solicitud and not request.user|es_secretaria and not request.user|es_jefe_inmediato %}
   <script src="{% static 'vacaciones/js/components/vacaciones/alerta-sin-periodos.js' %}"></script>
   {% endif %}
+  <script src="{% static 'vacaciones/js/components/vacaciones/alerta-periodos-acumulados.js' %}"></script>
   {% if request.user|es_secretaria and puede_crear_solicitud %}
   <script src="{% static 'vacaciones/js/components/secretaria/selector-crear-solicitud.js' %}"></script>
   {% endif %}

@@ -203,7 +203,7 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         if context['tiene_reintegros_pendientes']:
             context['form'].initial['tiene_dias_pendientes'] = False
 
-        solicitudes_activas = SolicitudVacaciones.objects.filter(
+        solicitudes_activas_qs = SolicitudVacaciones.objects.filter(
             funcionario=funcionario,
             estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
         ).prefetch_related('reintegrovacaciones_set')
@@ -235,12 +235,27 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
             if context['puede_crear_solicitud']:
                 solicitudes_periodos_acumulados = SolicitudVacaciones.objects.filter(
                     funcionario=funcionario,
-                    periodo_vacacional__in=[form.periodo_mas_antiguo, form.periodo_mas_reciente]
+                    periodo_vacacional__in=[form.periodo_mas_antiguo, form.periodo_mas_reciente],
+                    estado_solicitud__in=['pendiente', 'en_revision', 'aprobado', 'devuelta']
                 ).exists()
                 context['mostrar_alerta_periodos_acumulados'] = not solicitudes_periodos_acumulados
 
         context['plazo_solicitud'] = mensaje_plazo
         
+        solicitud_rechazada = None
+        if context.get('tiene_periodos_vacacionales'):
+            base_rechazadas = SolicitudVacaciones.objects.filter(
+                funcionario=funcionario,
+                estado_solicitud='rechazado'
+            )
+            if solicitudes_activas_qs.exists():
+                base_rechazadas = base_rechazadas.filter(
+                    fecha_solicitud__gte=solicitudes_activas_qs.order_by('-fecha_solicitud').first().fecha_solicitud
+                )
+            solicitud_rechazada = base_rechazadas.order_by('-fecha_solicitud').first()
+
+        context['solicitud_rechazada_reciente'] = solicitud_rechazada
+
         return context
 
     def post(self, request, *args, **kwargs):
@@ -1066,7 +1081,8 @@ class SecretariaSolicitudCreateView(LoginRequiredMixin, CreateView):
             if funcionario:
                 solicitudes_periodos_acumulados = SolicitudVacaciones.objects.filter(
                     funcionario=funcionario,
-                    periodo_vacacional__in=[form.periodo_mas_antiguo, form.periodo_mas_reciente]
+                    periodo_vacacional__in=[form.periodo_mas_antiguo, form.periodo_mas_reciente],
+                    estado_solicitud__in=['pendiente', 'en_revision', 'aprobado', 'devuelta']
                 ).exists()
                 context['mostrar_alerta_periodos_acumulados'] = not solicitudes_periodos_acumulados
 

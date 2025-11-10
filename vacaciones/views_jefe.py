@@ -291,7 +291,8 @@ class JefeSolicitudCreateView(LoginRequiredMixin, CreateView):
             if funcionario:
                 solicitudes_periodos_acumulados = SolicitudVacaciones.objects.filter(
                     funcionario=funcionario,
-                    periodo_vacacional__in=[form.periodo_mas_antiguo, form.periodo_mas_reciente]
+                    periodo_vacacional__in=[form.periodo_mas_antiguo, form.periodo_mas_reciente],
+                    estado_solicitud__in=['pendiente', 'en_revision', 'aprobado', 'devuelta']
                 ).exists()
                 context['mostrar_alerta_periodos_acumulados'] = not solicitudes_periodos_acumulados
 
