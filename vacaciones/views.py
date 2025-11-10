@@ -209,7 +209,7 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         ).prefetch_related('reintegrovacaciones_set')
         
         solicitudes_sin_reintegro = []
-        for solicitud in solicitudes_activas:
+        for solicitud in solicitudes_activas_qs:
             tiene_reintegro = any(
                 reintegro.estado_solicitud == 'aprobado' 
                 for reintegro in solicitud.reintegrovacaciones_set.all()
