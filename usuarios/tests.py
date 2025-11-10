@@ -143,7 +143,6 @@ class ServiciosDashboardTests(TestCase):
 
     def test_combinacion_notificaciones_respeta_orden(self):
         extra = services._formatear_novedad_historial(self.historial_para_jefe)
-        extra = services._formatear_novedad_historial(self.historial_para_jefe)
         combined = services._combinar_notificaciones(
             Notificacion.objects.filter(funcionario=self.funcionario_jefe),
             [extra],

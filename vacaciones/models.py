@@ -1,3 +1,4 @@
+import logging
 from datetime import date, timedelta
 
 from django.db import models
@@ -20,6 +21,8 @@ from .utils import (
 )
 
 import holidays
+
+logger = logging.getLogger(__name__)
 
 # ============================================================
 # MODELO: PeriodoVacacional
@@ -352,7 +355,11 @@ class SolicitudVacaciones(models.Model):
                 try:
                     total = min(total, max(0, int(periodo.dias_pendientes_periodo)))
                 except (TypeError, ValueError):
-                    pass
+                    logger.warning(
+                        "No se pudo convertir los días pendientes (%s) a entero para la solicitud %s",
+                        getattr(periodo, "dias_pendientes_periodo", None),
+                        self.pk,
+                    )
 
         self.total_dias_solicitados = total
 
