@@ -1,12 +1,176 @@
 {% extends "base.html" %}
 {% load static %}
+{% load grupos_tags %}
 
 {% block title %}Inicio{% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/home.css' %}">
+{% endblock %}
+
 {% block content %}
-<div class="flex flex-col items-center justify-center">
-  <h1 class="text-3xl font-bold text-gray-800 mb-4">¡Bienvenido al sistema de gestión de vacaciones!</h1>
-  <p class="text-xl text-gray-600 mb-4">Hola, {{ user.email }}</p>
-  <a href="{% url 'usuarios:logout' %}" class="text-red-600 underline hover:text-red-800">Cerrar sesión</a>
+<div class="max-w-7xl mx-auto">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    {% if rol == 'funcionario' %}
+      <div class="widget-card widget-verde flex items-center gap-4">
+        <div class="flex-shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div class="flex-1">
+          <p class="text-white text-sm font-medium">Días disponibles</p>
+          <p class="text-white text-3xl font-bold">{{ datos.dias_disponibles|default:0 }}</p>
+          <p class="text-white text-sm opacity-90">días hábiles</p>
+        </div>
+      </div>
+
+      <div class="widget-card widget-gris flex items-center gap-4">
+        <div class="flex-shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <rect x="3" y="4" width="18" height="18" rx="2" stroke-width="2"/>
+            <path d="M16 2v4M8 2v4M3 10h18" stroke-width="2"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <p class="text-white text-sm font-medium">Último período disfrutado</p>
+          <p class="text-white text-2xl font-bold">
+            {{ datos.ultimo_periodo_disfrutado|default:"N/A" }}
+          </p>
+        </div>
+      </div>
+
+      <div class="widget-card widget-azul flex items-center gap-4">
+        <div class="flex-shrink-0">
+          <div class="h-12 w-12 rounded-full bg-blue-400 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        </div>
+        <div class="flex-1">
+          <p class="text-white text-sm font-medium">Solicitudes en curso</p>
+          {% if datos.solicitudes_en_curso > 0 %}
+            <span class="widget-badge badge-pendiente">
+              Pendiente
+            </span>
+          {% else %}
+            <p class="text-white text-xl font-semibold mt-1">0</p>
+          {% endif %}
+        </div>
+      </div>
+    
+    {% elif rol == 'jefe' %}
+      <div class="widget-card widget-azul flex items-center gap-4">
+        <div class="flex-shrink-0">
+          <div class="h-12 w-12 rounded-full bg-blue-400 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+        </div>
+        <div class="flex-1">
+          <p class="text-white text-sm font-medium">Solicitudes pendientes</p>
+          <p class="text-white text-3xl font-bold">{{ datos.solicitudes_pendientes|default:0 }}</p>
+        </div>
+      </div>
+
+      <div class="widget-card widget-gris flex items-center gap-4">
+        <div class="flex-shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <div class="flex-1">
+          <p class="text-white text-sm font-medium">Total solicitudes</p>
+          <p class="text-white text-3xl font-bold">{{ datos.solicitudes_totales|default:0 }}</p>
+        </div>
+      </div>
+    
+    {% elif rol == 'coordinador' or rol == 'secretaria' or rol == 'rrhh' %}
+      <div class="widget-card widget-azul flex items-center gap-4">
+        <div class="flex-shrink-0">
+          <div class="h-12 w-12 rounded-full bg-blue-400 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+        </div>
+        <div class="flex-1">
+          <p class="text-white text-sm font-medium">Solicitudes pendientes</p>
+          <p class="text-white text-3xl font-bold">{{ datos.solicitudes_pendientes|default:0 }}</p>
+        </div>
+      </div>
+
+      <div class="widget-card widget-gris flex items-center gap-4">
+        <div class="flex-shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <div class="flex-1">
+          <p class="text-white text-sm font-medium">Total solicitudes</p>
+          <p class="text-white text-3xl font-bold">{{ datos.solicitudes_totales|default:0 }}</p>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="widget-card bg-white">
+      <div class="flex items-center gap-2 mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        <h2 class="text-xl font-semibold text-gray-800">Notificaciones</h2>
+      </div>
+      <div class="space-y-2">
+        {% if datos.notificaciones %}
+          {% for notificacion in datos.notificaciones %}
+            <div class="notificacion-item">
+              <p class="notificacion-asunto">{{ notificacion.asunto }}</p>
+              <br>
+              <p class="notificacion-mensaje">{{ notificacion.mensaje|resaltar_notificacion|linebreaks }}</p>
+              <br>
+              <p class="notificacion-fecha">{{ notificacion.fecha_hora_envio|date:"d/m/Y H:i" }}</p>
+            </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-gray-500 text-sm py-4">No hay notificaciones</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="widget-card bg-white p-0">
+      <div class="calendario-header">
+        {{ mes_nombre }} {{ año }}
+      </div>
+      <div class="calendario-grid">
+        <div class="calendario-dia-semana">S</div>
+        <div class="calendario-dia-semana">M</div>
+        <div class="calendario-dia-semana">T</div>
+        <div class="calendario-dia-semana">W</div>
+        <div class="calendario-dia-semana">T</div>
+        <div class="calendario-dia-semana">F</div>
+        <div class="calendario-dia-semana">S</div>
+        
+        {% for semana in calendario %}
+          {% for dia in semana %}
+            {% if dia == 0 %}
+              <div class="calendario-dia"></div>
+            {% else %}
+              {% if dia == dia_actual %}
+                <div class="calendario-dia">
+                  <span class="calendario-dia-hoy">{{ dia }}</span>
+                </div>
+              {% else %}
+                <div class="calendario-dia">{{ dia }}</div>
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}

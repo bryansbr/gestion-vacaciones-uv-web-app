@@ -1,19 +1,19 @@
+import logging
 from typing import Optional
 
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from django.core.exceptions import ValidationError, PermissionDenied
 
-from ..models import (
-    SolicitudVacaciones,
-    AprobacionEtapa,
-    HistoricoAcciones,
-    CustomUser,
-)
+from notificaciones.models import Notificacion
+from ..models import AprobacionEtapa, CustomUser, HistoricoAcciones, SolicitudVacaciones
+logger = logging.getLogger(__name__)
+
+
 
 # -----------------------------------------------------------
 # Constantes
 # -----------------------------------------------------------
-# Límite máximo para campos de observación para evitar crecimiento descontrolado.
+# Límite máximo para campos de observación
 MAX_OBSERVACION_LENGTH = 2000
 
 # Separador para observaciones de reenvío por funcionario
@@ -34,7 +34,7 @@ ETAPA_HUMANA = {
 ESTADO_GLOBAL_MAP = {
     'autorizada': 'aprobado',
     'rechazada':  'rechazado',
-    'devuelta':   'en_revision',
+    'devuelta':   'pendiente',
     'en_progreso': 'en_revision',
     'desconocido': 'en_revision',
 }
@@ -51,17 +51,24 @@ def _validar_propietario_o_permiso(user: CustomUser, solicitud: SolicitudVacacio
     """
     Base:
     - El funcionario dueño puede ver, pero NO transicionar.
-    - JEFE ⇒ grupo 'JEFE_INMEDIATO' o permiso 'dar_visto_bueno_solicitud'
-    - COORD ⇒ grupo 'COORD_ADMIN' o permiso 'dar_visto_bueno_solicitud'
-    - RRHH  ⇒ grupo 'RRHH' o permiso 'autorizar_solicitud' / 'rechazar_solicitud'
+    - JEFE ⇒ grupo 'Jefe Inmediato' o permiso 'dar_visto_bueno_solicitud'
+    - COORD ⇒ grupo 'Coordinador Administrativo' o permiso 'dar_visto_bueno_solicitud'
+    - RRHH  ⇒ grupo 'Recursos Humanos' o permiso 'autorizar_solicitud' / 'rechazar_solicitud' o email de RRHH
     """
 
-    if etapa == 'JEFE' and not (user.has_perm('vacaciones.dar_visto_bueno_solicitud') or user.groups.filter(name__iexact='JEFE_INMEDIATO').exists()):
+    if etapa == 'JEFE' and not (user.has_perm('vacaciones.dar_visto_bueno_solicitud') or user.groups.filter(name__in=['Jefe Inmediato', 'JEFE_INMEDIATO']).exists()):
         raise PermissionDenied("No tienes permisos para aprobar/devolver como Jefe Inmediato.")
-    if etapa == 'COORD' and not (user.has_perm('vacaciones.dar_visto_bueno_solicitud') or user.groups.filter(name__iexact='COORD_ADMIN').exists()):
+    if etapa == 'COORD' and not (user.has_perm('vacaciones.dar_visto_bueno_solicitud') or user.groups.filter(name__in=['Coordinador Administrativo', 'COORD_ADMIN']).exists()):
         raise PermissionDenied("No tienes permisos para aprobar/devolver como Coordinación Administrativa.")
-    if etapa == 'RRHH' and not (user.has_perm('vacaciones.autorizar_solicitud') or user.has_perm('vacaciones.rechazar_solicitud') or user.groups.filter(name__iexact='RRHH').exists()):
-        raise PermissionDenied("No tienes permisos para autorizar/rechazar como RRHH.")
+    if etapa == 'RRHH':
+        tiene_permiso = (
+            user.has_perm('vacaciones.autorizar_solicitud') or 
+            user.has_perm('vacaciones.rechazar_solicitud') or 
+            user.groups.filter(name='Recursos Humanos').exists() or
+            (hasattr(user, 'email') and user.email and "recursos.humanos" in user.email.lower())
+        )
+        if not tiene_permiso:
+            raise PermissionDenied("No tienes permisos para autorizar/rechazar como RRHH.")
 
 def _refrescar_estado_global(solicitud: SolicitudVacaciones):
     """
@@ -169,6 +176,8 @@ def aprobar_etapa(user: CustomUser, solicitud: SolicitudVacaciones, observacion:
 def devolver_etapa(user: CustomUser, solicitud: SolicitudVacaciones, observacion: str) -> AprobacionEtapa:
     """
     JEFE/COORD: pendiente → devuelta (requiere observación)
+    Cuando se devuelve, la solicitud queda en estado 'pendiente' para que el funcionario pueda corregirla.
+    Al devolver, todas las etapas se reinician a 'pendiente' para que el flujo vuelva a empezar desde el inicio.
     """
     if not observacion or not observacion.strip():
         raise ValidationError("Debes proporcionar el motivo de la devolución.")
@@ -189,6 +198,14 @@ def devolver_etapa(user: CustomUser, solicitud: SolicitudVacaciones, observacion
     etapa.actualizado_por = user
     etapa.save(update_fields=['estado', 'observacion', 'actualizado_por', 'actualizado_en'])
 
+    # Cuando JEFE o COORD devuelven, todas las etapas se reinician para que el flujo empiece desde cero
+    for etapa_a_reiniciar in solicitud.aprobaciones.all():
+        if etapa_a_reiniciar.etapa != etapa.etapa:
+            etapa_a_reiniciar.estado = 'pendiente'
+            etapa_a_reiniciar.observacion = ''
+            etapa_a_reiniciar.actualizado_por = None
+            etapa_a_reiniciar.save(update_fields=['estado', 'observacion', 'actualizado_por', 'actualizado_en'])
+
     _registrar_historial(
         solicitud=solicitud,
         usuario=user,
@@ -199,7 +216,8 @@ def devolver_etapa(user: CustomUser, solicitud: SolicitudVacaciones, observacion
         observacion=observacion,
     )
 
-    _refrescar_estado_global(solicitud)
+    solicitud.estado_solicitud = 'pendiente'
+    solicitud.save(update_fields=['estado_solicitud'])
 
     return etapa
 
@@ -248,6 +266,7 @@ def rechazar_rrhh(user: CustomUser, solicitud: SolicitudVacaciones, observacion:
     """
     RRHH: pendiente → rechazada (requiere observación).
     Deja la solicitud en estado final (no reenviable).
+    Envía notificaciones al funcionario, C.A. y Jefe Inmediato.
     """
     if not observacion or not observacion.strip():
         raise ValidationError("Debes proporcionar el motivo del rechazo.")
@@ -280,47 +299,191 @@ def rechazar_rrhh(user: CustomUser, solicitud: SolicitudVacaciones, observacion:
 
     _refrescar_estado_global(solicitud)  # → 'rechazado'
 
+    try:
+        funcionario = solicitud.funcionario
+        jefe_inmediato = funcionario.jefe_inmediato
+        
+        aprobacion_coord = solicitud.aprobaciones.filter(etapa='COORD', estado='aprobada').first()
+        coord_funcionario = None
+        if aprobacion_coord and aprobacion_coord.actualizado_por:
+            coord_funcionario = getattr(aprobacion_coord.actualizado_por, 'funcionario', None)
+        
+        mensaje = (
+            f"La solicitud de vacaciones {solicitud.codigo_sabs} ha sido rechazada por Recursos Humanos.\n\n"
+            f"Motivo del rechazo: {observacion.strip()}\n\n"
+            f"Periodo solicitado: {solicitud.fecha_inicio_vacaciones.strftime('%d/%m/%Y')} - "
+            f"{solicitud.fecha_fin_vacaciones.strftime('%d/%m/%Y')}\n"
+            f"Días solicitados: {solicitud.total_dias_solicitados}"
+        )
+        
+        Notificacion.objects.create(
+            asunto=f"Solicitud de vacaciones {solicitud.codigo_sabs} rechazada",
+            mensaje=mensaje,
+            funcionario=funcionario,
+            solicitud_vacaciones=solicitud,
+            tipo_notificacion="solicitud",
+        )
+        
+        if jefe_inmediato:
+            Notificacion.objects.create(
+                asunto=f"Solicitud de vacaciones {solicitud.codigo_sabs} rechazada",
+                mensaje=mensaje,
+                funcionario=jefe_inmediato,
+                funcionario_cc=funcionario,
+                solicitud_vacaciones=solicitud,
+                tipo_notificacion="solicitud",
+            )
+        
+        if coord_funcionario:
+            Notificacion.objects.create(
+                asunto=f"Solicitud de vacaciones {solicitud.codigo_sabs} rechazada",
+                mensaje=mensaje,
+                funcionario=coord_funcionario,
+                funcionario_cc=funcionario,
+                solicitud_vacaciones=solicitud,
+                tipo_notificacion="solicitud",
+            )
+    except Exception as exc:
+        logger.exception(
+            "Error al enviar notificaciones de rechazo para la solicitud %s: %s",
+            solicitud.codigo_sabs,
+            exc,
+        )
+
     return etapa
 
 @transaction.atomic
-def reenviar_funcionario(user: CustomUser, solicitud: SolicitudVacaciones, observacion: Optional[str] = None) -> AprobacionEtapa:
+def enviar_al_proximo_revisor(user: CustomUser, solicitud: SolicitudVacaciones, observacion: Optional[str] = None) -> AprobacionEtapa:
     """
-    Reenvío tras DEVOLUCIÓN en JEFE/COORD:
-    - Solo el funcionario dueño de la solicitud puede reenviar (ajusta este check a tu necesidad).
-    - La etapa devuelta vuelve a 'pendiente' y se registra observación del reenvío (si llega).
-    - No aplica si la solicitud quedó 'rechazada' por RRHH (flujo final).
-    """
-
-    if solicitud.funcionario.user_id != user.id and not user.is_superuser:
-        raise PermissionDenied("Solo el funcionario dueño puede reenviar su solicitud devuelta.")
-
-    devueltas = solicitud.aprobaciones.filter(estado='devuelta', etapa__in=('JEFE', 'COORD'))
+    Envía la solicitud al próximo revisor después de que una etapa ha sido aprobada.
+    Solo puede ser llamada por el usuario que aprobó la etapa anterior.
+    Ejemplo: Jefe Inmediato aprueba JEFE, luego puede enviar la solicitud a COORD.
     
-    if not devueltas.exists():
-        raise ValidationError("No hay etapas devueltas para reenviar.")
-
-    etapa = devueltas.first()
-    estado_anterior = etapa.estado
-    etapa.estado = 'pendiente'
-
-    if observacion:
-        etapa.observacion = _concatenar_observacion_con_limite(
-            etapa.observacion, 
-            observacion
-        )
-
-    etapa.save(update_fields=['estado', 'observacion', 'actualizado_en'])
-
+    Requisitos:
+    - La etapa actual (JEFE o COORD) debe estar aprobada.
+    - La siguiente etapa (COORD o RRHH) debe estar pendiente.
+    - El usuario debe haber aprobado la etapa anterior.
+    """
+    mapa = {a.etapa: a for a in solicitud.aprobaciones.all()}
+    
+    etapa_aprobada = None
+    etapa_siguiente = None
+    
+    if mapa.get('JEFE') and mapa['JEFE'].estado == 'aprobada' and mapa.get('COORD') and mapa['COORD'].estado == 'pendiente':
+        etapa_aprobada = mapa['JEFE']
+        etapa_siguiente = mapa['COORD']
+    elif mapa.get('COORD') and mapa['COORD'].estado == 'aprobada' and mapa.get('RRHH') and mapa['RRHH'].estado == 'pendiente':
+        etapa_aprobada = mapa['COORD']
+        etapa_siguiente = mapa['RRHH']
+    else:
+        raise ValidationError("No se puede enviar al próximo revisor: la etapa actual debe estar aprobada y la siguiente pendiente.")
+    
+    if etapa_aprobada.actualizado_por_id != user.id and not user.is_superuser:
+        raise PermissionDenied("Solo el usuario que aprobó la etapa anterior puede enviar la solicitud al próximo revisor.")
+    
+    solicitud.estado_solicitud = 'en_revision'
+    solicitud.save(update_fields=['estado_solicitud'])
+    
     _registrar_historial(
         solicitud=solicitud,
         usuario=user,
         accion='observacion',
-        grupo_autorizador="Funcionario",
-        nuevo_estado=etapa.estado,
-        estado_anterior=estado_anterior,
-        observacion=observacion or 'Reenvío tras devolución',
+        grupo_autorizador=ETAPA_HUMANA[etapa_aprobada.etapa],
+        nuevo_estado='enviada',
+        estado_anterior='aprobada',
+        observacion=observacion or f'Enviada al {ETAPA_HUMANA[etapa_siguiente.etapa]}',
+    )
+    
+    return etapa_siguiente
+
+@transaction.atomic
+def reenviar_funcionario(user: CustomUser, solicitud: SolicitudVacaciones, observacion: Optional[str] = None) -> Optional[AprobacionEtapa]:
+    """
+    Envío/Reenvío de solicitud:
+    - Puede enviar: el funcionario dueño o quien creó la solicitud (Secretaria/Jefe Inmediato) O superusuario.
+    - Casos:
+      a) Solicitud devuelta: hay etapas devueltas, las vuelve a 'pendiente'.
+      b) Solicitud nueva: no hay etapas devueltas, simplemente cambia el estado a 'en_revision'.
+    - Cambia el estado de la solicitud a 'en_revision' para indicar que está en el flujo.
+    - No aplica si la solicitud quedó 'rechazada' por RRHH (flujo final).
+    """
+
+    puede_reenviar = (
+        solicitud.funcionario.user_id == user.id or
+        (solicitud.creada_por_id and solicitud.creada_por_id == user.id) or
+        user.is_superuser
     )
 
-    _refrescar_estado_global(solicitud)
+    if not puede_reenviar:
+        raise PermissionDenied("No tiene permisos para enviar/reenviar esta solicitud.")
+
+    if solicitud.estado_global == 'rechazada':
+        raise ValidationError("No se puede reenviar una solicitud rechazada por RRHH.")
+
+    if solicitud.estado_solicitud not in ('pendiente',) and solicitud.estado_global != 'devuelta':
+        raise ValidationError("Solo se pueden enviar solicitudes en estado 'pendiente' o devueltas.")
+
+    devueltas = solicitud.aprobaciones.filter(estado='devuelta', etapa__in=('JEFE', 'COORD'))
+    
+    if devueltas.exists():
+        etapa = devueltas.first()
+        
+        # Cuando hay etapas devueltas, reiniciar todas las etapas devueltas a 'pendiente'
+        etapas_devueltas_list = list(devueltas)
+        for etapa_devuelta in etapas_devueltas_list:
+            estado_anterior = etapa_devuelta.estado
+            etapa_devuelta.estado = 'pendiente'
+            
+            if observacion:
+                etapa_devuelta.observacion = _concatenar_observacion_con_limite(
+                    etapa_devuelta.observacion, 
+                    observacion
+                )
+            
+            etapa_devuelta.save(update_fields=['estado', 'observacion', 'actualizado_en'])
+            
+            _registrar_historial(
+                solicitud=solicitud,
+                usuario=user,
+                accion='observacion',
+                grupo_autorizador="Funcionario",
+                nuevo_estado=etapa_devuelta.estado,
+                estado_anterior=estado_anterior,
+                observacion=observacion or 'Reenvío tras devolución',
+            )
+        
+        # Reiniciar todas las etapas aprobadas a 'pendiente' para que el flujo vuelva a empezar
+        etapas_aprobadas = solicitud.aprobaciones.exclude(estado__in=('devuelta', 'rechazada', 'pendiente'))
+        for etapa_aprobada in etapas_aprobadas:
+            etapa_aprobada.estado = 'pendiente'
+            etapa_aprobada.observacion = ''
+            etapa_aprobada.actualizado_por = None
+            etapa_aprobada.save(update_fields=['estado', 'observacion', 'actualizado_por', 'actualizado_en'])
+    else:
+        etapas_aprobadas = solicitud.aprobaciones.filter(estado__in=('aprobada', 'autorizada'))
+        if etapas_aprobadas.exists():
+            for etapa_aprobada in etapas_aprobadas:
+                etapa_aprobada.estado = 'pendiente'
+                etapa_aprobada.observacion = ''
+                etapa_aprobada.actualizado_por = None
+                etapa_aprobada.save(update_fields=['estado', 'observacion', 'actualizado_por', 'actualizado_en'])
+        
+        etapa_activa = solicitud.etapa_activa
+        if not etapa_activa:
+            raise ValidationError("No hay etapa activa para enviar la solicitud.")
+        
+        _registrar_historial(
+            solicitud=solicitud,
+            usuario=user,
+            accion='observacion',
+            grupo_autorizador="Funcionario",
+            nuevo_estado='pendiente',
+            estado_anterior='pendiente',
+            observacion=observacion or 'Primer envío al Jefe Inmediato',
+        )
+        etapa = None
+
+    solicitud.estado_solicitud = 'en_revision'
+    solicitud.save(update_fields=['estado_solicitud'])
 
     return etapa

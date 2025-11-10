@@ -1,47 +1,63 @@
-<div class="acciones-row">
-    {% with etapa=solicitud.etapa_activa %}
-      {% if etapa %}
-  
-        {% if etapa.estado == 'pendiente' %}
-          {% if etapa.etapa == 'JEFE' or etapa.etapa == 'COORD' %}
-            {% if perms.vacaciones.dar_visto_bueno_solicitud %}
-              <form method="post" action="{% url 'vacaciones:aprobar_etapa' solicitud.id %}" class="acciones-row__form">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-xs btn-success">Aprobar</button>
-              </form>
-              <form method="post" action="{% url 'vacaciones:devolver_etapa' solicitud.id %}" class="acciones-row__form acciones-row__form--devolver">
-                {% csrf_token %}
-                <input type="text" name="obs" class="acciones-row__obs" placeholder="Motivo de devolución" required>
-                <button type="submit" class="btn btn-xs btn-warning">Devolver</button>
-              </form>
-            {% endif %}
-          {% endif %}
-  
-          {# --- RRHH --- #}
-          {% if etapa.etapa == 'RRHH' %}
-            {% if perms.vacaciones.autorizar_solicitud or perms.vacaciones.rechazar_solicitud %}
-              <form method="post" action="{% url 'vacaciones:autorizar_rrhh' solicitud.id %}" class="acciones-row__form">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-xs btn-success">Autorizar</button>
-              </form>
-              <form method="post" action="{% url 'vacaciones:rechazar_rrhh' solicitud.id %}" class="acciones-row__form acciones-row__form--rechazar">
-                {% csrf_token %}
-                <input type="text" name="obs" class="acciones-row__obs" placeholder="Motivo de rechazo" required>
-                <button type="submit" class="btn btn-xs btn-danger">Rechazar</button>
-              </form>
-            {% endif %}
-          {% endif %}
-        {% endif %}
-  
-        {% if etapa.estado == 'devuelta' and etapa.etapa != 'RRHH' and request.user.id == solicitud.funcionario.user.id %}
-          <form method="post" action="{% url 'vacaciones:reenviar_funcionario' solicitud.id %}" class="acciones-row__form acciones-row__form--reenviar">
+{% load grupos_tags %}
+
+{# Botones de flujo por fila (Solicitudes) #}
+<div class="flex flex-wrap justify-center gap-2">
+  {% with etapa_activa=solicitud.etapa_activa %}
+    {% if solicitud.estado_solicitud == "pendiente" or solicitud.estado_global == "devuelta" %}
+      {% if solicitud.funcionario.user_id == request.user.id or request.user.is_superuser %}
+        <form method="post"
+              action="{% url 'vacaciones:solicitud_enviar' solicitud.id %}"
+              class="form-enviar-solicitud"
+              data-codigo="{{ solicitud.codigo_sabs }}">
+          {% csrf_token %}
+          <button type="button"
+                  class="px-2 py-1 text-white bg-indigo-600 rounded hover:bg-indigo-700 btn-enviar-solicitud"
+                  title="Enviar a Jefe Inmediato">
+            Enviar
+          </button>
+        </form>
+      {% endif %}
+    {% endif %}
+
+    {% if solicitud.estado_solicitud == "en_revision" and etapa_activa %}
+      {% if etapa_activa.etapa == "JEFE" %}
+        {% if not request.user|es_secretaria and (request.user.is_superuser or request.user|has_group:"Jefe Inmediato") %}
+          <form method="post" action="{% url 'vacaciones:solicitud_aprobar' solicitud.id %}">
             {% csrf_token %}
-            <input type="text" name="obs" class="acciones-row__obs" placeholder="Comentario al reenviar (opcional)">
-            <button type="submit" class="btn btn-xs btn-primary">Reenviar</button>
+            <button class="px-2 py-1 text-white bg-green-600 rounded hover:bg-green-700">Aprobar</button>
+          </form>
+          <form method="post" action="{% url 'vacaciones:solicitud_devolver' solicitud.id %}">
+            {% csrf_token %}
+            <button class="px-2 py-1 text-white bg-yellow-600 rounded hover:bg-yellow-700">Devolver</button>
           </form>
         {% endif %}
-  
+      {% elif etapa_activa.etapa == "COORD" %}
+        {% if not request.user|es_secretaria and (request.user.is_superuser or request.user|has_group:"Coordinador Administrativo") %}
+          <form method="post" action="{% url 'vacaciones:solicitud_aprobar' solicitud.id %}">
+            {% csrf_token %}
+            <button class="px-2 py-1 text-white bg-green-600 rounded hover:bg-green-700">Aprobar</button>
+          </form>
+          <form method="post" action="{% url 'vacaciones:solicitud_devolver' solicitud.id %}">
+            {% csrf_token %}
+            <button class="px-2 py-1 text-white bg-yellow-600 rounded hover:bg-yellow-700">Devolver</button>
+          </form>
+        {% endif %}
+      {% elif etapa_activa.etapa == "RRHH" %}
+        {% if not request.user|es_secretaria and (request.user.is_superuser or request.user|has_group:"RRHH") %}
+          <form method="post" action="{% url 'vacaciones:solicitud_aprobar' solicitud.id %}">
+            {% csrf_token %}
+            <button class="px-2 py-1 text-white bg-green-600 rounded hover:bg-green-700">Autorizar</button>
+          </form>
+          <form method="post" action="{% url 'vacaciones:solicitud_devolver' solicitud.id %}">
+            {% csrf_token %}
+            <button class="px-2 py-1 text-white bg-yellow-600 rounded hover:bg-yellow-700">Devolver</button>
+          </form>
+          <form method="post" action="{% url 'vacaciones:solicitud_rechazar' solicitud.id %}">
+            {% csrf_token %}
+            <button class="px-2 py-1 text-white bg-red-600 rounded hover:bg-red-700">Rechazar</button>
+          </form>
+        {% endif %}
       {% endif %}
-    {% endwith %}
-  </div>
-  
+    {% endif %}
+  {% endwith %}
+</div>

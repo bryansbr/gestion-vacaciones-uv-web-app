@@ -53,6 +53,7 @@ class Funcionario(models.Model):
         related_name='funcionario',
         verbose_name='Usuario'
     )
+
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100)
     numero_identificacion = models.CharField(max_length=50, unique=True)
@@ -64,20 +65,31 @@ class Funcionario(models.Model):
         null=True,
         help_text="Solo para docentes ('1279' o '115')"
     )
+
     estamento = models.ForeignKey(
         Estamento,
         on_delete=models.PROTECT,
         related_name='funcionarios'
     )
+
     facultad_dependencia = models.ForeignKey(
         FacultadDependencia,
         on_delete=models.PROTECT,
         related_name='funcionarios'
     )
+
     sede = models.ForeignKey(
         Sede,
         on_delete=models.PROTECT,
         related_name='funcionarios'
+    )
+
+    jefe_inmediato = models.ForeignKey(
+        'self',
+        null=True, blank=True,
+        related_name='subordinados',
+        on_delete=models.SET_NULL,
+        help_text="Funcionario que actúa como Jefe Inmediato"
     )
 
     def puede_solicitar_vacaciones(self):

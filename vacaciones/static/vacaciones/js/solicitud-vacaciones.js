@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const reintegrosPendientes = window.REINTEGROS_PENDIENTES || [];
 
     if (fechaInicio && fechaFin) {
-      function parseFechaYMD(fechaStr) {
+      function parsearFecha(fechaStr) {
         if (!fechaStr) return null;
 
         if (fechaStr.includes('-')) {
@@ -26,28 +26,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
           if (partes.length !== 3) return null;
 
-          const year = parseInt(partes[0]);
-          const month = parseInt(partes[1]);
-          const day = parseInt(partes[2]);
+          const anio = parseInt(partes[0]);
+          const mes = parseInt(partes[1]);
+          const dia = parseInt(partes[2]);
 
-          if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
-          return new Date(year, month - 1, day);
+          if (isNaN(anio) || isNaN(mes) || isNaN(dia)) return null;
+          return new Date(anio, mes - 1, dia);
 
         } else if (fechaStr.includes('/')) {
           const partes = fechaStr.split('/');
 
           if (partes.length !== 3) return null;
-          const day = parseInt(partes[0]);
-          const month = parseInt(partes[1]);
-          const year = parseInt(partes[2]);
+          const dia = parseInt(partes[0]);
+          const mes = parseInt(partes[1]);
+          const anio = parseInt(partes[2]);
 
-          if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
-          return new Date(year, month - 1, day);
+          if (isNaN(anio) || isNaN(mes) || isNaN(dia)) return null;
+          return new Date(anio, mes - 1, dia);
         }
         return null;
       }
 
-      function formatFechaYMD(fecha) {
+      function formatearFecha(fecha) {
         const dia = String(fecha.getDate()).padStart(2, '0');
         const mes = String(fecha.getMonth() + 1).padStart(2, '0');
         const anio = fecha.getFullYear();
@@ -55,43 +55,46 @@ document.addEventListener('DOMContentLoaded', function() {
         return `${anio}-${mes}-${dia}`;
       }
 
-      function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + (days));
+      function agregarDias(date, days) {
+        const resultado = new Date(date);
+        resultado.setDate(resultado.getDate() + days);
 
-        return result;
+        return resultado;
       }
 
-      function addBusinessDays(date, days, festivos) {
-        let result = new Date(date);
-        let added = 0;
-
-        while (added < days) {
-          const isWeekend = result.getDay() === 0 || result.getDay() === 6;
-          const dia = String(result.getDate()).padStart(2, '0');
-          const mes = String(result.getMonth() + 1).padStart(2, '0');
-          const anio = result.getFullYear();
-          const esFestivo = (window.FESTIVOS_COLOMBIA || []).includes(`${dia}/${mes}/${anio}`);
-          
-          if (!isWeekend && !esFestivo) {
-            added++;
-            if (added === days) break;
+      function agregarDiasLaborales(date, days, festivos) {
+        const aFestivoKey = (d) => {
+          const dd = String(d.getDate()).padStart(2,'0');
+          const mm = String(d.getMonth()+1).padStart(2,'0');
+          const yy = d.getFullYear();
+          return `${dd}/${mm}/${yy}`;
+        };
+      
+        const esFinDeSemana = (d) => d.getDay() === 0 || d.getDay() === 6;
+        const esFestivo = (d) => (window.FESTIVOS_COLOMBIA || []).includes(aFestivoKey(d));
+      
+        let resultado = new Date(date);
+        let agregado = 0;
+      
+        while (agregado < days) {
+          if (!esFinDeSemana(resultado) && !esFestivo(resultado)) {
+            agregado++;
+            if (agregado === days) break;
           }
-          result.setDate(result.getDate() + 1);
+          resultado.setDate(resultado.getDate() + 1);
         }
-
-        return result;
-      }
+        return resultado;
+      }      
 
       function obtenerDiasPendientesReintegro() {
         if (!periodoVacacional || !disfruteDiasPendientes) return null;
         
-        const periodoId = periodoVacacional.value;
+        const idPeriodo = periodoVacacional.value;
         const esDisfrutePendientes = disfruteDiasPendientes.checked;
         
-        if (!esDisfrutePendientes || !periodoId) return null;
+        if (!esDisfrutePendientes || !idPeriodo) return null;
 
-        const reintegro = reintegrosPendientes.find(r => r.periodo_vacacional_id === parseInt(periodoId));
+        const reintegro = reintegrosPendientes.find(r => r.periodo_vacacional_id === parseInt(idPeriodo));
         
         return reintegro ? {
           dias: reintegro.dias_pendientes,
@@ -102,7 +105,7 @@ document.addEventListener('DOMContentLoaded', function() {
       function calcularFechaFinAutomatico() {
         if (!fechaInicio.value) return;
 
-        const inicio = parseFechaYMD(fechaInicio.value);
+        const inicio = parsearFecha(fechaInicio.value);
 
         if (!inicio) return;
 
@@ -114,37 +117,60 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (diasPendientes) {
           if (diasPendientes.tipo === 'H') {
-            fechaFinCalculada = addBusinessDays(inicio, diasPendientes.dias, window.FESTIVOS_COLOMBIA);
+            fechaFinCalculada = agregarDiasLaborales(inicio, diasPendientes.dias, window.FESTIVOS_COLOMBIA);
           } else {
-            fechaFinCalculada = addDays(inicio, diasPendientes.dias);
+            fechaFinCalculada = agregarDias(inicio, diasPendientes.dias);
           }
         } else {
+          let diasPendientesPeriodo = null;
+          if (periodoVacacional && periodoVacacional.value) {
+            const periodosDiasPendientes = window.PERIODOS_DIAS_PENDIENTES || {};
+            const idPeriodo = parseInt(periodoVacacional.value);
+            diasPendientesPeriodo = periodosDiasPendientes[idPeriodo] || null;
+          }
+
+          let diasACalcular = null;
           if (estamento === 'docente' && decreto === '1279') {
-            const ultimoHabil = addBusinessDays(inicio, 15, window.FESTIVOS_COLOMBIA);
-            const primerCalendario = new Date(ultimoHabil);
-            primerCalendario.setDate(primerCalendario.getDate() + 1);
-            fechaFinCalculada = addDays(primerCalendario, 15);
+            diasACalcular = 30;
           } else if (estamento === 'docente' && decreto === '115') {
-            fechaFinCalculada = addDays(inicio, 30);
+            diasACalcular = 30;
           } else if (estamento === 'administrativo') {
-            fechaFinCalculada = addBusinessDays(inicio, 15, window.FESTIVOS_COLOMBIA);
+            diasACalcular = 15;
           } else if (estamento === 'trabajador oficial') {
-            fechaFinCalculada = addDays(inicio, 30);
+            diasACalcular = 30;
           } else {
-            fechaFinCalculada = addBusinessDays(inicio, 15, window.FESTIVOS_COLOMBIA);
+            diasACalcular = 15;
+          }
+
+          if (diasPendientesPeriodo !== null && diasPendientesPeriodo !== undefined) {
+            diasACalcular = Math.min(diasACalcular, diasPendientesPeriodo);
+          }
+
+          if (estamento === 'docente' && decreto === '1279') {
+            const diasHabiles = Math.min(15, diasACalcular);
+            const diasCalendario = Math.max(0, diasACalcular - 15);
+            const ultimoHabil = agregarDiasLaborales(inicio, diasHabiles, window.FESTIVOS_COLOMBIA);
+            const resultado = new Date(ultimoHabil);
+            resultado.setDate(resultado.getDate() + diasCalendario);
+            fechaFinCalculada = resultado;
+          } else if (estamento === 'administrativo') {
+            fechaFinCalculada = agregarDiasLaborales(inicio, diasACalcular, window.FESTIVOS_COLOMBIA);
+          } else {
+            const offsetCalendario = Math.max(0, diasACalcular - 1);
+            fechaFinCalculada = agregarDias(inicio, offsetCalendario);
           }
         }
 
         if (fechaFinCalculada) {
-          const fechaFormateada = formatFechaYMD(fechaFinCalculada);
+          const fechaFormateada = formatearFecha(fechaFinCalculada);
           fechaFin.value = fechaFormateada;
 
           if (fechaFin._flatpickr) {
             fechaFin._flatpickr.setDate(fechaFormateada, true, 'Y-m-d');
           }
           
-          const event = new Event('change', { bubbles: true });
-          fechaFin.dispatchEvent(event);
+          const evento = new Event('change', { bubbles: true });
+          fechaFin.dispatchEvent(evento);
         }
       }
 

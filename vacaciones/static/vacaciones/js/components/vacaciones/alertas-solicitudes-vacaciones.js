@@ -1,4 +1,3 @@
-// Script para manejar alertas del formulario de solicitud de vacaciones
 document.addEventListener('DOMContentLoaded', function() {
     window.cerrarAlerta = function(idAlerta) {
         const alerta = document.getElementById(idAlerta);
@@ -51,4 +50,4 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-}); 
+});

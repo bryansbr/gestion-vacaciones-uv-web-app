@@ -1,12 +1,16 @@
 {% load static %}
+{% load grupos_tags %}
+{% load django_htmx %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <title>{% block title %}Gestión de Vacaciones{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  {% htmx_script %}
   {% block extra_head %}{% endblock %}
 </head>
 
@@ -17,7 +21,7 @@
   <header class="bg-white shadow flex items-center justify-between px-4 h-16">
     <div class="flex items-center gap-3">
       <!-- Botón hamburguesa (visible solo cuando sidebar está colapsado) -->
-      <button id="menu-toggle" class="text-gray-600 focus:outline-none">
+      <button data-toggle="sidebar" class="text-gray-600 focus:outline-none">
         <svg id="icon-open" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M4 6h16M4 12h16M4 18h16" />
@@ -28,11 +32,20 @@
         </svg>
       </button>
       <img src="{% static 'img/banner_logo_univalle.png' %}" alt="Logo Univalle" class="h-7">
+      <div class="hidden sm:block leading-tight text-sm text-red-700 font-semibold">
+        <span>Sistema para la gestión de vacaciones</span><br>
+        <span>de la Universidad del Valle (SGV-UV)</span>
+      </div>
     </div>
     <div class="flex items-center gap-2 relative" id="user-menu-container">
-      <button id="user-menu-toggle" class="flex items-center gap-2 focus:outline-none">
+      <button id="user-menu-toggle"
+              class="flex items-center gap-2 focus:outline-none"
+              type="button"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-controls="user-menu-dropdown">
         <span class="text-gray-700 text-sm">
-          Bienvenido, <strong>{{ request.user.funcionario.nombre }} {{ request.user.funcionario.apellido }}</strong>
+          Bienvenido(a), <strong>{{ request.user.funcionario.nombre }} {{ request.user.funcionario.apellido }}</strong>
         </span>
         <span class="inline-block cursor-pointer">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32" class="align-middle" aria-label="Menú usuario">
@@ -41,22 +54,24 @@
           </svg>
         </span>
       </button>
-      <!-- Dropdown -->
-      <div id="user-menu-dropdown" class="hidden fixed w-48 bg-white rounded-md shadow-lg z-50 py-2 border border-gray-200">
-        <a href="#" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Cambiar contraseña</a>
-        <a href="{% url 'usuarios:logout' %}" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Cerrar sesión</a>
+      <div id="user-menu-dropdown"
+           class="hidden absolute right-0 top-full mt-2 w-48 bg-white rounded-md shadow-lg z-50 py-2 border border-gray-200"
+           role="menu">
+        <a href="#" class="block px-4 py-2 text-gray-700 hover:bg-gray-100" role="menuitem">Cambiar contraseña</a>
+        <a href="{% url 'usuarios:logout' %}" class="block px-4 py-2 text-gray-700 hover:bg-gray-100" role="menuitem">Cerrar sesión</a>
       </div>
     </div>
   </header>
   {% endif %}
 
-  <!-- Contenedor principal -->
   <div class="flex flex-1 overflow-hidden">
-
     {% if request.user.is_authenticated %}
-    <!-- Sidebar -->
     <aside id="sidebar" class="bg-red-700 text-white w-64 transition-all duration-300 ease-in-out space-y-6 px-4 py-6 lg:block hidden">
-      <button id="collapseSidebar" class="text-white absolute top-4 right-4 focus:outline-none">
+      <button data-action="close-sidebar" class="md:hidden text-gray-600 focus:outline-none">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-7 h-7">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M6 18L18 6M6 6l12 12" />
+        </svg>
       </button>
       <nav>
         <ul class="space-y-2 mt-8">
@@ -72,32 +87,121 @@
           <li>
             <a href="{% url 'vacaciones:periodo-vacacional-list' %}"
                class="sidebar-link block py-2 px-3 rounded hover:bg-red-600 flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-7 w-7 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <rect x="4" y="6" width="16" height="12" rx="2" fill="#fff" stroke="#fff"/>
-                <rect x="4" y="6" width="16" height="12" rx="2" stroke="#cbd5e1" stroke-width="2"/>
-                <path d="M8 10h8M8 14h8" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round"/>
+              <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-7 w-7 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <rect x="3.5" y="5" width="17" height="15" rx="2" stroke-width="2" />
+                <path d="M8 3v4M16 3v4M3.5 10h17" stroke-width="2" stroke-linecap="round" />
+                <circle cx="12" cy="15" r="2.5" stroke-width="2" />
+                <path d="M12 11.5v-1.5" stroke-width="2" stroke-linecap="round" />
               </svg>
               <span class="sidebar-text" id="sidebar-text-periodos">Periodos vacacionales</span>
             </a>
           </li>
           <li>
-            <a href="{% url 'vacaciones:solicitud-vacaciones-list' %}"
-               class="sidebar-link block py-2 px-3 rounded hover:bg-red-600 flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-7 w-7 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <rect x="3" y="7" width="18" height="14" rx="2" fill="#fff" stroke="#fff"/>
-                <rect x="3" y="7" width="18" height="14" rx="2" stroke="#cbd5e1" stroke-width="2"/>
-                <path d="M16 3v4M8 3v4M3 11h18" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round"/>
+            <button id="submenu-solicitudes-toggle" 
+                    class="sidebar-link w-full block py-2 px-3 rounded hover:bg-red-600 flex items-center justify-between gap-2 cursor-pointer">
+              <div class="flex items-center gap-2 flex-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-7 w-7 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.25 19.5l19.5-7.5-19.5-7.5 4.5 7.5-4.5 7.5zm6-7.5h6" />
+                </svg>
+                <span class="ml-2 sidebar-text text-left" id="sidebar-text-solicitudes">Solicitudes de vacaciones</span>
+              </div>
+              <svg id="submenu-solicitudes-arrow" class="sidebar-icon h-5 w-5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
               </svg>
-              <span class="sidebar-text" id="sidebar-text-solicitudes">Solicitudes de vacaciones</span>
+            </button>
+            <ul id="submenu-solicitudes" class="hidden mt-2 space-y-1">
+              <li>
+                <a href="{% url 'vacaciones:solicitud-vacaciones-list' %}"
+                   id="submenu-link-mis-solicitudes"
+                   data-url-path="{% url 'vacaciones:solicitud-vacaciones-list' %}"
+                   class="sidebar-link block py-2 px-3 rounded hover:bg-red-600 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-5 w-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  <span class="ml-9 sidebar-text" id="sidebar-text-mis-solicitudes">Mis solicitudes</span>
+                </a>
+              </li>
+              {% if request.user.is_superuser or request.user|has_group:"Jefe Inmediato" or request.user|has_group:"Coordinador Administrativo" %}
+              <li class="relative">
+                <button class="sidebar-link block py-2 px-3 rounded hover:bg-red-600 w-full flex items-center gap-2 cursor-pointer"
+                        data-dropdown-toggle="dropdown-solicitudes-jefe-coord">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-5 w-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span class="sidebar-text">Listado de solicitudes</span>
+                  <svg class="sidebar-icon h-5 w-5 transition-transform duration-200 ml-auto sidebar-dropdown-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <div id="dropdown-solicitudes-jefe-coord" class="sidebar-popover hidden">
+                  <ul class="space-y-1">
+                    {% if request.user.is_superuser or request.user|has_group:"Jefe Inmediato" %}
+                    <li>
+                      <a href="{% url 'vacaciones:jefe_solicitudes_list' %}"
+                         id="submenu-link-jefe-solicitudes"
+                         data-url-path="{% url 'vacaciones:jefe_solicitudes_list' %}"
+                         class="popover-link">
+                        Como Jefe Inmediato
+                      </a>
+                    </li>
+                    {% endif %}
+                    {% if request.user.is_superuser or request.user|has_group:"Coordinador Administrativo" %}
+                    <li>
+                      <a href="{% url 'vacaciones:coord_solicitudes_list' %}"
+                         id="submenu-link-coord-solicitudes"
+                         data-url-path="{% url 'vacaciones:coord_solicitudes_list' %}"
+                         class="popover-link">
+                        Como Coordinación Administrativa
+                      </a>
+                    </li>
+                    {% endif %}
+                  </ul>
+                </div>
+              </li>
+              {% endif %}
+              {% if request.user.is_superuser or request.user|has_group:"Secretaria" %}
+              <li>
+                <a href="{% url 'vacaciones:secretaria-solicitudes-list' %}"
+                   id="submenu-link-secretaria-solicitudes"
+                   data-url-path="{% url 'vacaciones:secretaria-solicitudes-list' %}"
+                   class="sidebar-link block py-2 px-3 rounded hover:bg-red-600 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-5 w-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 011-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span class="sidebar-text" id="sidebar-text-secretaria-solicitudes">Listado de solicitudes</span>
+                </a>
+              </li>
+              {% endif %}
+              {% if request.user.is_superuser or request.user|es_rrhh or request.user|has_group:"Recursos Humanos" or "recursos.humanos" in request.user.email|lower %}
+              <li>
+                <a href="{% url 'vacaciones:rrhh_solicitudes_list' %}"
+                   id="submenu-link-rrhh-solicitudes"
+                   data-url-path="{% url 'vacaciones:rrhh_solicitudes_list' %}"
+                   class="sidebar-link block py-2 px-3 rounded hover:bg-red-600 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-5 w-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 011-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span class="sidebar-text" id="sidebar-text-rrhh-solicitudes">Listado de solicitudes</span>
+                </a>
+              </li>
+              {% endif %}
+            </ul>
+          </li>
+          <li>
+            <a href="#" onclick="return false;"
+               class="sidebar-link block py-2 px-3 rounded hover:bg-red-600 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-7 w-7 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 12A7.5 7.5 0 016 16.5M4.5 12A7.5 7.5 0 0118 7.5" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.25 9.75h-3v3m18-3v3h-3" />
+              </svg>
+              <span class="ml-1 sidebar-text" id="sidebar-text-reintegros">Reintegros de vacaciones</span>
             </a>
           </li>
-          <!-- Agrega más ítems aquí si lo necesitas -->
         </ul>
       </nav>
     </aside>
     {% endif %}
 
-    <!-- Contenido -->
     {% if request.user.is_authenticated %}
     <main class="flex-1 overflow-y-auto p-6">
     {% else %}
@@ -108,39 +212,9 @@
   </div>
 
   {% block extra_scripts %}
-    <script src="{% static 'js/componentes/navegacion/sidebar.js' %}"></script>
-    <script>
-      // Sidebar toggle functionality
-      const menuToggle = document.getElementById('menu-toggle');
-      const sidebar = document.getElementById('sidebar');
-      const sidebarTexts = document.querySelectorAll('.sidebar-text');
-      const sidebarLinks = document.querySelectorAll('.sidebar-link');
-      let sidebarCollapsed = false;
-
-      if (menuToggle && sidebar) {
-        menuToggle.addEventListener('click', () => {
-          sidebarCollapsed = !sidebarCollapsed;
-          if (sidebarCollapsed) {
-            sidebar.classList.remove('w-64');
-            sidebar.classList.add('w-16');
-            sidebarTexts.forEach(el => el.classList.add('hidden'));
-            sidebarLinks.forEach(link => {
-              link.classList.remove('gap-2', 'px-3');
-              link.classList.add('justify-center', 'px-0');
-            });
-          } else {
-            sidebar.classList.remove('w-16');
-            sidebar.classList.add('w-64');
-            sidebarTexts.forEach(el => el.classList.remove('hidden'));
-            sidebarLinks.forEach(link => {
-              link.classList.add('gap-2', 'px-3');
-              link.classList.remove('justify-center', 'px-0');
-            });
-          }
-        });
-      }
-    </script>
-    <script src="{% static 'js/componentes/navegacion/menu-usuario.js' %}"></script>
+  <script src="{% static 'js/navegacion/base.js' %}"></script>
+  <script src="{% static 'vacaciones/js/components/navegacion/menu-usuario.js' %}"></script>
+  <script src="{% static 'vacaciones/js/components/navegacion/sidebar.js' %}"></script>
     {% endblock %}
 </body>
 </html>

@@ -118,6 +118,16 @@
   </table>
 
   <br>
+  <div class="bloque-titulo">OBSERVACIONES</div>
+  <div class="observaciones-contenido">
+    {% if observaciones %}
+      <div class="observaciones-texto">{{ observaciones|linebreaks }}</div>
+    {% else %}
+      <div class="observaciones-texto">&nbsp;</div>
+    {% endif %}
+  </div>
+
+  <br>
   <div class="bloque-titulo">TIEMPO QUE SE ADEUDA POR CONCEPTO DE VACACIONES DECRETADAS</div>
   <table class="grid small">
     <tr>
@@ -151,9 +161,9 @@
 
     <tr class="altura-firma">
       <td class="firma">{{ solicitado_por }}</td>
-      <td class="firma"></td>
-      <td class="firma"></td>
-      <td class="firma"></td>
+      <td class="firma">{% if autorizado_por %}{{ autorizado_por }}{% endif %}</td>
+      <td class="firma">{% if coordinado_por %}{{ coordinado_por }}{% endif %}</td>
+      <td class="firma">{% if autorizado_rrhh_por %}{{ autorizado_rrhh_por }}{% endif %}</td>
     </tr>
 
     <tr class="etiquetas-firma">
@@ -165,9 +175,9 @@
 
     <tr class="nombres">
       <td>NOMBRE: {{ solicitado_por }}</td>
-      <td>NOMBRE:</td>
-      <td>NOMBRE:</td>
-      <td>NOMBRE:</td>
+      <td>NOMBRE: {% if autorizado_por %}{{ autorizado_por }}{% endif %}</td>
+      <td>NOMBRE: {% if coordinado_por %}{{ coordinado_por }}{% endif %}</td>
+      <td>NOMBRE: {% if autorizado_rrhh_por %}{{ autorizado_rrhh_por }}{% endif %}</td>
     </tr>
   </table>
 </section>

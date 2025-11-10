@@ -1,0 +1,86 @@
+/* Contenedor del dropdown - Alta especificidad */
+.solicitud-vacaciones-table [id^="dropdown-"],
+.solicitud-vacaciones-table td [id^="dropdown-"],
+.solicitud-vacaciones-table tbody td [id^="dropdown-"],
+[id^="dropdown-"] {
+  text-align: left !important;
+}
+
+/* Todos los enlaces y botones dentro del dropdown */
+.solicitud-vacaciones-table [id^="dropdown-"] a,
+.solicitud-vacaciones-table [id^="dropdown-"] button,
+.solicitud-vacaciones-table td [id^="dropdown-"] a,
+.solicitud-vacaciones-table td [id^="dropdown-"] button,
+.solicitud-vacaciones-table tbody td [id^="dropdown-"] a,
+.solicitud-vacaciones-table tbody td [id^="dropdown-"] button,
+[id^="dropdown-"] a,
+[id^="dropdown-"] button {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  width: 100% !important;
+}
+
+/* Iconos SVG dentro del dropdown */
+.solicitud-vacaciones-table [id^="dropdown-"] svg,
+.solicitud-vacaciones-table td [id^="dropdown-"] svg,
+.solicitud-vacaciones-table tbody td [id^="dropdown-"] svg,
+[id^="dropdown-"] svg {
+  flex-shrink: 0 !important;
+  margin-right: 0.5rem !important;
+  display: inline-block !important;
+}
+
+/* Spans con texto dentro del dropdown */
+.solicitud-vacaciones-table [id^="dropdown-"] span,
+.solicitud-vacaciones-table td [id^="dropdown-"] span,
+.solicitud-vacaciones-table tbody td [id^="dropdown-"] span,
+[id^="dropdown-"] span {
+  text-align: left !important;
+  display: inline-block !important;
+  flex-grow: 0 !important;
+}
+
+/* Listas dentro del dropdown */
+.solicitud-vacaciones-table [id^="dropdown-"] ul,
+.solicitud-vacaciones-table td [id^="dropdown-"] ul,
+.solicitud-vacaciones-table tbody td [id^="dropdown-"] ul,
+[id^="dropdown-"] ul {
+  text-align: left !important;
+}
+
+.solicitud-vacaciones-table [id^="dropdown-"] li,
+.solicitud-vacaciones-table td [id^="dropdown-"] li,
+.solicitud-vacaciones-table tbody td [id^="dropdown-"] li,
+[id^="dropdown-"] li {
+  text-align: left !important;
+}
+
+/* Elementos flex estén alineados a la izquierda */
+.solicitud-vacaciones-table [id^="dropdown-"] .flex,
+.solicitud-vacaciones-table td [id^="dropdown-"] .flex,
+.solicitud-vacaciones-table tbody td [id^="dropdown-"] .flex,
+[id^="dropdown-"] .flex {
+  justify-content: flex-start !important;
+  align-items: center !important;
+}
+
+/* Formularios dentro del dropdown */
+.solicitud-vacaciones-table [id^="dropdown-"] form,
+.solicitud-vacaciones-table td [id^="dropdown-"] form,
+.solicitud-vacaciones-table tbody td [id^="dropdown-"] form,
+[id^="dropdown-"] form {
+  text-align: left !important;
+  width: 100% !important;
+}
+
+.solicitud-vacaciones-table [id^="dropdown-"] form button,
+.solicitud-vacaciones-table td [id^="dropdown-"] form button,
+.solicitud-vacaciones-table tbody td [id^="dropdown-"] form button,
+[id^="dropdown-"] form button {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+}

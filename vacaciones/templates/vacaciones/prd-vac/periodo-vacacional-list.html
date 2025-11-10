@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Periodos vacacionales{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+  
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-3xl font-bold text-red-700">Periodos vacacionales</h1>
+    <a href="{% url 'vacaciones:periodo_vacacional_create' %}" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md">
+      + Nuevo Periodo
+    </a>
+  </div>
+
+  <form method="get" class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div>
+      <label for="q" class="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
+      <input type="text" 
+             id="q" 
+             name="q" 
+             value="{{ request.GET.q }}" 
+             placeholder="Nombre, apellido o identificación..." 
+             hx-get="{% url 'vacaciones:periodo-vacacional-list' %}"
+             hx-target="#tabla-contenedor"
+             hx-trigger="input changed delay:500ms"
+             hx-swap="innerHTML"
+             class="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+    </div>
+    <div class="flex items-end gap-2">
+      {% if request.GET.q %}
+      <a href="{% url 'vacaciones:periodo-vacacional-list' %}"
+         hx-get="{% url 'vacaciones:periodo-vacacional-list' %}"
+         hx-target="#tabla-contenedor"
+         hx-swap="innerHTML"
+         class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-md transition-colors duration-200">
+        Limpiar
+      </a>
+      {% endif %}
+    </div>
+  </form>
+
+  <div id="tabla-contenedor">
+  {% include 'vacaciones/partials/_tabla-periodos-vacacionales.html' %}
+  </div>
+
+</div>
+{% endblock %}
