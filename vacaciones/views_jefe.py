@@ -205,7 +205,7 @@ class JefeSolicitudCreateView(LoginRequiredMixin, CreateView):
         solicitudes_sin_reintegro = []
         for solicitud in solicitudes_activas:
             tiene_reintegro = any(
-                reintegro.estado_solicitud == 'aprobado' 
+                reintegro.estado_solicitud in ('aprobado', 'completado')
                 for reintegro in solicitud.reintegrovacaciones_set.all()
             )
             if not tiene_reintegro:
@@ -338,7 +338,7 @@ class JefeSolicitudCreateView(LoginRequiredMixin, CreateView):
         solicitudes_sin_reintegro = []
         for solicitud in solicitudes_activas:
             tiene_reintegro = any(
-                reintegro.estado_solicitud == 'aprobado' 
+                reintegro.estado_solicitud in ('aprobado', 'completado')
                 for reintegro in solicitud.reintegrovacaciones_set.all()
             )
             if not tiene_reintegro:

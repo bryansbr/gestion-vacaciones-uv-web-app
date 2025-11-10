@@ -1,11 +1,10 @@
 from datetime import date, timedelta
 import json
-from unittest import skip
-
 from django.contrib.auth.models import Group
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.core.exceptions import ValidationError
 
 from usuarios.models import Funcionario
 from core.models import Estamento, FacultadDependencia, Sede
@@ -69,6 +68,7 @@ class SolicitudVacacionesListViewTest(TestCase):
             creada_por=self.user,
             estado_solicitud="pendiente",
         )
+        solicitud.aprobaciones.filter(etapa='RRHH').update(estado='autorizada')
 
         response = self.client.get(self.url)
 
@@ -89,22 +89,26 @@ class SolicitudVacacionesListViewTest(TestCase):
             estado_solicitud="pendiente",
         )
 
+        solicitud.aprobaciones.filter(etapa='RRHH').update(estado='autorizada')
+
         ReintegroVacaciones.objects.create(
             codigo_sabs="",
             fecha_reintegro=date.today() + timedelta(days=30),
-            motivo_reintegro="Vacaciones",
+            motivo_reintegro="finalizacion_normal",
             observaciones="",
+            periodo_correspondiente_desde=self.periodo.fecha_inicio_periodo,
+            periodo_correspondiente_hasta=self.periodo.fecha_fin_periodo,
             fecha_disfrute_desde=solicitud.fecha_inicio_vacaciones,
             fecha_disfrute_hasta=solicitud.fecha_fin_vacaciones,
-            dias_disfrutados=solicitud.total_dias_solicitados,
-            tipo_dias_disfrutados="C",
-            dias_pendientes=0,
-            tipo_dias_pendientes="C",
+            dias_disfrutados_habiles=15,
+            dias_disfrutados_calendario=0,
+            dias_pendientes_habiles=0,
+            dias_pendientes_calendario=0,
             periodo_vacacional=self.periodo,
             solicitud_vacaciones=solicitud,
             funcionario=self.funcionario,
             creada_por=self.user,
-            estado_solicitud="aprobado",
+            estado_solicitud="completado",
         )
 
         response = self.client.get(self.url)
@@ -205,19 +209,25 @@ class CodigoSABSTest(TestCase):
     def test_generacion_codigo_sabs_reintegro(self):
         """Generación de códigos para Reintegros (REI{anio}{consecutivo})."""
         y = date.today().year
+        solicitud_autorizada = self._crear_solicitud(date(y, 2, 3), date(y, 2, 21))
+        solicitud_autorizada.aprobaciones.filter(etapa='RRHH').update(estado='autorizada')
+        solicitud_autorizada.aprobaciones.filter(etapa='RRHH').update(estado='autorizada')
+
         rein = ReintegroVacaciones.objects.create(
             codigo_sabs="",
             fecha_reintegro=date.today() + timedelta(days=16),
-            motivo_reintegro="Vacaciones",
+            motivo_reintegro="finalizacion_normal",
             observaciones="",
+            periodo_correspondiente_desde=self.periodo.fecha_inicio_periodo,
+            periodo_correspondiente_hasta=self.periodo.fecha_fin_periodo,
             fecha_disfrute_desde=date.today() + timedelta(days=10),
             fecha_disfrute_hasta=date.today() + timedelta(days=15),
-            dias_disfrutados=5,
-            tipo_dias_disfrutados="C",
-            dias_pendientes=0,
-            tipo_dias_pendientes="C",
+            dias_disfrutados_habiles=5,
+            dias_disfrutados_calendario=0,
+            dias_pendientes_habiles=0,
+            dias_pendientes_calendario=0,
             periodo_vacacional=self.periodo,
-            solicitud_vacaciones=self._crear_solicitud(date(y, 2, 3), date(y, 2, 21)),
+            solicitud_vacaciones=solicitud_autorizada,
             funcionario=self.func,
             creada_por=self.user,
         )
@@ -229,6 +239,93 @@ class CodigoSABSTest(TestCase):
         s1 = self._crear_solicitud(date(y, 2, 3), date(y, 2, 21))
         s2 = self._crear_solicitud(date(y, 2, 3), date(y, 2, 21))
         self.assertNotEqual(s1.codigo_sabs, s2.codigo_sabs)
+
+
+class ReintegroValidacionesTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(email="reintegro@test.com", password="x")
+        self.estamento = Estamento.objects.create(nombre="Administrativo", descripcion="Admin")
+        self.dependencia = FacultadDependencia.objects.create(nombre="Dependencia", descripcion="Dep")
+        self.sede = Sede.objects.create(nombre="Sede Central", direccion="Calle 1")
+
+        self.funcionario = Funcionario.objects.create(
+            user=self.user,
+            nombre="Ana",
+            apellido="Perez",
+            numero_identificacion="900",
+            telefono="3000000000",
+            fecha_ingreso_universidad=date.today() - timedelta(days=500),
+            estamento=self.estamento,
+            facultad_dependencia=self.dependencia,
+            sede=self.sede,
+        )
+
+        self.periodo = PeriodoVacacional.objects.create(
+            funcionario=self.funcionario,
+            fecha_inicio_periodo=date.today() - timedelta(days=365),
+            fecha_fin_periodo=date.today() - timedelta(days=200),
+            dias_disfrutados_periodo=0,
+        )
+
+    def _crear_solicitud(self, autorizada=False):
+        solicitud = SolicitudVacaciones.objects.create(
+            funcionario=self.funcionario,
+            periodo_vacacional=self.periodo,
+            fecha_solicitud=date.today(),
+            fecha_inicio_vacaciones=date.today() + timedelta(days=15),
+            fecha_fin_vacaciones=date.today() + timedelta(days=25),
+            tiene_dias_pendientes=False,
+            creada_por=self.user,
+        )
+        if autorizada:
+            solicitud.aprobaciones.filter(etapa='RRHH').update(estado='autorizada')
+        return solicitud
+
+    def _datos_reintegro(self, solicitud, **overrides):
+        data = dict(
+            codigo_sabs="",
+            fecha_reintegro=solicitud.fecha_fin_vacaciones + timedelta(days=1),
+            motivo_reintegro="finalizacion_normal",
+            observaciones=overrides.get("observaciones", ""),
+            periodo_correspondiente_desde=self.periodo.fecha_inicio_periodo,
+            periodo_correspondiente_hasta=self.periodo.fecha_fin_periodo,
+            fecha_disfrute_desde=solicitud.fecha_inicio_vacaciones,
+            fecha_disfrute_hasta=solicitud.fecha_fin_vacaciones,
+            dias_disfrutados_habiles=5,
+            dias_disfrutados_calendario=0,
+            dias_pendientes_habiles=overrides.get("dias_pendientes_habiles", 0),
+            dias_pendientes_calendario=overrides.get("dias_pendientes_calendario", 0),
+            periodo_vacacional=self.periodo,
+            solicitud_vacaciones=solicitud,
+            funcionario=self.funcionario,
+            creada_por=self.user,
+            es_reintegro_anticipado=overrides.get("es_reintegro_anticipado", False),
+        )
+        data.update(overrides)
+        return data
+
+    def test_no_permite_reintegro_sin_solicitud_autorizada(self):
+        solicitud = self._crear_solicitud(autorizada=False)
+        with self.assertRaises(ValidationError):
+            ReintegroVacaciones.objects.create(**self._datos_reintegro(solicitud))
+
+    def test_reintegro_anticipado_requiere_observaciones(self):
+        solicitud = self._crear_solicitud(autorizada=True)
+        with self.assertRaises(ValidationError):
+            ReintegroVacaciones.objects.create(
+                **self._datos_reintegro(
+                    solicitud,
+                    es_reintegro_anticipado=True,
+                    observaciones="",
+                )
+            )
+
+    def test_no_permite_reintegro_duplicado_activo(self):
+        solicitud = self._crear_solicitud(autorizada=True)
+        ReintegroVacaciones.objects.create(**self._datos_reintegro(solicitud))
+        with self.assertRaises(ValidationError):
+            ReintegroVacaciones.objects.create(**self._datos_reintegro(solicitud))
+
 
 class SolicitudVacacionesEdicionTest(TestCase):
     """Test para verificar el comportamiento correcto al editar solicitudes"""
@@ -600,7 +697,6 @@ class TestAprobacionesSolicitud(_BaseSetupAprobacionesMixin, TestCase):
             tiene_dias_pendientes=False,
             creada_por=self.user,
         )
-
         etapas = list(sol.aprobaciones.values_list("etapa", flat=True))
         estados = list(sol.aprobaciones.values_list("estado", flat=True))
 
@@ -628,7 +724,6 @@ class TestFlagsHitosSolicitud(_BaseSetupAprobacionesMixin, TestCase):
             tiene_dias_pendientes=False,
             creada_por=self.user,
         )
-
         self.assertFalse(sol.aprobada_por_jefe)
         self.assertFalse(sol.aprobada_por_coord)
         self.assertFalse(sol.autorizada_rrhh)
@@ -648,7 +743,6 @@ class TestFlagsHitosSolicitud(_BaseSetupAprobacionesMixin, TestCase):
         self.assertTrue(sol.autorizada_rrhh)
 
 # ====== REINTEGRO ======
-@skip("Actualmente no se crean etapas por defecto al crear ReintegroVacaciones (no hay signal).")
 class TestAprobacionesReintegro(_BaseSetupAprobacionesMixin, TestCase):
     def test_crea_tres_etapas_al_crear_reintegro(self):
         sol = SolicitudVacaciones.objects.create(
@@ -660,18 +754,21 @@ class TestAprobacionesReintegro(_BaseSetupAprobacionesMixin, TestCase):
             tiene_dias_pendientes=False,
             creada_por=self.user,
         )
+        sol.aprobaciones.filter(etapa='RRHH').update(estado='autorizada')
 
         rein = ReintegroVacaciones.objects.create(
             codigo_sabs="",
             fecha_reintegro=date.today() + timedelta(days=16),
-            motivo_reintegro="Vacaciones",
+            motivo_reintegro="finalizacion_normal",
             observaciones="",
+            periodo_correspondiente_desde=self.periodo.fecha_inicio_periodo,
+            periodo_correspondiente_hasta=self.periodo.fecha_fin_periodo,
             fecha_disfrute_desde=date.today() + timedelta(days=10),
             fecha_disfrute_hasta=date.today() + timedelta(days=15),
-            dias_disfrutados=5,
-            tipo_dias_disfrutados="C",
-            dias_pendientes=0,
-            tipo_dias_pendientes="C",
+            dias_disfrutados_habiles=5,
+            dias_disfrutados_calendario=0,
+            dias_pendientes_habiles=0,
+            dias_pendientes_calendario=0,
             periodo_vacacional=self.periodo,
             solicitud_vacaciones=sol,
             funcionario=self.func,
@@ -694,7 +791,6 @@ class TestAprobacionesReintegro(_BaseSetupAprobacionesMixin, TestCase):
             3
         )
 
-@skip("Actualmente no se crean etapas por defecto al crear ReintegroVacaciones (no hay signal).")
 class TestFlagsHitosReintegro(_BaseSetupAprobacionesMixin, TestCase):
     def test_flags_hitos_en_reintegro(self):
         sol = SolicitudVacaciones.objects.create(
@@ -706,18 +802,21 @@ class TestFlagsHitosReintegro(_BaseSetupAprobacionesMixin, TestCase):
             tiene_dias_pendientes=False,
             creada_por=self.user,
         )
+        sol.aprobaciones.filter(etapa='RRHH').update(estado='autorizada')
 
         rein = ReintegroVacaciones.objects.create(
             codigo_sabs="",
             fecha_reintegro=date.today() + timedelta(days=16),
-            motivo_reintegro="Vacaciones",
+            motivo_reintegro="finalizacion_normal",
             observaciones="",
+            periodo_correspondiente_desde=self.periodo.fecha_inicio_periodo,
+            periodo_correspondiente_hasta=self.periodo.fecha_fin_periodo,
             fecha_disfrute_desde=date.today() + timedelta(days=10),
             fecha_disfrute_hasta=date.today() + timedelta(days=15),
-            dias_disfrutados=5,
-            tipo_dias_disfrutados="C",
-            dias_pendientes=0,
-            tipo_dias_pendientes="C",
+            dias_disfrutados_habiles=5,
+            dias_disfrutados_calendario=0,
+            dias_pendientes_habiles=0,
+            dias_pendientes_calendario=0,
             periodo_vacacional=self.periodo,
             solicitud_vacaciones=sol,
             funcionario=self.func,

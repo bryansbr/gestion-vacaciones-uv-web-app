@@ -188,14 +188,32 @@
             </ul>
           </li>
           <li>
-            <a href="#" onclick="return false;"
-               class="sidebar-link block py-2 px-3 rounded hover:bg-red-600 flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-7 w-7 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 12A7.5 7.5 0 016 16.5M4.5 12A7.5 7.5 0 0118 7.5" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.25 9.75h-3v3m18-3v3h-3" />
+            <button id="submenu-reintegros-toggle"
+                    class="sidebar-link w-full block py-2 px-3 rounded hover:bg-red-600 flex items-center justify-between gap-2 cursor-pointer">
+              <div class="flex items-center gap-2 flex-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-7 w-7 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 12A7.5 7.5 0 016 16.5M4.5 12A7.5 7.5 0 0118 7.5" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.25 9.75h-3v3m18-3v3h-3" />
+                </svg>
+                <span class="ml-2 sidebar-text text-left" id="sidebar-text-reintegros">Reintegros de vacaciones</span>
+              </div>
+              <svg id="submenu-reintegros-arrow" class="sidebar-icon h-5 w-5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
               </svg>
-              <span class="ml-1 sidebar-text" id="sidebar-text-reintegros">Reintegros de vacaciones</span>
-            </a>
+            </button>
+            <ul id="submenu-reintegros" class="hidden mt-2 space-y-1">
+              <li>
+                <a href="{% url 'vacaciones:reintegro-vacaciones-list' %}"
+                   id="submenu-link-mis-reintegros"
+                   data-url-path="{% url 'vacaciones:reintegro-vacaciones-list' %}"
+                   class="sidebar-link block py-2 px-3 rounded hover:bg-red-600 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-5 w-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  <span class="ml-9 sidebar-text" id="sidebar-text-mis-reintegros">Mis reintegros</span>
+                </a>
+              </li>
+            </ul>
           </li>
         </ul>
       </nav>

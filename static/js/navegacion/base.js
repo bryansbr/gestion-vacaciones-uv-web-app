@@ -93,6 +93,65 @@
     submenu.addEventListener('mouseleave', ocultarCalendarioMain);
   }
 
+  const btnSubmenuReintegros = document.getElementById('submenu-reintegros-toggle');
+  const submenuReintegros = document.getElementById('submenu-reintegros');
+  const flechaReintegros = document.getElementById('submenu-reintegros-arrow');
+
+  if (btnSubmenuReintegros && submenuReintegros && flechaReintegros) {
+    const rutaActual = window.location.pathname;
+    const enlacesReintegros = submenuReintegros.querySelectorAll('a[data-url-path]');
+    let activoReintegros = false;
+
+    enlacesReintegros.forEach(enlace => {
+      const rutaEnlace = enlace.getAttribute('data-url-path');
+      const caminoActual = rutaActual.split('?')[0];
+      const caminoEnlace = (rutaEnlace || '').split('?')[0];
+
+      if (caminoActual === caminoEnlace || rutaActual.startsWith(caminoEnlace)) {
+        activoReintegros = true;
+        enlace.classList.add('bg-red-800', 'font-semibold', 'shadow-md');
+        enlace.classList.remove('hover:bg-red-600');
+        const icono = enlace.querySelector('svg');
+        const texto = enlace.querySelector('.sidebar-text');
+        if (icono) icono.classList.add('text-white');
+        if (texto) texto.classList.add('text-white');
+      }
+    });
+
+    if (activoReintegros) {
+      submenuReintegros.classList.remove('hidden');
+      flechaReintegros.classList.add('rotate-180');
+    }
+
+    let ocultarTimeoutReintegros = null;
+
+    const mostrarReintegros = () => {
+      if (ocultarTimeoutReintegros) {
+        clearTimeout(ocultarTimeoutReintegros);
+        ocultarTimeoutReintegros = null;
+      }
+      submenuReintegros.classList.remove('hidden');
+      flechaReintegros.classList.add('rotate-180');
+    };
+
+    const ocultarReintegros = () => {
+      submenuReintegros.classList.add('hidden');
+      flechaReintegros.classList.remove('rotate-180');
+    };
+
+    const programarOcultarReintegros = () => {
+      ocultarTimeoutReintegros = window.setTimeout(ocultarReintegros, 150);
+    };
+
+    btnSubmenuReintegros.addEventListener('mouseenter', mostrarReintegros);
+    btnSubmenuReintegros.addEventListener('mouseleave', programarOcultarReintegros);
+    btnSubmenuReintegros.addEventListener('focus', mostrarReintegros);
+    btnSubmenuReintegros.addEventListener('blur', programarOcultarReintegros);
+
+    submenuReintegros.addEventListener('mouseenter', mostrarReintegros);
+    submenuReintegros.addEventListener('mouseleave', programarOcultarReintegros);
+  }
+
   const btnListadoToggle = document.getElementById('submenu-listado-toggle');
   const submenuListado = document.getElementById('submenu-listado');
   const flechaListado = document.getElementById('submenu-listado-arrow');

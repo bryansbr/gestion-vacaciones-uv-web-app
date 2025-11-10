@@ -1,0 +1,203 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Reintegro Laboral P4</title>
+  <link rel="stylesheet" href="{% static 'vacaciones/css/reintegro-laboral-p4.css' %}">
+</head>
+<body>
+
+<header class="encabezado">
+  <div class="logo">
+    <img src="{{ logo_url }}" alt="Universidad del Valle">
+  </div>
+  <div class="titulo">
+    <div class="subtitulo">VICERRECTORÍA ADMINISTRATIVA<br>División de Recursos Humanos</div>
+    <div class="formato">REINTEGRO LABORAL P4</div>
+    <div class="codigo-formato">F-02-MP-10-04-01</div>
+  </div>
+  <div class="fecha-box">
+    <div class="fecha-titulo">Fecha de Elaboración</div>
+    <div class="fecha-grid mini-grid">
+      <div>Día</div><div>Mes</div><div>Año</div>
+      <div class="cell">{{ fecha_elaboracion.dia }}</div>
+      <div class="cell">{{ fecha_elaboracion.mes }}</div>
+      <div class="cell">{{ fecha_elaboracion.anio }}</div>
+    </div>
+  </div>
+</header>
+
+<section class="tabla">
+  <!-- IDENTIFICACIÓN -->
+  <div class="bloque-titulo">IDENTIFICACIÓN</div>
+  <table class="grid">
+    <tr>
+      <th>No. DOCUMENTO DE IDENTIDAD</th>
+      <th>APELLIDOS Y NOMBRES COMPLETOS</th>
+      <th>ESTAMENTO</th>
+      <th>CÓDIGO SABS</th>
+    </tr>
+    <tr>
+      <td>{{ numero_identificacion }}</td>
+      <td>{{ nombre_funcionario }}</td>
+      <td>{{ estamento }}</td>
+      <td>{{ codigo_sabs }}</td>
+    </tr>
+  </table>
+
+  <table class="grid">
+    <tr>
+      <th>SEDE</th>
+      <th>FACULTAD / DEPENDENCIA</th>
+      <th class="w-28">FECHA DE REINTEGRO</th>
+    </tr>
+    <tr>
+      <td>{{ sede }}</td>
+      <td>{{ facultad_dependencia }}</td>
+      <td class="no-padding">
+        <div class="fecha-grid">
+          <div>Día</div><div>Mes</div><div>Año</div>
+          <div class="cell">{{ fecha_reintegro.dia }}</div>
+          <div class="cell">{{ fecha_reintegro.mes }}</div>
+          <div class="cell">{{ fecha_reintegro.anio }}</div>
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <br>
+
+  <!-- INFORMACIÓN DEL REINTEGRO -->
+  <div class="bloque-titulo">INFORMACIÓN DEL REINTEGRO</div>
+
+  <table class="grid">
+    <tr>
+      <th colspan="2">1. VACACIONES CORRESPONDIENTES AL PERIODO</th>
+      <th colspan="2">2. PERIODO EN EL CUAL DISFRUTÓ (DESDE - HASTA)</th>
+    </tr>
+    <tr>
+      <td class="w-14 center">DESDE</td>
+      <td class="w-14 center">HASTA</td>
+      <td class="w-14 center">DESDE</td>
+      <td class="w-14 center">HASTA</td>
+    </tr>
+    <tr>
+      <!-- 1. Periodo correspondiente -->
+      <td class="no-padding">
+        <div class="fecha-grid">
+          <div>Día</div><div>Mes</div><div>Año</div>
+          <div class="cell">{{ periodo_corresp_desde.dia }}</div>
+          <div class="cell">{{ periodo_corresp_desde.mes }}</div>
+          <div class="cell">{{ periodo_corresp_desde.anio }}</div>
+        </div>
+      </td>
+      <td class="no-padding">
+        <div class="fecha-grid">
+          <div>Día</div><div>Mes</div><div>Año</div>
+          <div class="cell">{{ periodo_corresp_hasta.dia }}</div>
+          <div class="cell">{{ periodo_corresp_hasta.mes }}</div>
+          <div class="cell">{{ periodo_corresp_hasta.anio }}</div>
+        </div>
+      </td>
+
+      <!-- 2. Periodo disfrutado -->
+      <td class="no-padding">
+        <div class="fecha-grid">
+          <div>Día</div><div>Mes</div><div>Año</div>
+          <div class="cell">{{ periodo_disfrute_desde.dia }}</div>
+          <div class="cell">{{ periodo_disfrute_desde.mes }}</div>
+          <div class="cell">{{ periodo_disfrute_desde.anio }}</div>
+        </div>
+      </td>
+      <td class="no-padding">
+        <div class="fecha-grid">
+          <div>Día</div><div>Mes</div><div>Año</div>
+          <div class="cell">{{ periodo_disfrute_hasta.dia }}</div>
+          <div class="cell">{{ periodo_disfrute_hasta.mes }}</div>
+          <div class="cell">{{ periodo_disfrute_hasta.anio }}</div>
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <table class="grid small">
+    <tr>
+      <th>3. NÚMERO DE DÍAS DISFRUTADOS</th>
+      <th class="w-22">Hábiles / Calendario</th>
+      <th>5. NÚMERO DE DÍAS POR DISFRUTAR</th>
+      <th class="w-22">Hábiles / Calendario</th>
+    </tr>
+    <tr>
+      <td class="center big">{{ dias_disfrutados }}</td>
+      <td class="center">
+        Hábiles: {% if disfrutados_es_habiles %}Sí{% else %}No{% endif %}<br>
+        Calendario: {% if disfrutados_es_calendario %}Sí{% else %}No{% endif %}
+      </td>
+      <td class="center big">{{ dias_pendientes }}</td>
+      <td class="center">
+        Hábiles: {% if pendientes_es_habiles %}Sí{% else %}No{% endif %}<br>
+        Calendario: {% if pendientes_es_calendario %}Sí{% else %}No{% endif %}
+      </td>
+    </tr>
+  </table>
+
+  <br>
+
+  <!-- OBSERVACIONES -->
+  <div class="bloque-titulo">OBSERVACIONES</div>
+  <div class="observaciones-contenido">
+    {% if observaciones %}
+      <div class="observaciones-texto">{{ observaciones|linebreaks }}</div>
+    {% else %}
+      <div class="observaciones-texto">&nbsp;</div>
+    {% endif %}
+  </div>
+
+  <br>
+
+  <!-- IMPORTANTE -->
+  <div class="bloque-titulo">IMPORTANTE</div>
+  <div class="importante">
+    Si se efectúa el reintegro antes de disfrutar del total de las vacaciones y quedan días pendientes por disfrutar,
+    es obligatorio indicar en el campo de Observaciones los motivos del reintegro.
+  </div>
+
+  <!-- FIRMAS -->
+  <table class="firmas">
+    <tr>
+      <th>FUNCIONARIO</th>
+      <th>JEFE INMEDIATO</th>
+      <th>COORDINADOR ADMINISTRATIVO</th>
+      <th>RECURSOS HUMANOS</th>
+    </tr>
+
+    <tr class="altura-firma">
+      <td class="firma">{{ firmado_funcionario }}</td>
+      <td class="firma">{% if firmado_jefe %}{{ firmado_jefe }}{% endif %}</td>
+      <td class="firma">{% if firmado_coordinador %}{{ firmado_coordinador }}{% endif %}</td>
+      <td class="firma">{% if firmado_rrhh %}{{ firmado_rrhh }}{% endif %}</td>
+    </tr>
+
+    <tr class="etiquetas-firma">
+      <td class="etiqueta-firma">FIRMA DEL FUNCIONARIO</td>
+      <td class="etiqueta-firma">FIRMA DEL JEFE INMEDIATO</td>
+      <td class="etiqueta-firma">FIRMA DEL COORDINADOR ADMINISTRATIVO</td>
+      <td class="etiqueta-firma">FIRMA AUTORIZADA</td>
+    </tr>
+
+    <tr class="nombres">
+      <td>NOMBRE: {{ firmado_funcionario }}</td>
+      <td>NOMBRE: {% if firmado_jefe %}{{ firmado_jefe }}{% endif %}</td>
+      <td>NOMBRE: {% if firmado_coordinador %}{{ firmado_coordinador }}{% endif %}</td>
+      <td>NOMBRE: {% if firmado_rrhh %}{{ firmado_rrhh }}{% endif %}</td>
+    </tr>
+  </table>
+</section>
+
+<footer class="pie">
+  {{ pie_pagina }}
+</footer>
+
+</body>
+</html>

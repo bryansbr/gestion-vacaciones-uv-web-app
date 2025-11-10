@@ -5,7 +5,7 @@ from django.db import models
 from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
-from django.db.models import Case, When, IntegerField
+from django.db.models import Case, When, IntegerField, Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -710,14 +710,24 @@ class DiasPendientesVacaciones(models.Model):
 # MODELO: ReintegroVacaciones
 # ============================================================
 class ReintegroVacaciones(models.Model):
-    TIPO_DIAS = (('H', 'Hábiles'), ('C', 'Calendario'))
-    MOTIVOS_REINTEGRO = [('Vacaciones', 'Vacaciones')]
+    TIPO_DIAS = (
+        ('H', 'Hábiles'),
+        ('C', 'Calendario'),
+        ('HC', 'Hábiles y Calendario'),
+        ('N/A', 'No aplica'),
+    )
+    MOTIVOS_REINTEGRO = [
+        ('finalizacion_normal', 'Finalización normal del periodo'),
+        ('suspension_anticipada', 'Suspensión anticipada por necesidad del servicio'),
+    ]
     ESTADOS = [
         ('pendiente', 'Pendiente'),
         ('en_revision', 'En revisión'),
-        ('aprobado', 'Aprobada'),
-        ('rechazado', 'Rechazada'),
+        ('devuelta', 'Devuelta'),
+        ('aprobado', 'Aprobado'),
+        ('rechazado', 'Rechazado'),
         ('cancelado', 'Cancelado'),
+        ('completado', 'Completado'),
     ]
 
     aprobaciones = GenericRelation(
@@ -736,12 +746,27 @@ class ReintegroVacaciones(models.Model):
     fecha_reintegro = models.DateField()
     motivo_reintegro = models.CharField(max_length=50, choices=MOTIVOS_REINTEGRO)
     observaciones = models.TextField(blank=True, null=True)
+    periodo_correspondiente_desde = models.DateField(null=True, blank=True)
+    periodo_correspondiente_hasta = models.DateField(null=True, blank=True)
     fecha_disfrute_desde = models.DateField()
     fecha_disfrute_hasta = models.DateField()
-    dias_disfrutados = models.IntegerField()
-    tipo_dias_disfrutados = models.CharField(max_length=1, choices=TIPO_DIAS)
-    dias_pendientes = models.IntegerField()
-    tipo_dias_pendientes = models.CharField(max_length=1, choices=TIPO_DIAS)
+    dias_disfrutados = models.IntegerField(default=0)
+    tipo_dias_disfrutados = models.CharField(max_length=3, choices=TIPO_DIAS, default='N/A')
+    dias_pendientes = models.IntegerField(default=0)
+    tipo_dias_pendientes = models.CharField(max_length=3, choices=TIPO_DIAS, default='N/A')
+    dias_disfrutados_habiles = models.IntegerField(default=0)
+    dias_disfrutados_calendario = models.IntegerField(default=0)
+    dias_pendientes_habiles = models.IntegerField(default=0)
+    dias_pendientes_calendario = models.IntegerField(default=0)
+    es_reintegro_anticipado = models.BooleanField(default=False)
+    firmado_por = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        related_name='reintegros_firmados',
+        null=True,
+        blank=True
+    )
+    firmado_en = models.DateTimeField(null=True, blank=True)
     periodo_vacacional = models.ForeignKey(PeriodoVacacional, on_delete=models.PROTECT)
     solicitud_vacaciones = models.ForeignKey(SolicitudVacaciones, on_delete=models.PROTECT)
     funcionario = models.ForeignKey(
@@ -750,6 +775,28 @@ class ReintegroVacaciones(models.Model):
         related_name="reintegros_vacaciones"
     )
     estado_solicitud = models.CharField(max_length=20, choices=ESTADOS, default='pendiente')
+
+    ETAPAS_ORDEN = ('JEFE', 'COORD', 'RRHH')
+
+    @property
+    def aprobaciones_ordenadas(self):
+        orden = Case(
+            When(etapa='JEFE', then=0),
+            When(etapa='COORD', then=1),
+            When(etapa='RRHH', then=2),
+            output_field=IntegerField(),
+        )
+        return list(self.aprobaciones.order_by(orden, 'id'))
+
+    @property
+    def etapa_activa(self):
+        for a in self.aprobaciones_ordenadas:
+            if a.estado == 'devuelta':
+                return a
+        for a in self.aprobaciones_ordenadas:
+            if a.estado == 'pendiente':
+                return a
+        return None
 
     @property
     def aprobada_por_jefe(self) -> bool:
@@ -765,6 +812,113 @@ class ReintegroVacaciones(models.Model):
     def autorizada_rrhh(self) -> bool:
         a = self.aprobaciones.filter(etapa='RRHH').first()
         return bool(a and a.estado == 'autorizada')
+
+    @property
+    def estado_global(self) -> str:
+        mapa = {a.etapa: a for a in self.aprobaciones.all()}
+        rrhh = mapa.get('RRHH')
+
+        if rrhh and rrhh.estado == 'rechazada':
+            return 'rechazada'
+        if any(a.estado == 'devuelta' for a in self.aprobaciones.all() if a.etapa in ('JEFE', 'COORD')):
+            return 'devuelta'
+        if rrhh and rrhh.estado == 'autorizada':
+            return 'autorizada'
+        if any(a.estado == 'pendiente' for a in self.aprobaciones.all()):
+            return 'en_progreso'
+        return 'desconocido'
+
+    @property
+    def colores_semaforo(self):
+        colores = []
+        activa_asignada = False
+        etapas = self.aprobaciones_ordenadas
+
+        for a in etapas:
+            est = (a.estado or '').lower()
+            if est in ('aprobada', 'autorizada'):
+                colores.append('verde')
+            elif est in ('devuelta', 'rechazada'):
+                colores.append('rojo')
+            elif est == 'pendiente':
+                if not activa_asignada:
+                    colores.append('amarillo')
+                    activa_asignada = True
+                else:
+                    colores.append('blanco')
+            else:
+                colores.append('blanco')
+        return colores
+
+    @property
+    def puede_editar_eliminar(self) -> bool:
+        if self.estado_solicitud == 'pendiente':
+            return True
+        if self.estado_global == 'rechazada':
+            return False
+        if self.estado_global == 'devuelta':
+            return True
+        return False
+
+    @property
+    def dias_disfrutados_total(self) -> int:
+        return max(0, (self.dias_disfrutados_habiles or 0) + (self.dias_disfrutados_calendario or 0))
+
+    @property
+    def dias_pendientes_total(self) -> int:
+        return max(0, (self.dias_pendientes_habiles or 0) + (self.dias_pendientes_calendario or 0))
+
+    def _actualizar_resumen_dias(self):
+        self.dias_disfrutados = self.dias_disfrutados_total
+        self.dias_pendientes = self.dias_pendientes_total
+
+        tipo_disfrutados = 'N/A'
+        if self.dias_disfrutados_habiles and self.dias_disfrutados_calendario:
+            tipo_disfrutados = 'HC'
+        elif self.dias_disfrutados_habiles:
+            tipo_disfrutados = 'H'
+        elif self.dias_disfrutados_calendario:
+            tipo_disfrutados = 'C'
+        self.tipo_dias_disfrutados = tipo_disfrutados
+
+        tipo_pendientes = 'N/A'
+        if self.dias_pendientes_habiles and self.dias_pendientes_calendario:
+            tipo_pendientes = 'HC'
+        elif self.dias_pendientes_habiles:
+            tipo_pendientes = 'H'
+        elif self.dias_pendientes_calendario:
+            tipo_pendientes = 'C'
+        self.tipo_dias_pendientes = tipo_pendientes
+
+    def clean(self):
+        if self.fecha_disfrute_desde and self.fecha_disfrute_hasta:
+            if self.fecha_disfrute_desde > self.fecha_disfrute_hasta:
+                raise ValidationError("La fecha de inicio del disfrute no puede ser posterior a la fecha final.")
+        if self.fecha_reintegro and self.fecha_disfrute_hasta and self.fecha_reintegro <= self.fecha_disfrute_hasta:
+            raise ValidationError("La fecha de reintegro debe ser posterior al último día del disfrute.")
+
+        if self.es_reintegro_anticipado and not (self.observaciones and self.observaciones.strip()):
+            raise ValidationError("Las observaciones son obligatorias cuando el reintegro es anticipado.")
+
+        if self.solicitud_vacaciones_id:
+            otras = ReintegroVacaciones.objects.filter(
+                solicitud_vacaciones_id=self.solicitud_vacaciones_id
+            ).exclude(pk=self.pk)
+            otras = otras.exclude(estado_solicitud__in=['rechazado', 'cancelado', 'completado'])
+            if otras.exists():
+                raise ValidationError("Ya existe un reintegro activo asociado a la solicitud seleccionada.")
+
+            if not self.solicitud_vacaciones.autorizada_rrhh:
+                raise ValidationError("Solo se pueden crear reintegros de solicitudes autorizadas por RRHH.")
+
+        self._actualizar_resumen_dias()
+
+    def save(self, *args, **kwargs):
+        if not self.codigo_sabs:
+            anio_codigo = self.fecha_solicitud.year if self.fecha_solicitud else get_current_date_colombia().year
+            self.codigo_sabs = generar_codigo_sabs('REI', anio_codigo)
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Reintegro {self.codigo_sabs} - {self.funcionario}"
@@ -782,12 +936,37 @@ class ReintegroVacaciones(models.Model):
             ("rechazar_reintegro", "Puede rechazar reintegros de vacaciones"),
             ("cerrar_reintegro", "Puede cerrar reintegros de vacaciones"),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['solicitud_vacaciones'],
+                condition=Q(estado_solicitud__in=['pendiente', 'en_revision', 'devuelta', 'aprobado']),
+                name='uniq_reintegro_activo_por_solicitud'
+            )
+        ]
 
-    def save(self, *args, **kwargs):
-        if not self.codigo_sabs:
-            anio_codigo = self.fecha_solicitud.year if self.fecha_solicitud else get_current_date_colombia().year
-            self.codigo_sabs = generar_codigo_sabs('REI', anio_codigo)
-        super().save(*args, **kwargs)
+
+@receiver(post_save, sender=ReintegroVacaciones)
+def crear_etapas_por_defecto_reintegro(sender, instance: ReintegroVacaciones, created, **kwargs):
+    if not created:
+        return
+
+    existentes = set(instance.aprobaciones.values_list('etapa', flat=True))
+    por_crear = [e for e in ReintegroVacaciones.ETAPAS_ORDEN if e not in existentes]
+
+    if not por_crear:
+        return
+
+    ct_reintegro = ContentType.objects.get_for_model(ReintegroVacaciones)
+    objs = [
+        AprobacionEtapa(
+            content_type=ct_reintegro,
+            object_id=instance.pk,
+            etapa=e,
+            estado='pendiente',
+        )
+        for e in por_crear
+    ]
+    AprobacionEtapa.objects.bulk_create(objs)
 
 
 # ============================================================

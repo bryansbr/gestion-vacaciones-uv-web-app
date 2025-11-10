@@ -1,0 +1,92 @@
+{% if reintegros %}
+<div class="overflow-x-auto">
+  <table class="min-w-full border border-gray-300 text-sm">
+    <thead class="bg-gray-100 text-gray-600">
+      <tr>
+        <th class="px-4 py-2 border">Código SABS</th>
+        <th class="px-4 py-2 border">Periodo disfrutado</th>
+        <th class="px-4 py-2 border">Fecha de reintegro</th>
+        <th class="px-4 py-2 border">Motivo</th>
+        <th class="px-4 py-2 border">Días disfrutados</th>
+        <th class="px-4 py-2 border">Pendientes</th>
+        <th class="px-4 py-2 border">Avance</th>
+        <th class="px-4 py-2 border">Estado</th>
+        <th class="px-4 py-2 border">Firmado</th>
+        <th class="px-4 py-2 border">Acciones</th>
+      </tr>
+    </thead>
+    <tbody class="text-center">
+      {% for reintegro in reintegros %}
+      <tr class="border-b hover:bg-gray-50">
+        <td class="px-4 py-2 border">{{ reintegro.codigo_sabs }}</td>
+        <td class="px-4 py-2 border">
+          {{ reintegro.fecha_disfrute_desde|date:"d/m/Y" }} -
+          {{ reintegro.fecha_disfrute_hasta|date:"d/m/Y" }}
+        </td>
+        <td class="px-4 py-2 border">{{ reintegro.fecha_reintegro|date:"d/m/Y" }}</td>
+        <td class="px-4 py-2 border">{{ reintegro.get_motivo_reintegro_display }}</td>
+        <td class="px-4 py-2 border">
+          {{ reintegro.dias_disfrutados }}
+          {% if reintegro.dias_disfrutados_habiles %}<span class="block text-xs text-gray-500">{{ reintegro.dias_disfrutados_habiles }} Hábiles</span>{% endif %}
+          {% if reintegro.dias_disfrutados_calendario %}<span class="block text-xs text-gray-500">{{ reintegro.dias_disfrutados_calendario }} Calendario</span>{% endif %}
+        </td>
+        <td class="px-4 py-2 border">
+          {{ reintegro.dias_pendientes }}
+          {% if reintegro.dias_pendientes_habiles %}<span class="block text-xs text-gray-500">{{ reintegro.dias_pendientes_habiles }} Hábiles</span>{% endif %}
+          {% if reintegro.dias_pendientes_calendario %}<span class="block text-xs text-gray-500">{{ reintegro.dias_pendientes_calendario }} Calendario</span>{% endif %}
+        </td>
+        <td class="px-4 py-2 border">
+          <div class="flex justify-center gap-1">
+            {% for color in reintegro.colores_semaforo %}
+              <span class="inline-block w-3 h-3 rounded-full border" data-color="{{ color }}"
+                    style="background-color: {% if color == 'verde' %}#22c55e{% elif color == 'rojo' %}#ef4444{% elif color == 'amarillo' %}#facc15{% else %}#e5e7eb{% endif %};"></span>
+            {% endfor %}
+          </div>
+        </td>
+        <td class="px-4 py-2 border font-medium text-indigo-600">{{ reintegro.get_estado_solicitud_display }}</td>
+        <td class="px-4 py-2 border">
+          {% if reintegro.firmado_por %}
+            <span class="text-green-600 font-semibold">Firmado</span>
+          {% else %}
+            <span class="text-gray-500">Pendiente</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-2 border">
+          <div class="flex justify-center items-center">
+            {% include 'vacaciones/partials/_menu-acciones-reintegro.html' with reintegro=reintegro %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if is_paginated %}
+<div class="mt-6 flex justify-center items-center gap-2">
+  {% if page_obj.has_previous %}
+  <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.estado %}&estado={{ request.GET.estado }}{% endif %}"
+     class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200">
+    Anterior
+  </a>
+  {% else %}
+  <span class="px-4 py-2 bg-gray-200 text-gray-400 rounded-md cursor-not-allowed">Anterior</span>
+  {% endif %}
+
+  <span class="text-gray-700">
+    Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+  </span>
+
+  {% if page_obj.has_next %}
+  <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.estado %}&estado={{ request.GET.estado }}{% endif %}"
+     class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200">
+    Siguiente
+  </a>
+  {% else %}
+  <span class="px-4 py-2 bg-gray-200 text-gray-400 rounded-md cursor-not-allowed">Siguiente</span>
+  {% endif %}
+</div>
+{% endif %}
+{% else %}
+<p class="text-gray-600">No has registrado reintegros aún.</p>
+{% endif %}

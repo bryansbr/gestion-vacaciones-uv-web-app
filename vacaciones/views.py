@@ -20,7 +20,11 @@ from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 from weasyprint import HTML
 
 from core.permissions import group_required, es_secretaria, es_jefe_inmediato, es_coordinador_administrativo, es_rrhh
-from .forms import PeriodoVacacionalForm, SolicitudVacacionesForm
+from .forms import (
+    PeriodoVacacionalForm,
+    SolicitudVacacionesForm,
+    ReintegroVacacionesForm,
+)
 from .models import (
     AprobacionEtapa,
     PeriodoVacacional,
@@ -34,6 +38,14 @@ from .services.aprobaciones import (
     devolver_etapa,
     rechazar_rrhh,
     reenviar_funcionario
+)
+from .services.reintegros import (
+    aprobar_etapa_reintegro,
+    autorizar_rrhh_reintegro,
+    devolver_etapa_reintegro,
+    firmar_reintegro,
+    rechazar_rrhh_reintegro,
+    reenviar_funcionario_reintegro,
 )
 from .utils import get_current_date_colombia, puede_solicitar_vacaciones_hoy
 from usuarios.models import Funcionario
@@ -57,6 +69,12 @@ SECRETARIA_SOLICITUDES_LIST_TEMPLATE = "vacaciones/roles/secretaria/secretaria-s
 SECRETARIA_SOLICITUD_FORM_TEMPLATE = "vacaciones/roles/secretaria/secretaria-solicitud-form.html"
 SECRETARIA_SOLICIT_CONFIRM_DELETE_TEMPLATE = "vacaciones/roles/secretaria/secretaria-solicitud-confirm-delete.html"
 TABLA_SECRETARIA_SOLICITUDES_PARTIAL = "vacaciones/partials/_tabla-secretaria-solicitudes.html"
+
+REINTEGRO_P4_PDF_TEMPLATE = "vacaciones/reintegro-laboral-p4.html"
+REINTEGRO_VACACIONES_LIST_TEMPLATE = "vacaciones/reintegro-vac/reintegro-vacaciones-list.html"
+REINTEGRO_VACACIONES_FORM_TEMPLATE = "vacaciones/reintegro-vac/reintegro-vacaciones-form.html"
+REINTEGRO_VACACIONES_CONFIRM_DELETE_TEMPLATE = "vacaciones/reintegro-vac/reintegro-vacaciones-confirm-delete.html"
+TABLA_FUNCIONARIO_REINTEGROS_PARTIAL = "vacaciones/partials/_tabla-funcionario-reintegros.html"
 
 # -----------------------------------------
 # VISTA: PeriodoVacacional
@@ -211,7 +229,7 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         solicitudes_sin_reintegro = []
         for solicitud in solicitudes_activas_qs:
             tiene_reintegro = any(
-                reintegro.estado_solicitud == 'aprobado' 
+                reintegro.estado_solicitud in ('aprobado', 'completado')
                 for reintegro in solicitud.reintegrovacaciones_set.all()
             )
             
@@ -275,7 +293,7 @@ class SolicitudVacacionesCreateView(LoginRequiredMixin, CreateView):
         solicitudes_sin_reintegro = []
         for solicitud in solicitudes_activas:
             tiene_reintegro = any(
-                reintegro.estado_solicitud == 'aprobado' 
+                reintegro.estado_solicitud in ('aprobado', 'completado')
                 for reintegro in solicitud.reintegrovacaciones_set.all()
             )
             
@@ -376,7 +394,7 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
             
             for solicitud in solicitudes_activas:
                 tiene_reintegro = any(
-                    reintegro.estado_solicitud == 'aprobado' 
+                    reintegro.estado_solicitud in ('aprobado', 'completado')
                     for reintegro in solicitud.reintegrovacaciones_set.all()
                 )
                 
@@ -397,7 +415,7 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
             
             for solicitud in solicitudes_activas:
                 tiene_reintegro = any(
-                    reintegro.estado_solicitud == 'aprobado' 
+                    reintegro.estado_solicitud in ('aprobado', 'completado')
                     for reintegro in solicitud.reintegrovacaciones_set.all()
                 )
                 
@@ -428,7 +446,7 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
                     solicitudes_sin_reintegro_func = []
                     for solicitud in solicitudes_activas_func:
                         tiene_reintegro = any(
-                            reintegro.estado_solicitud == 'aprobado' 
+                            reintegro.estado_solicitud in ('aprobado', 'completado')
                             for reintegro in solicitud.reintegrovacaciones_set.all()
                         )
                         if not tiene_reintegro:
@@ -470,7 +488,7 @@ class SolicitudVacacionesListView(LoginRequiredMixin, ListView):
                     solicitudes_sin_reintegro_func = []
                     for solicitud in solicitudes_activas_func:
                         tiene_reintegro = any(
-                            reintegro.estado_solicitud == 'aprobado' 
+                            reintegro.estado_solicitud in ('aprobado', 'completado')
                             for reintegro in solicitud.reintegrovacaciones_set.all()
                         )
                         if not tiene_reintegro:
@@ -630,6 +648,208 @@ class SolicitudVacacionesDeleteView(LoginRequiredMixin, DeleteView):
         messages.success(request, "Solicitud eliminada correctamente.")
         return super().delete(request, *args, **kwargs)
 
+
+class ReintegroVacacionesListView(LoginRequiredMixin, ListView):
+    model = ReintegroVacaciones
+    template_name = REINTEGRO_VACACIONES_LIST_TEMPLATE
+    context_object_name = "reintegros"
+    paginate_by = 20
+
+    def get(self, request, *args, **kwargs):
+        if request.htmx:
+            self.object_list = self.get_queryset()
+            context = self.get_context_data()
+            html = render_to_string(TABLA_FUNCIONARIO_REINTEGROS_PARTIAL, context, request)
+            return HttpResponse(html)
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_superuser:
+            return (
+                ReintegroVacaciones.objects.select_related(
+                    "funcionario",
+                    "solicitud_vacaciones",
+                    "periodo_vacacional",
+                )
+                .order_by("-fecha_solicitud", "-id")
+            )
+
+        funcionario = getattr(user, "funcionario", None)
+        if not funcionario:
+            return ReintegroVacaciones.objects.none()
+
+        qs = (
+            ReintegroVacaciones.objects.filter(funcionario=funcionario)
+            .select_related("solicitud_vacaciones", "periodo_vacacional")
+            .order_by("-fecha_solicitud", "-id")
+        )
+
+        q = self.request.GET.get("q", "").strip()
+        estado = self.request.GET.get("estado", "").strip()
+
+        if q:
+            qs = qs.filter(codigo_sabs__icontains=q)
+        if estado:
+            qs = qs.filter(estado_solicitud=estado)
+        return qs
+
+    @staticmethod
+    def _solicitudes_autorizadas_sin_reintegro(funcionario: Funcionario):
+        autorizadas = (
+            SolicitudVacaciones.objects.filter(
+                funcionario=funcionario,
+                aprobaciones__etapa='RRHH',
+                aprobaciones__estado='autorizada',
+            )
+            .select_related('periodo_vacacional')
+            .prefetch_related('reintegrovacaciones_set')
+            .distinct()
+        )
+        disponibles = []
+        for solicitud in autorizadas:
+            tiene_activo = solicitud.reintegrovacaciones_set.exclude(
+                estado_solicitud__in=['rechazado', 'cancelado', 'completado']
+            ).exists()
+            if not tiene_activo:
+                disponibles.append(solicitud)
+        return disponibles
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        funcionario = getattr(self.request.user, "funcionario", None)
+        solicitudes_disponibles = []
+
+        if funcionario:
+            solicitudes_disponibles = self._solicitudes_autorizadas_sin_reintegro(funcionario)
+
+        context["puede_crear_reintegro"] = len(solicitudes_disponibles) > 0
+        context["solicitudes_autorizadas"] = solicitudes_disponibles
+        context["solicitud_preseleccionada"] = self.request.GET.get("solicitud_id")
+
+        if self.request.GET.get("creado"):
+            context["reintegro_creado_codigo"] = self.request.GET.get("codigo", "")
+        if self.request.GET.get("actualizado"):
+            context["reintegro_actualizado_codigo"] = self.request.GET.get("codigo", "")
+
+        return context
+
+
+class ReintegroVacacionesCreateView(LoginRequiredMixin, CreateView):
+    model = ReintegroVacaciones
+    form_class = ReintegroVacacionesForm
+    template_name = REINTEGRO_VACACIONES_FORM_TEMPLATE
+    success_url = reverse_lazy("vacaciones:reintegro-vacaciones-list")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def get_initial(self):
+        initial = super().get_initial()
+        hoy_colombia = get_current_date_colombia()
+        initial["codigo_sabs"] = generar_codigo_sabs('REI', hoy_colombia.year)
+
+        solicitud_id = self.request.GET.get("solicitud_id")
+        if solicitud_id:
+            initial["solicitud_vacaciones"] = solicitud_id
+            try:
+                solicitud = SolicitudVacaciones.objects.get(pk=solicitud_id)
+                initial.setdefault("fecha_disfrute_desde", solicitud.fecha_inicio_vacaciones)
+                initial.setdefault("fecha_disfrute_hasta", solicitud.fecha_fin_vacaciones)
+                if solicitud.periodo_vacacional:
+                    initial.setdefault("periodo_correspondiente_desde", solicitud.periodo_vacacional.fecha_inicio_periodo)
+                    initial.setdefault("periodo_correspondiente_hasta", solicitud.periodo_vacacional.fecha_fin_periodo)
+            except SolicitudVacaciones.DoesNotExist:
+                pass
+        return initial
+
+    def dispatch(self, request, *args, **kwargs):
+        funcionario = getattr(request.user, "funcionario", None)
+        if not funcionario:
+            messages.error(request, "No se encontró información del funcionario asociado.")
+            return redirect("vacaciones:reintegro-vacaciones-list")
+
+        disponibles = ReintegroVacacionesListView._solicitudes_autorizadas_sin_reintegro(funcionario)
+        if not disponibles:
+            messages.error(request, "No tiene solicitudes autorizadas disponibles para reintegro.")
+            return redirect("vacaciones:reintegro-vacaciones-list")
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        reintegro = form.save(commit=False)
+        reintegro.creada_por = self.request.user
+        if not reintegro.funcionario_id and hasattr(self.request.user, "funcionario"):
+            reintegro.funcionario = self.request.user.funcionario
+        reintegro.save()
+        form.save_m2m()
+
+        messages.success(self.request, "Reintegro registrado correctamente.")
+        url = self.get_success_url()
+        separador = '&' if ('?' in url) else '?'
+        codigo_q = urllib.parse.quote(reintegro.codigo_sabs)
+        return redirect(f"{url}{separador}creado=1&codigo={codigo_q}")
+
+
+class ReintegroVacacionesUpdateView(LoginRequiredMixin, UpdateView):
+    model = ReintegroVacaciones
+    form_class = ReintegroVacacionesForm
+    template_name = REINTEGRO_VACACIONES_FORM_TEMPLATE
+    success_url = reverse_lazy("vacaciones:reintegro-vacaciones-list")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def dispatch(self, request, *args, **kwargs):
+        reintegro = self.get_object()
+        if getattr(reintegro.funcionario, 'user_id', None) != request.user.id and not request.user.is_superuser:
+            messages.error(request, "No tiene permisos para editar este reintegro.")
+            return redirect("vacaciones:reintegro-vacaciones-list")
+
+        if not reintegro.puede_editar_eliminar:
+            messages.error(request, "Solo puede editar reintegros en estado 'pendiente' o 'devueltos'.")
+            return redirect("vacaciones:reintegro-vacaciones-list")
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        messages.success(self.request, "Reintegro actualizado correctamente.")
+        response = super().form_valid(form)
+        url = self.get_success_url()
+        separador = '&' if ('?' in url) else '?'
+        codigo_q = urllib.parse.quote(self.object.codigo_sabs)
+        return redirect(f"{url}{separador}actualizado=1&codigo={codigo_q}")
+
+
+class ReintegroVacacionesDeleteView(LoginRequiredMixin, DeleteView):
+    model = ReintegroVacaciones
+    template_name = REINTEGRO_VACACIONES_CONFIRM_DELETE_TEMPLATE
+    success_url = reverse_lazy("vacaciones:reintegro-vacaciones-list")
+
+    def get_queryset(self):
+        funcionario = getattr(self.request.user, "funcionario", None)
+        if funcionario:
+            return ReintegroVacaciones.objects.filter(funcionario=funcionario)
+        return ReintegroVacaciones.objects.all()
+
+    def dispatch(self, request, *args, **kwargs):
+        reintegro = self.get_object()
+        if getattr(reintegro.funcionario, 'user_id', None) != request.user.id and not request.user.is_superuser:
+            messages.error(request, "No tiene permisos para eliminar este reintegro.")
+            return redirect("vacaciones:reintegro-vacaciones-list")
+
+        if not reintegro.puede_editar_eliminar:
+            messages.error(request, "Solo puede eliminar reintegros en estado 'pendiente' o 'devueltos'.")
+            return redirect("vacaciones:reintegro-vacaciones-list")
+        return super().dispatch(request, *args, **kwargs)
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(request, "Reintegro eliminado correctamente.")
+        return super().delete(request, *args, **kwargs)
+
+
 def solicitud_vacaciones_create(request):
     years = [get_current_date_colombia().year, get_current_date_colombia().year + 1]
     festivos = []
@@ -711,6 +931,73 @@ def reenviar_view(request, pk):
         messages.error(request, str(e))
     return redirect("vacaciones:solicitud-vacaciones-list")
 
+
+@login_required
+def firmar_reintegro_view(request, pk):
+    rein = get_object_or_404(ReintegroVacaciones, pk=pk)
+    try:
+        firmar_reintegro(request.user, rein)
+        messages.success(request, "Reintegro firmado correctamente.")
+    except (ValidationError, PermissionDenied) as e:
+        messages.error(request, str(e))
+    return redirect("vacaciones:reintegro-vacaciones-list")
+
+
+@login_required
+def reenviar_reintegro_view(request, pk):
+    rein = get_object_or_404(ReintegroVacaciones, pk=pk)
+    try:
+        reenviar_funcionario_reintegro(request.user, rein, observacion=request.POST.get('obs'))
+        messages.success(request, "Reintegro enviado correctamente al flujo de aprobación.")
+    except (ValidationError, PermissionDenied) as e:
+        messages.error(request, str(e))
+    return redirect("vacaciones:reintegro-vacaciones-list")
+
+
+@login_required
+def aprobar_reintegro_view(request, pk):
+    rein = get_object_or_404(ReintegroVacaciones, pk=pk)
+    try:
+        aprobar_etapa_reintegro(request.user, rein, observacion=request.POST.get('obs'))
+        messages.success(request, "Etapa del reintegro aprobada correctamente.")
+    except (ValidationError, PermissionDenied) as e:
+        messages.error(request, str(e))
+    return redirect("vacaciones:reintegro-vacaciones-list")
+
+
+@login_required
+def devolver_reintegro_view(request, pk):
+    rein = get_object_or_404(ReintegroVacaciones, pk=pk)
+    try:
+        devolver_etapa_reintegro(request.user, rein, observacion=request.POST.get('obs', ''))
+        messages.info(request, "Reintegro devuelto al funcionario para ajustes.")
+    except (ValidationError, PermissionDenied) as e:
+        messages.error(request, str(e))
+    return redirect("vacaciones:reintegro-vacaciones-list")
+
+
+@login_required
+def autorizar_reintegro_view(request, pk):
+    rein = get_object_or_404(ReintegroVacaciones, pk=pk)
+    try:
+        autorizar_rrhh_reintegro(request.user, rein, observacion=request.POST.get('obs'))
+        messages.success(request, "Reintegro autorizado por Recursos Humanos.")
+    except (ValidationError, PermissionDenied) as e:
+        messages.error(request, str(e))
+    return redirect("vacaciones:reintegro-vacaciones-list")
+
+
+@login_required
+def rechazar_reintegro_view(request, pk):
+    rein = get_object_or_404(ReintegroVacaciones, pk=pk)
+    try:
+        rechazar_rrhh_reintegro(request.user, rein, observacion=request.POST.get('obs', ''))
+        messages.warning(request, "Reintegro rechazado por Recursos Humanos.")
+    except (ValidationError, PermissionDenied) as e:
+        messages.error(request, str(e))
+    return redirect("vacaciones:reintegro-vacaciones-list")
+
+
 # ==========================================================
 # PDF - WeasyPrint
 # ==========================================================
@@ -789,7 +1076,6 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
         funcionario = solicitud.funcionario
         periodo = solicitud.periodo_vacacional
 
-        # Fechas
         f_elab = self._split_fecha(solicitud.fecha_solicitud or date.today())
         f_inicio_periodo = self._split_fecha(getattr(periodo, "fecha_inicio_periodo", None))
         f_fin_periodo = self._split_fecha(getattr(periodo, "fecha_fin_periodo", None))
@@ -797,7 +1083,6 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
         f_fin_disfrute = self._split_fecha(solicitud.fecha_fin_vacaciones)
         f_pago = self._quincena(solicitud.fecha_pago)
 
-        # Tipo de días
         estamento = funcionario.estamento.nombre.lower()
         decreto = (funcionario.decreto_resolucion or "").strip()
         es_habiles, es_calendario = False, False
@@ -815,7 +1100,6 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
             static("vacaciones/img/logosimbolo_univalle_negro.png")
         )
 
-        # Obtener información de quien aprobó (Jefe Inmediato)
         aprobacion_jefe = solicitud.aprobaciones.filter(etapa='JEFE', estado='aprobada').first()
         autorizado_por = ""
         if aprobacion_jefe and aprobacion_jefe.actualizado_por:
@@ -823,7 +1107,6 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
             if hasattr(user_aprobador, 'funcionario') and user_aprobador.funcionario:
                 autorizado_por = f"{user_aprobador.funcionario.nombre} {user_aprobador.funcionario.apellido}"
 
-        # Obtener información de quien aprobó (Coordinador Administrativo)
         aprobacion_coord = solicitud.aprobaciones.filter(etapa='COORD', estado='aprobada').first()
         coordinado_por = ""
         if aprobacion_coord and aprobacion_coord.actualizado_por:
@@ -831,7 +1114,6 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
             if hasattr(user_coordinador, 'funcionario') and user_coordinador.funcionario:
                 coordinado_por = f"{user_coordinador.funcionario.nombre} {user_coordinador.funcionario.apellido}"
 
-        # Obtener información de quien autorizó (RRHH)
         aprobacion_rrhh = solicitud.aprobaciones.filter(etapa='RRHH', estado='autorizada').first()
         autorizado_rrhh_por = ""
         if aprobacion_rrhh and aprobacion_rrhh.actualizado_por:
@@ -883,6 +1165,212 @@ class SolicitudVacacionesPDFView(LoginRequiredMixin, View):
             f'inline; filename="{filename}"; filename*=UTF-8\'\'{urllib.parse.quote(filename)}'
         )
 
+        return response
+
+class ReintegroVacacionesPDFView(LoginRequiredMixin, View):
+    """Genera el PDF del reintegro (F-02-MP-10-04-01) con WeasyPrint."""
+
+    def _split_fecha(self, f):
+        if not f:
+            return {"dia": "", "mes": "", "anio": ""}
+        return {"dia": f.day, "mes": f.month, "anio": f.year}
+
+    def get(self, request, pk):
+        try:
+            reintegro = ReintegroVacaciones.objects.select_related(
+                "funcionario",
+                "periodo_vacacional",
+                "solicitud",
+                "funcionario__estamento",
+                "funcionario__facultad_dependencia",
+                "funcionario__sede",
+            ).prefetch_related(
+                "aprobaciones__actualizado_por__funcionario"
+            ).get(pk=pk)
+        except ReintegroVacaciones.DoesNotExist:
+            raise Http404("Reintegro no encontrado")
+
+        owner_id = reintegro.funcionario_id
+        user_funcionario_id = None
+        es_jefe_del_funcionario = False
+        es_secretaria_autorizada = False
+        es_coordinador_autorizado = False
+        es_rrhh_autorizado = False
+
+        try:
+            es_rrhh_autorizado = (
+                es_rrhh(request.user) or 
+                (hasattr(request.user, 'email') and request.user.email and "recursos.humanos" in request.user.email.lower())
+            )
+        except Exception:
+            es_rrhh_autorizado = False
+
+        if hasattr(request.user, "funcionario") and request.user.funcionario is not None:
+            user_funcionario_id = request.user.funcionario.pk
+            try:
+                es_jefe_del_funcionario = (reintegro.funcionario.jefe_inmediato_id == request.user.funcionario.pk)
+            except Exception:
+                es_jefe_del_funcionario = False
+
+            try:
+                if es_secretaria(request.user):
+                    secretaria_func = request.user.funcionario
+                    if secretaria_func.jefe_inmediato and reintegro.funcionario.jefe_inmediato:
+                        es_secretaria_autorizada = (secretaria_func.jefe_inmediato.pk == reintegro.funcionario.jefe_inmediato.pk)
+            except Exception:
+                es_secretaria_autorizada = False
+
+            try:
+                if es_coordinador_administrativo(request.user):
+                    coord_func = request.user.funcionario
+                    es_coordinador_autorizado = (coord_func.facultad_dependencia_id == reintegro.funcionario.facultad_dependencia_id)
+            except Exception:
+                es_coordinador_autorizado = False
+
+        if not (
+            request.user.is_staff
+            or request.user.is_superuser
+            or user_funcionario_id == owner_id
+            or es_jefe_del_funcionario
+            or es_secretaria_autorizada
+            or es_coordinador_autorizado
+            or es_rrhh_autorizado
+        ):
+            raise Http404("No autorizado")
+
+        funcionario = reintegro.funcionario
+        periodo = getattr(reintegro, "periodo_vacacional", None)
+        solicitud = getattr(reintegro, "solicitud_vacaciones", None)
+
+        f_elab = self._split_fecha(
+            getattr(reintegro, "fecha_reintegro", None)
+            or getattr(reintegro, "created_at", None)
+            or date.today()
+        )
+
+        f_per_corr_desde = self._split_fecha(
+            getattr(reintegro, "periodo_correspondiente_desde", None)
+            or getattr(periodo, "fecha_inicio_periodo", None)
+        )
+        f_per_corr_hasta = self._split_fecha(
+            getattr(reintegro, "periodo_correspondiente_hasta", None)
+            or getattr(periodo, "fecha_fin_periodo", None)
+        )
+
+        f_disfrute_desde = self._split_fecha(
+            getattr(reintegro, "fecha_disfrute_desde", None)
+            or (getattr(solicitud, "fecha_inicio_vacaciones", None) if solicitud else None)
+        )
+        f_disfrute_hasta = self._split_fecha(
+            getattr(reintegro, "fecha_disfrute_hasta", None)
+            or (getattr(solicitud, "fecha_fin_vacaciones", None) if solicitud else None)
+        )
+
+        estamento = (funcionario.estamento.nombre or "").strip().lower()
+        decreto = (getattr(funcionario, "decreto_resolucion", "") or "").strip()
+        base_es_habiles, base_es_calendario = False, False
+        if estamento == "docente":
+            if decreto == "1279":
+                base_es_habiles, base_es_calendario = True, True
+            elif decreto == "115":
+                base_es_habiles, base_es_calendario = False, True
+        elif estamento == "administrativo":
+            base_es_habiles, base_es_calendario = True, False
+        elif estamento == "trabajador oficial":
+            base_es_habiles, base_es_calendario = False, True
+
+        dias_disfrutados = reintegro.dias_disfrutados or 0
+        if dias_disfrutados == 0 and solicitud:
+            dias_disfrutados = getattr(solicitud, "total_dias_solicitados", 0) or dias_disfrutados
+
+        disfrutados_es_habiles = bool(reintegro.dias_disfrutados_habiles) or base_es_habiles
+        disfrutados_es_calendario = bool(reintegro.dias_disfrutados_calendario) or base_es_calendario
+        pendientes_es_habiles = bool(reintegro.dias_pendientes_habiles)
+        pendientes_es_calendario = bool(reintegro.dias_pendientes_calendario)
+
+        dias_pendientes = reintegro.dias_pendientes or 0
+
+        logo_url = request.build_absolute_uri(
+            static("vacaciones/img/logosimbolo_univalle_negro.png")
+        )
+
+        firmado_jefe = ""
+        aprobado_jefe = getattr(reintegro, "aprobaciones", None)
+        if aprobado_jefe:
+            ap_jefe = reintegro.aprobaciones.filter(etapa='JEFE', estado='aprobada').first()
+            if ap_jefe and ap_jefe.actualizado_por:
+                up = ap_jefe.actualizado_por
+                if hasattr(up, "funcionario") and up.funcionario:
+                    firmado_jefe = f"{up.funcionario.nombre} {up.funcionario.apellido}"
+
+        firmado_coord = ""
+        ap_coord = getattr(reintegro, "aprobaciones", None)
+        if ap_coord:
+            ap_c = reintegro.aprobaciones.filter(etapa='COORD', estado='aprobada').first()
+            if ap_c and ap_c.actualizado_por:
+                up = ap_c.actualizado_por
+                if hasattr(up, "funcionario") and up.funcionario:
+                    firmado_coord = f"{up.funcionario.nombre} {up.funcionario.apellido}"
+
+        firmado_rrhh = ""
+        ap_rrhh = getattr(reintegro, "aprobaciones", None)
+        if ap_rrhh:
+            ap_r = reintegro.aprobaciones.filter(etapa='RRHH', estado='autorizada').first()
+            if ap_r and ap_r.actualizado_por:
+                up = ap_r.actualizado_por
+                if hasattr(up, "funcionario") and up.funcionario:
+                    firmado_rrhh = f"{up.funcionario.nombre} {up.funcionario.apellido}"
+                else:
+                    firmado_rrhh = up.get_full_name() or up.email
+
+        context = {
+            "logo_url": logo_url,
+            "pie_pagina": "F-02-MP-10-04-01 V-04-2014  |  Elaborado por: División de Recursos Humanos",
+
+            "fecha_elaboracion": f_elab,
+            "numero_identificacion": funcionario.numero_identificacion,
+            "nombre_funcionario": f"{funcionario.nombre} {funcionario.apellido}",
+            "estamento": funcionario.estamento.nombre,
+            "codigo_sabs": getattr(solicitud, "codigo_sabs", "") or getattr(reintegro, "codigo_sabs", ""),
+            "sede": getattr(funcionario.sede, "nombre", "") or getattr(funcionario.sede, "descripcion", ""),
+            "facultad_dependencia": getattr(funcionario.facultad_dependencia, "nombre", "") or getattr(funcionario.facultad_dependencia, "descripcion", ""),
+
+            "fecha_reintegro": self._split_fecha(getattr(reintegro, "fecha_reintegro", None)),
+
+            "periodo_corresp_desde": f_per_corr_desde,
+            "periodo_corresp_hasta": f_per_corr_hasta,
+            "periodo_disfrute_desde": f_disfrute_desde,
+            "periodo_disfrute_hasta": f_disfrute_hasta,
+
+            "dias_disfrutados": dias_disfrutados,
+            "disfrutados_es_habiles": disfrutados_es_habiles,
+            "disfrutados_es_calendario": disfrutados_es_calendario,
+
+            "dias_pendientes": dias_pendientes,
+            "pendientes_es_habiles": pendientes_es_habiles,
+            "pendientes_es_calendario": pendientes_es_calendario,
+
+            "observaciones": getattr(reintegro, "observaciones", "") or "",
+
+            "firmado_funcionario": f"{funcionario.nombre} {funcionario.apellido}",
+            "firmado_jefe": firmado_jefe,
+            "firmado_coordinador": firmado_coord,
+            "firmado_rrhh": firmado_rrhh,
+        }
+
+        html_string = render_to_string(REINTEGRO_P4_PDF_TEMPLATE, context)
+        base_url = request.build_absolute_uri("/")
+        pdf_bytes = HTML(string=html_string, base_url=base_url).write_pdf()
+
+        file_stem = (
+            f"REINTEGRO_{getattr(solicitud, 'codigo_sabs', 'SABS')}_{funcionario.numero_identificacion}"
+        ).replace(" ", "")
+        filename = f"{file_stem}.pdf"
+
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f'inline; filename="{filename}"; filename*=UTF-8\'\'{urllib.parse.quote(filename)}'
+        )
         return response
 
 # ==========================================================
@@ -995,7 +1483,7 @@ class SecretariaSolicitudCreateView(LoginRequiredMixin, CreateView):
         solicitudes_sin_reintegro = []
         for solicitud in solicitudes_activas:
             tiene_reintegro = any(
-                reintegro.estado_solicitud == 'aprobado' 
+                reintegro.estado_solicitud in ('aprobado', 'completado')
                 for reintegro in solicitud.reintegrovacaciones_set.all()
             )
             if not tiene_reintegro:
@@ -1124,7 +1612,7 @@ class SecretariaSolicitudCreateView(LoginRequiredMixin, CreateView):
         solicitudes_sin_reintegro = []
         for solicitud in solicitudes_activas:
             tiene_reintegro = any(
-                reintegro.estado_solicitud == 'aprobado' 
+                reintegro.estado_solicitud in ('aprobado', 'completado')
                 for reintegro in solicitud.reintegrovacaciones_set.all()
             )
             if not tiene_reintegro:

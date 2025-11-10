@@ -14,7 +14,12 @@ from .views import (
     SolicitudVacacionesCreateView,
     SolicitudVacacionesUpdateView,
     SolicitudVacacionesDeleteView,
+    ReintegroVacacionesListView,
+    ReintegroVacacionesCreateView,
+    ReintegroVacacionesUpdateView,
+    ReintegroVacacionesDeleteView,
     SolicitudVacacionesPDFView,
+    ReintegroVacacionesPDFView
 )
 
 app_name = "vacaciones"
@@ -48,6 +53,14 @@ urlpatterns = [
     path("solicitudes/<int:pk>/pdf/",                   SolicitudVacacionesPDFView.as_view(),    name="solicitud_vacaciones_pdf"),
 
     # -----------------------------------------
+    # MODELO: ReintegroVacaciones (Funcionario)
+    # -----------------------------------------
+    path("reintegros-vacaciones/",                     ReintegroVacacionesListView.as_view(),   name="reintegro-vacaciones-list"),
+    path("reintegros-vacaciones/crear/",               ReintegroVacacionesCreateView.as_view(), name="reintegro_vacaciones_create"),
+    path("reintegros-vacaciones/<int:pk>/editar/",     ReintegroVacacionesUpdateView.as_view(), name="reintegro_vacaciones_update"),
+    path("reintegros-vacaciones/<int:pk>/eliminar/",   ReintegroVacacionesDeleteView.as_view(), name="reintegro_vacaciones_delete"),
+
+    # -----------------------------------------
     # Jefe Inmediato
     # -----------------------------------------
     path("jefe/solicitudes/",                         views_jefe.SolicitudesJefeListView.as_view(), name="jefe_solicitudes_list"),
@@ -76,8 +89,18 @@ urlpatterns = [
     # -----------------------------------------
     path("rrhh/solicitudes/",                         views_rrhh.SolicitudesRRHHListView.as_view(), name="rrhh_solicitudes_list"),
     path("rrhh/solicitudes/<int:pk>/autorizar/",      views_rrhh.autorizar_solicitud,               name="rrhh_autorizar_solicitud"),
-    path("rrhh/solicitudes/<int:pk>/rechazar/",      views_rrhh.rechazar_solicitud,                name="rrhh_rechazar_solicitud"),
+    path("rrhh/solicitudes/<int:pk>/rechazar/",       views_rrhh.rechazar_solicitud,                name="rrhh_rechazar_solicitud"),
 
-    # --- API REST
+    path("reintegros/<int:pk>/firmar/",    views.firmar_reintegro_view,    name="reintegro_firmar"),
+    path("reintegros/<int:pk>/enviar/",    views.reenviar_reintegro_view,  name="reintegro_enviar"),
+    path("reintegros/<int:pk>/aprobar/",   views.aprobar_reintegro_view,   name="reintegro_aprobar"),
+    path("reintegros/<int:pk>/devolver/",  views.devolver_reintegro_view,  name="reintegro_devolver"),
+    path("reintegros/<int:pk>/autorizar/", views.autorizar_reintegro_view, name="reintegro_autorizar"),
+    path("reintegros/<int:pk>/rechazar/",  views.rechazar_reintegro_view,  name="reintegro_rechazar"),
+    path("reintegros/<int:pk>/pdf/",       ReintegroVacacionesPDFView.as_view(), name="reintegro_laboral_p4_pdf"),
+    
+    # -----------------------------------------
+    # API REST
+    # -----------------------------------------
     path("api/", include("vacaciones.urls_api")),
 ]

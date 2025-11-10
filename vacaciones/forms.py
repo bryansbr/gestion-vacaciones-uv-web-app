@@ -330,3 +330,182 @@ class SolicitudVacacionesForm(forms.ModelForm):
             instance.save()
             self.save_m2m()
         return instance
+
+
+class ReintegroVacacionesForm(forms.ModelForm):
+    numero_identificacion = forms.CharField(required=False, disabled=True)
+    nombre_funcionario = forms.CharField(required=False, disabled=True)
+    estamento = forms.CharField(required=False, disabled=True)
+    facultad_dependencia = forms.CharField(required=False, disabled=True)
+    sede = forms.CharField(required=False, disabled=True)
+    codigo_sabs = forms.CharField(required=False, disabled=True)
+
+    dias_disfrutados_habiles = forms.IntegerField(
+        label='Días hábiles disfrutados',
+        required=False,
+        min_value=0,
+        widget=forms.NumberInput(attrs={'class': 'form-input'})
+    )
+    dias_disfrutados_calendario = forms.IntegerField(
+        label='Días calendario disfrutados',
+        required=False,
+        min_value=0,
+        widget=forms.NumberInput(attrs={'class': 'form-input'})
+    )
+    dias_pendientes_habiles = forms.IntegerField(
+        label='Días hábiles por disfrutar',
+        required=False,
+        min_value=0,
+        widget=forms.NumberInput(attrs={'class': 'form-input'})
+    )
+    dias_pendientes_calendario = forms.IntegerField(
+        label='Días calendario por disfrutar',
+        required=False,
+        min_value=0,
+        widget=forms.NumberInput(attrs={'class': 'form-input'})
+    )
+
+    class Meta:
+        model = ReintegroVacaciones
+        fields = [
+            'solicitud_vacaciones',
+            'fecha_reintegro',
+            'motivo_reintegro',
+            'es_reintegro_anticipado',
+            'observaciones',
+            'periodo_correspondiente_desde',
+            'periodo_correspondiente_hasta',
+            'fecha_disfrute_desde',
+            'fecha_disfrute_hasta',
+            'dias_disfrutados_habiles',
+            'dias_disfrutados_calendario',
+            'dias_pendientes_habiles',
+            'dias_pendientes_calendario',
+            'codigo_sabs',
+        ]
+        widgets = {
+            'solicitud_vacaciones': forms.Select(attrs={'class': 'form-select'}),
+        'fecha_reintegro': forms.DateInput(format='%d/%m/%Y', attrs={'class': 'form-input flatpickr-input', 'placeholder': 'Seleccionar fecha', 'autocomplete': 'off'}),
+        'periodo_correspondiente_desde': forms.DateInput(format='%d/%m/%Y', attrs={'class': 'form-input flatpickr-input', 'placeholder': 'Seleccionar fecha', 'autocomplete': 'off'}),
+        'periodo_correspondiente_hasta': forms.DateInput(format='%d/%m/%Y', attrs={'class': 'form-input flatpickr-input', 'placeholder': 'Seleccionar fecha', 'autocomplete': 'off'}),
+        'fecha_disfrute_desde': forms.DateInput(format='%d/%m/%Y', attrs={'class': 'form-input flatpickr-input', 'placeholder': 'Seleccionar fecha', 'autocomplete': 'off'}),
+        'fecha_disfrute_hasta': forms.DateInput(format='%d/%m/%Y', attrs={'class': 'form-input flatpickr-input', 'placeholder': 'Seleccionar fecha', 'autocomplete': 'off'}),
+            'observaciones': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 4}),
+            'motivo_reintegro': forms.Select(attrs={'class': 'form-select'}),
+            'es_reintegro_anticipado': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'codigo_sabs': forms.TextInput(attrs={
+                'class': 'form-input bg-gray-100 cursor-not-allowed',
+                'readonly': 'readonly'
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
+        funcionario = None
+        if self.instance and self.instance.pk:
+            funcionario = self.instance.funcionario
+        elif self.user and hasattr(self.user, 'funcionario'):
+            funcionario = self.user.funcionario
+
+        if self.user and hasattr(self.user, 'funcionario'):
+            funcionario = self.user.funcionario
+
+        if funcionario is not None:
+            self.initial.update({
+                'numero_identificacion': funcionario.numero_identificacion,
+                'nombre_funcionario': f"{funcionario.nombre} {funcionario.apellido}",
+                'estamento': getattr(funcionario.estamento, 'nombre', ''),
+                'facultad_dependencia': getattr(funcionario.facultad_dependencia, 'nombre', ''),
+                'sede': getattr(funcionario.sede, 'nombre', '') or getattr(funcionario.sede, 'descripcion', ''),
+            })
+            solicitudes_autorizadas = (
+                SolicitudVacaciones.objects.filter(
+                    funcionario=funcionario,
+                    aprobaciones__etapa='RRHH',
+                    aprobaciones__estado='autorizada',
+                )
+                .select_related('periodo_vacacional')
+                .distinct()
+            )
+            solicitudes_autorizadas = solicitudes_autorizadas.exclude(
+                reintegrovacaciones__estado_solicitud__in=['pendiente', 'en_revision', 'devuelta', 'aprobado']
+            )
+            self.fields['solicitud_vacaciones'].queryset = solicitudes_autorizadas
+        else:
+            self.fields['solicitud_vacaciones'].queryset = SolicitudVacaciones.objects.none()
+
+        if self.instance and self.instance.pk:
+            self.fields['solicitud_vacaciones'].disabled = True
+            self.fields['fecha_reintegro'].initial = self.instance.fecha_reintegro
+            self.fields['periodo_correspondiente_desde'].initial = self.instance.periodo_correspondiente_desde
+            self.fields['periodo_correspondiente_hasta'].initial = self.instance.periodo_correspondiente_hasta
+            self.fields['fecha_disfrute_desde'].initial = self.instance.fecha_disfrute_desde
+            self.fields['fecha_disfrute_hasta'].initial = self.instance.fecha_disfrute_hasta
+            self.fields['dias_disfrutados_habiles'].initial = self.instance.dias_disfrutados_habiles
+            self.fields['dias_disfrutados_calendario'].initial = self.instance.dias_disfrutados_calendario
+            self.fields['dias_pendientes_habiles'].initial = self.instance.dias_pendientes_habiles
+            self.fields['dias_pendientes_calendario'].initial = self.instance.dias_pendientes_calendario
+            self.fields['es_reintegro_anticipado'].initial = self.instance.es_reintegro_anticipado
+
+    def clean_solicitud_vacaciones(self):
+        solicitud = self.cleaned_data.get('solicitud_vacaciones')
+        if not solicitud:
+            raise forms.ValidationError("Debe seleccionar la solicitud autorizada que desea reintegrar.")
+
+        if not solicitud.autorizada_rrhh:
+            raise forms.ValidationError("Solo se pueden reintegrar solicitudes autorizadas por Recursos Humanos.")
+
+        if self.user and hasattr(self.user, 'funcionario'):
+            if solicitud.funcionario != self.user.funcionario:
+                raise forms.ValidationError("La solicitud seleccionada no pertenece al funcionario autenticado.")
+        return solicitud
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        if not cleaned_data.get('solicitud_vacaciones') and self.instance and self.instance.pk:
+            cleaned_data['solicitud_vacaciones'] = self.instance.solicitud_vacaciones
+
+        solicitud = cleaned_data.get('solicitud_vacaciones')
+        if solicitud:
+            periodo = solicitud.periodo_vacacional
+            if periodo and not cleaned_data.get('periodo_correspondiente_desde'):
+                cleaned_data['periodo_correspondiente_desde'] = periodo.fecha_inicio_periodo
+            if periodo and not cleaned_data.get('periodo_correspondiente_hasta'):
+                cleaned_data['periodo_correspondiente_hasta'] = periodo.fecha_fin_periodo
+
+            if not cleaned_data.get('fecha_disfrute_desde'):
+                cleaned_data['fecha_disfrute_desde'] = solicitud.fecha_inicio_vacaciones
+            if not cleaned_data.get('fecha_disfrute_hasta'):
+                cleaned_data['fecha_disfrute_hasta'] = solicitud.fecha_fin_vacaciones
+
+            if cleaned_data.get('dias_disfrutados_habiles') is None and cleaned_data.get('dias_disfrutados_calendario') is None:
+                cleaned_data['dias_disfrutados_habiles'] = solicitud.total_dias_solicitados or 0
+
+        dias_disfrutados_h = cleaned_data.get('dias_disfrutados_habiles') or 0
+        dias_disfrutados_c = cleaned_data.get('dias_disfrutados_calendario') or 0
+        if dias_disfrutados_h == 0 and dias_disfrutados_c == 0:
+            raise forms.ValidationError("Debe registrar al menos un día disfrutado (hábil o calendario).")
+
+        es_anticipado = cleaned_data.get('es_reintegro_anticipado')
+        obs = cleaned_data.get('observaciones', '')
+        if es_anticipado and (not obs or not obs.strip()):
+            self.add_error('observaciones', "Las observaciones son obligatorias cuando el reintegro es anticipado.")
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+
+        if self.user and hasattr(self.user, 'funcionario') and not instance.pk:
+            instance.funcionario = self.user.funcionario
+
+        if instance.solicitud_vacaciones_id and not instance.periodo_vacacional_id:
+            instance.periodo_vacacional = instance.solicitud_vacaciones.periodo_vacacional
+
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance

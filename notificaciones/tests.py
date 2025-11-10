@@ -57,20 +57,23 @@ class NotificacionModeloTests(TestCase):
             tiene_dias_pendientes=False,
             creada_por=cls.usuario_principal,
         )
+        cls.solicitud.aprobaciones.filter(etapa='RRHH').update(estado='autorizada')
 
         cls.reintegro = ReintegroVacaciones.objects.create(
             funcionario=cls.funcionario_principal,
             periodo_vacacional=cls.periodo,
             solicitud_vacaciones=cls.solicitud,
             fecha_reintegro=date.today() + timedelta(days=21),
-            motivo_reintegro="Vacaciones",
+            motivo_reintegro="finalizacion_normal",
             observaciones="",
+            periodo_correspondiente_desde=cls.periodo.fecha_inicio_periodo,
+            periodo_correspondiente_hasta=cls.periodo.fecha_fin_periodo,
             fecha_disfrute_desde=date.today() + timedelta(days=10),
             fecha_disfrute_hasta=date.today() + timedelta(days=15),
-            dias_disfrutados=5,
-            tipo_dias_disfrutados="C",
-            dias_pendientes=0,
-            tipo_dias_pendientes="C",
+            dias_disfrutados_habiles=5,
+            dias_disfrutados_calendario=0,
+            dias_pendientes_habiles=0,
+            dias_pendientes_calendario=0,
             creada_por=cls.usuario_principal,
         )
 

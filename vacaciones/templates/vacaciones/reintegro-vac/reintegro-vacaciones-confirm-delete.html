@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_head %}
+  <script src="{% static 'vacaciones/js/components/vacaciones/confirmar-eliminacion-reintegro.js' %}"></script>
+{% endblock %}
+
+{% block content %}
+<div id="delete-page"
+     data-codigo="{{ object.codigo_sabs }}"
+     data-back-url="{% url 'vacaciones:reintegro-vacaciones-list' %}"
+     class="hidden"></div>
+
+<form id="delete-form" method="post" action="">
+  {% csrf_token %}
+</form>
+{% endblock %}
