@@ -68,7 +68,7 @@
         data-periodos-dias-pendientes='{{ periodos_dias_pendientes|default:"{}"|safe }}'
         id="variables-container"
     >
-    <form method="post" class="space-y-6" {% if not tiene_periodos_vacacionales %}id="form-disabled"{% endif %}>
+    <form method="post" class="space-y-6" {% if not tiene_periodos_vacacionales %}id="form-disabled"{% endif %} data-mode="{% if form.instance.pk %}edit{% else %}create{% endif %}">
         {% csrf_token %}
         <!-- Campos del funcionario -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
@@ -223,23 +223,29 @@
             {% endif %}
         {% endfor %}
 
-        <div class="pt-4">
+        <div class="pt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             {% if tiene_periodos_vacacionales and puede_crear_solicitud %}
-                <button type="submit" id="submit-btn" disabled class="w-full bg-gray-400 text-white px-6 py-3 rounded-md shadow-md cursor-not-allowed transition">
+                <button type="button"
+                        id="crear-solicitud-vacaciones"
+                        class="w-full md:w-auto flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-md shadow-md transition duration-200">
                     {% if form.instance.pk %}Guardar cambios{% else %}Crear solicitud{% endif %}
                 </button>
-                <div id="loading-spinner" class="hidden w-full flex items-center justify-center py-3">
-                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+                <button type="submit" id="submit-btn" class="hidden" aria-hidden="true"></button>
+                <div id="loading-spinner" class="hidden w-full md:w-auto flex-1 flex items-center justify-center py-3">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
                     <span class="ml-3 text-gray-600">Procesando solicitud...</span>
                 </div>
             {% else %}
-                <button type="button" disabled class="w-full bg-gray-400 text-gray-600 px-6 py-3 rounded-md shadow-md cursor-not-allowed">
+                <button type="button" disabled class="w-full md:w-auto flex-1 bg-gray-400 text-gray-600 px-6 py-3 rounded-md shadow-md cursor-not-allowed">
                     {% if form.instance.pk %}Guardar cambios{% else %}Crear solicitud{% endif %}
                 </button>
             {% endif %}
-            <a id="cancelar-link" href="{% url 'vacaciones:solicitud-vacaciones-list' %}" class="block mt-4 text-center text-gray-600 hover:underline">
+            <button type="button"
+                    id="cancelar-solicitud"
+                    data-redirect="{% url 'vacaciones:solicitud-vacaciones-list' %}"
+                    class="w-full md:w-auto flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold px-6 py-3 rounded-md shadow-md transition duration-200">
                 Cancelar
-            </a>
+            </button>
         </div>
     </form>
     </div>

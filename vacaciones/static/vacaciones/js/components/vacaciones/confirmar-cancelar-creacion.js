@@ -1,9 +1,14 @@
 document.addEventListener('DOMContentLoaded', function () {
-  const link = document.getElementById('cancelar-link');
-  if (!link) return;
+  const btnCancelar = document.getElementById('cancelar-solicitud');
+  if (!btnCancelar) return;
 
-  link.addEventListener('click', function (e) {
+  btnCancelar.addEventListener('click', function (e) {
     e.preventDefault();
+    const destino = btnCancelar.dataset.redirect || btnCancelar.dataset.href;
+    if (!destino) {
+      return;
+    }
+
     Swal.fire({
       title: "¿Está seguro de cancelar?",
       text: "Se perderán todos los datos ingresados de la solicitud de vacaciones.",
@@ -15,7 +20,7 @@ document.addEventListener('DOMContentLoaded', function () {
       cancelButtonText: "Volver"
     }).then((r) => {
       if (r.isConfirmed) {
-        window.location.href = link.href;
+        window.location.href = destino;
       }
     });
   });

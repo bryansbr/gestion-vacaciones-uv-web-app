@@ -70,7 +70,7 @@ SECRETARIA_SOLICITUD_FORM_TEMPLATE = "vacaciones/roles/secretaria/secretaria-sol
 SECRETARIA_SOLICIT_CONFIRM_DELETE_TEMPLATE = "vacaciones/roles/secretaria/secretaria-solicitud-confirm-delete.html"
 TABLA_SECRETARIA_SOLICITUDES_PARTIAL = "vacaciones/partials/_tabla-secretaria-solicitudes.html"
 
-REINTEGRO_P4_PDF_TEMPLATE = "vacaciones/reintegro-laboral-p4.html"
+REINTEGRO_P4_PDF_TEMPLATE = "vacaciones/pdf/reintegro-laboral-p4.html"
 REINTEGRO_VACACIONES_LIST_TEMPLATE = "vacaciones/reintegro-vac/reintegro-vacaciones-list.html"
 REINTEGRO_VACACIONES_FORM_TEMPLATE = "vacaciones/reintegro-vac/reintegro-vacaciones-form.html"
 REINTEGRO_VACACIONES_CONFIRM_DELETE_TEMPLATE = "vacaciones/reintegro-vac/reintegro-vacaciones-confirm-delete.html"
@@ -783,6 +783,7 @@ class ReintegroVacacionesCreateView(LoginRequiredMixin, CreateView):
         if not reintegro.funcionario_id and hasattr(self.request.user, "funcionario"):
             reintegro.funcionario = self.request.user.funcionario
         reintegro.save()
+        self.object = reintegro
         form.save_m2m()
 
         messages.success(self.request, "Reintegro registrado correctamente.")
@@ -1180,7 +1181,7 @@ class ReintegroVacacionesPDFView(LoginRequiredMixin, View):
             reintegro = ReintegroVacaciones.objects.select_related(
                 "funcionario",
                 "periodo_vacacional",
-                "solicitud",
+                "solicitud_vacaciones",
                 "funcionario__estamento",
                 "funcionario__facultad_dependencia",
                 "funcionario__sede",

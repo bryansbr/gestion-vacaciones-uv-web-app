@@ -10,7 +10,6 @@
     color: #000;
   }
   
-  /* Encabezado */
   .encabezado {
     display: grid;
     grid-template-columns: 80px 1fr 170px;
@@ -50,7 +49,6 @@
     font-weight: bold;
   }
   
-  /* Tablas principales */
   .tabla { margin-top: 6px; }
   .grid {
     width: 100%; border-collapse: collapse; margin-bottom: 6px;
@@ -62,7 +60,6 @@
   
   .bloque-titulo { font-weight: bold; margin: 6px 0 2px; text-transform: uppercase; }
   
-  /* Observaciones */
   .observaciones-contenido {
     border: 1px solid #000;
     padding: 8px;
@@ -79,7 +76,6 @@
     word-wrap: break-word;
   }
   
-  /* Fechas en cuadriculado */
   .fecha-grid {
     display: grid; grid-template-columns: repeat(3, 1fr);
     text-align: center; gap: 2px; font-size: 10px;
@@ -87,10 +83,9 @@
   .fecha-grid > div { border: 1px solid #000; padding: 2px 0; }
   .fecha-grid .cell { font-size: 12px; font-weight: bold; }
   
-  /* Quincena / Rango */
   .quincena-grid .cell {
     font-weight: bold;
-    font-size: 12px; /* opcional, para que coincida con las otras celdas */
+    font-size: 12px;
   }
 
   .quincena-grid, .rango-grid {
@@ -119,7 +114,6 @@
   
   .importante { font-size: 10px; margin: 4px 0 8px; }
   
-  /* Firmas */
   .firmas { width: 100%; border-collapse: collapse; margin-top: 6px; }
   .firmas th, .firmas td { border: 1px solid #000; padding: 6px; vertical-align: middle; }
   .firmas th { background: #efefef; text-align: center; }
@@ -127,7 +121,6 @@
   .altura-firma td { height: 40px; }
   .firma { vertical-align: bottom; text-align: center; }
   
-  /* Fila con leyendas de firma (NUEVO) */
   .etiquetas-firma td,
   .etiqueta-firma {
     font-size: 10px;
@@ -138,7 +131,6 @@
   
   .nombres td { font-size: 10px; }
   
-  /* Pie */
   .pie {
     text-align: right;
     margin-top: 8px;
@@ -146,6 +138,5 @@
     color: #333;
   }
   
-  /* Evitar cortes de tablas en página */
   table, tr, td, th { page-break-inside: avoid; }
-  
+ 

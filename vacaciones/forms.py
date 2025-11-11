@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from django import forms
 
@@ -344,25 +344,49 @@ class ReintegroVacacionesForm(forms.ModelForm):
         label='Días hábiles disfrutados',
         required=False,
         min_value=0,
-        widget=forms.NumberInput(attrs={'class': 'form-input'})
+        initial=0,
+        widget=forms.NumberInput(attrs={'class': 'form-input', 'min': '0', 'data-default-zero': 'true'})
     )
     dias_disfrutados_calendario = forms.IntegerField(
         label='Días calendario disfrutados',
         required=False,
         min_value=0,
-        widget=forms.NumberInput(attrs={'class': 'form-input'})
+        initial=0,
+        widget=forms.NumberInput(attrs={'class': 'form-input', 'min': '0', 'data-default-zero': 'true'})
     )
     dias_pendientes_habiles = forms.IntegerField(
         label='Días hábiles por disfrutar',
         required=False,
         min_value=0,
-        widget=forms.NumberInput(attrs={'class': 'form-input'})
+        initial=0,
+        widget=forms.NumberInput(attrs={'class': 'form-input', 'min': '0', 'data-default-zero': 'true'})
     )
     dias_pendientes_calendario = forms.IntegerField(
         label='Días calendario por disfrutar',
         required=False,
         min_value=0,
-        widget=forms.NumberInput(attrs={'class': 'form-input'})
+        initial=0,
+        widget=forms.NumberInput(attrs={'class': 'form-input', 'min': '0', 'data-default-zero': 'true'})
+    )
+    periodo_correspondiente_resumen = forms.CharField(
+        label='Vacaciones correspondientes al periodo',
+        required=False,
+        disabled=True,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-600 cursor-not-allowed',
+            'readonly': 'readonly',
+            'tabindex': '-1'
+        })
+    )
+    periodo_disfrute_resumen = forms.CharField(
+        label='Periodo en el cual disfrutó',
+        required=False,
+        disabled=True,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-600 cursor-not-allowed',
+            'readonly': 'readonly',
+            'tabindex': '-1'
+        })
     )
 
     class Meta:
@@ -371,7 +395,6 @@ class ReintegroVacacionesForm(forms.ModelForm):
             'solicitud_vacaciones',
             'fecha_reintegro',
             'motivo_reintegro',
-            'es_reintegro_anticipado',
             'observaciones',
             'periodo_correspondiente_desde',
             'periodo_correspondiente_hasta',
@@ -385,14 +408,13 @@ class ReintegroVacacionesForm(forms.ModelForm):
         ]
         widgets = {
             'solicitud_vacaciones': forms.Select(attrs={'class': 'form-select'}),
-        'fecha_reintegro': forms.DateInput(format='%d/%m/%Y', attrs={'class': 'form-input flatpickr-input', 'placeholder': 'Seleccionar fecha', 'autocomplete': 'off'}),
-        'periodo_correspondiente_desde': forms.DateInput(format='%d/%m/%Y', attrs={'class': 'form-input flatpickr-input', 'placeholder': 'Seleccionar fecha', 'autocomplete': 'off'}),
-        'periodo_correspondiente_hasta': forms.DateInput(format='%d/%m/%Y', attrs={'class': 'form-input flatpickr-input', 'placeholder': 'Seleccionar fecha', 'autocomplete': 'off'}),
-        'fecha_disfrute_desde': forms.DateInput(format='%d/%m/%Y', attrs={'class': 'form-input flatpickr-input', 'placeholder': 'Seleccionar fecha', 'autocomplete': 'off'}),
-        'fecha_disfrute_hasta': forms.DateInput(format='%d/%m/%Y', attrs={'class': 'form-input flatpickr-input', 'placeholder': 'Seleccionar fecha', 'autocomplete': 'off'}),
+            'fecha_reintegro': forms.DateInput(format='%d/%m/%Y', attrs={'class': 'form-input flatpickr-input', 'placeholder': 'Seleccionar fecha', 'autocomplete': 'off'}),
+            'periodo_correspondiente_desde': forms.HiddenInput(),
+            'periodo_correspondiente_hasta': forms.HiddenInput(),
+            'fecha_disfrute_desde': forms.HiddenInput(),
+            'fecha_disfrute_hasta': forms.HiddenInput(),
             'observaciones': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 4}),
             'motivo_reintegro': forms.Select(attrs={'class': 'form-select'}),
-            'es_reintegro_anticipado': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
             'codigo_sabs': forms.TextInput(attrs={
                 'class': 'form-input bg-gray-100 cursor-not-allowed',
                 'readonly': 'readonly'
@@ -413,13 +435,18 @@ class ReintegroVacacionesForm(forms.ModelForm):
             funcionario = self.user.funcionario
 
         if funcionario is not None:
+            estamento_nombre = getattr(funcionario.estamento, 'nombre', '') or ''
+            decreto_valor = (getattr(funcionario, 'decreto_resolucion', '') or '').strip()
+
             self.initial.update({
                 'numero_identificacion': funcionario.numero_identificacion,
                 'nombre_funcionario': f"{funcionario.nombre} {funcionario.apellido}",
-                'estamento': getattr(funcionario.estamento, 'nombre', ''),
+                'estamento': estamento_nombre,
                 'facultad_dependencia': getattr(funcionario.facultad_dependencia, 'nombre', ''),
                 'sede': getattr(funcionario.sede, 'nombre', '') or getattr(funcionario.sede, 'descripcion', ''),
             })
+            self.funcionario_estamento = estamento_nombre
+            self.funcionario_decreto = decreto_valor
             solicitudes_autorizadas = (
                 SolicitudVacaciones.objects.filter(
                     funcionario=funcionario,
@@ -434,6 +461,8 @@ class ReintegroVacacionesForm(forms.ModelForm):
             )
             self.fields['solicitud_vacaciones'].queryset = solicitudes_autorizadas
         else:
+            self.funcionario_estamento = ''
+            self.funcionario_decreto = ''
             self.fields['solicitud_vacaciones'].queryset = SolicitudVacaciones.objects.none()
 
         if self.instance and self.instance.pk:
@@ -447,7 +476,54 @@ class ReintegroVacacionesForm(forms.ModelForm):
             self.fields['dias_disfrutados_calendario'].initial = self.instance.dias_disfrutados_calendario
             self.fields['dias_pendientes_habiles'].initial = self.instance.dias_pendientes_habiles
             self.fields['dias_pendientes_calendario'].initial = self.instance.dias_pendientes_calendario
-            self.fields['es_reintegro_anticipado'].initial = self.instance.es_reintegro_anticipado
+
+        self._initialize_range_field(
+            'periodo_correspondiente_desde',
+            'periodo_correspondiente_hasta',
+            'periodo_correspondiente_resumen'
+        )
+        self._initialize_range_field(
+            'fecha_disfrute_desde',
+            'fecha_disfrute_hasta',
+            'periodo_disfrute_resumen'
+        )
+
+    def _initialize_range_field(self, start_field, end_field, target_field):
+        start_date = self._extract_date_value(start_field)
+        end_date = self._extract_date_value(end_field)
+
+        if start_date:
+            display_value = self._format_display_range(start_date, end_date)
+            self.fields[target_field].initial = display_value
+            self.initial[target_field] = display_value
+
+    def _extract_date_value(self, field_name):
+        value = None
+        if self.is_bound:
+            value = self.data.get(field_name)
+        if not value:
+            if field_name in self.initial:
+                value = self.initial[field_name]
+            elif getattr(self.instance, field_name, None):
+                value = getattr(self.instance, field_name)
+
+        if isinstance(value, date):
+            return value
+
+        if isinstance(value, str) and value:
+            for fmt in ('%Y-%m-%d', '%d/%m/%Y'):
+                try:
+                    return datetime.strptime(value, fmt).date()
+                except ValueError:
+                    continue
+        return None
+
+    @staticmethod
+    def _format_display_range(start_date, end_date):
+        end_date = end_date or start_date
+        start_text = start_date.strftime('%d/%m/%Y')
+        end_text = end_date.strftime('%d/%m/%Y')
+        return f'Del {start_text} al {end_text}'
 
     def clean_solicitud_vacaciones(self):
         solicitud = self.cleaned_data.get('solicitud_vacaciones')
@@ -484,15 +560,26 @@ class ReintegroVacacionesForm(forms.ModelForm):
             if cleaned_data.get('dias_disfrutados_habiles') is None and cleaned_data.get('dias_disfrutados_calendario') is None:
                 cleaned_data['dias_disfrutados_habiles'] = solicitud.total_dias_solicitados or 0
 
+        numeric_fields = [
+            'dias_disfrutados_habiles',
+            'dias_disfrutados_calendario',
+            'dias_pendientes_habiles',
+            'dias_pendientes_calendario',
+        ]
+        for field in numeric_fields:
+            value = cleaned_data.get(field)
+            if value in (None, ''):
+                cleaned_data[field] = 0
+
         dias_disfrutados_h = cleaned_data.get('dias_disfrutados_habiles') or 0
         dias_disfrutados_c = cleaned_data.get('dias_disfrutados_calendario') or 0
         if dias_disfrutados_h == 0 and dias_disfrutados_c == 0:
             raise forms.ValidationError("Debe registrar al menos un día disfrutado (hábil o calendario).")
 
-        es_anticipado = cleaned_data.get('es_reintegro_anticipado')
         obs = cleaned_data.get('observaciones', '')
-        if es_anticipado and (not obs or not obs.strip()):
-            self.add_error('observaciones', "Las observaciones son obligatorias cuando el reintegro es anticipado.")
+        motivo = cleaned_data.get('motivo_reintegro')
+        if motivo == 'suspension_anticipada' and (not obs or not obs.strip()):
+            self.add_error('observaciones', "Las observaciones son obligatorias cuando el motivo es suspensión anticipada por necesidad del servicio.")
 
         return cleaned_data
 

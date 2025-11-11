@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <title>Reintegro Laboral P4</title>
-  <link rel="stylesheet" href="{% static 'vacaciones/css/reintegro-laboral-p4.css' %}">
+  <link rel="stylesheet" href="{% static 'vacaciones/css/reintegro-laboral-p4-pdf.css' %}">
 </head>
 <body>
 
@@ -19,7 +19,7 @@
   </div>
   <div class="fecha-box">
     <div class="fecha-titulo">Fecha de Elaboración</div>
-    <div class="fecha-grid mini-grid">
+    <div class="mini-grid">
       <div>Día</div><div>Mes</div><div>Año</div>
       <div class="cell">{{ fecha_elaboracion.dia }}</div>
       <div class="cell">{{ fecha_elaboracion.mes }}</div>
@@ -29,7 +29,6 @@
 </header>
 
 <section class="tabla">
-  <!-- IDENTIFICACIÓN -->
   <div class="bloque-titulo">IDENTIFICACIÓN</div>
   <table class="grid">
     <tr>
@@ -56,19 +55,54 @@
       <td>{{ sede }}</td>
       <td>{{ facultad_dependencia }}</td>
       <td class="no-padding">
-        <div class="fecha-grid">
-          <div>Día</div><div>Mes</div><div>Año</div>
-          <div class="cell">{{ fecha_reintegro.dia }}</div>
-          <div class="cell">{{ fecha_reintegro.mes }}</div>
+        <div class="fecha-grid-AMD">
+          <div>Año</div><div>Mes</div><div>Día</div>
           <div class="cell">{{ fecha_reintegro.anio }}</div>
+          <div class="cell">{{ fecha_reintegro.mes }}</div>
+          <div class="cell">{{ fecha_reintegro.dia }}</div>
         </div>
       </td>
     </tr>
   </table>
 
+  <div class="bloque-titulo">REINTEGRO LABORAL CORRESPONDIENTE A:</div>
+  <table class="grid opciones">
+    <tr>
+      {% with sel=correspondiente_a|default:"Vacaciones" %}
+      {% with opcion='Comisión de Estudios' %}
+      <td class="check{% if sel == opcion %} checked{% endif %}"><span class="box"></span> 1. Comisión de Estudios</td>
+      {% endwith %}
+      {% with opcion='Comisión Académica' %}
+      <td class="check{% if sel == opcion %} checked{% endif %}"><span class="box"></span> 2. Comisión Académica</td>
+      {% endwith %}
+      {% with opcion='Comisión AdHonorem' %}
+      <td class="check{% if sel == opcion %} checked{% endif %}"><span class="box"></span> 3. Comisión AdHonorem</td>
+      {% endwith %}
+    </tr>
+    <tr>
+      {% with opcion='Año Sabático' %}
+      <td class="check{% if sel == opcion %} checked{% endif %}"><span class="box"></span> 4. Año Sabático</td>
+      {% endwith %}
+      {% with opcion='Licencia de Maternidad' %}
+      <td class="check{% if sel == opcion %} checked{% endif %}"><span class="box"></span> 5. Licencia de Maternidad</td>
+      {% endwith %}
+      {% with opcion='Licencia no Remunerada' %}
+      <td class="check{% if sel == opcion %} checked{% endif %}"><span class="box"></span> 6. Licencia no Remunerada</td>
+      {% endwith %}
+    </tr>
+    <tr>
+      {% with opcion='Suspensión' %}
+      <td class="check{% if sel == opcion %} checked{% endif %}"><span class="box"></span> 7. Suspensión</td>
+      {% endwith %}
+      {% with opcion='Vacaciones' %}
+      <td colspan="2" class="check{% if sel == opcion %} checked{% endif %}"><span class="box"></span> 8. Vacaciones</td>
+      {% endwith %}
+      {% endwith %}
+    </tr>
+  </table>
+
   <br>
 
-  <!-- INFORMACIÓN DEL REINTEGRO -->
   <div class="bloque-titulo">INFORMACIÓN DEL REINTEGRO</div>
 
   <table class="grid">
@@ -83,7 +117,6 @@
       <td class="w-14 center">HASTA</td>
     </tr>
     <tr>
-      <!-- 1. Periodo correspondiente -->
       <td class="no-padding">
         <div class="fecha-grid">
           <div>Día</div><div>Mes</div><div>Año</div>
@@ -101,7 +134,6 @@
         </div>
       </td>
 
-      <!-- 2. Periodo disfrutado -->
       <td class="no-padding">
         <div class="fecha-grid">
           <div>Día</div><div>Mes</div><div>Año</div>
@@ -142,9 +174,6 @@
     </tr>
   </table>
 
-  <br>
-
-  <!-- OBSERVACIONES -->
   <div class="bloque-titulo">OBSERVACIONES</div>
   <div class="observaciones-contenido">
     {% if observaciones %}
@@ -154,16 +183,12 @@
     {% endif %}
   </div>
 
-  <br>
-
-  <!-- IMPORTANTE -->
   <div class="bloque-titulo">IMPORTANTE</div>
   <div class="importante">
     Si se efectúa el reintegro antes de disfrutar del total de las vacaciones y quedan días pendientes por disfrutar,
     es obligatorio indicar en el campo de Observaciones los motivos del reintegro.
   </div>
 
-  <!-- FIRMAS -->
   <table class="firmas">
     <tr>
       <th>FUNCIONARIO</th>
@@ -196,7 +221,7 @@
 </section>
 
 <footer class="pie">
-  {{ pie_pagina }}
+  F-02-MP-10-04-01 V-04-2014 | Elaborado por: División de Recursos Humanos
 </footer>
 
 </body>

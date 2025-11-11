@@ -16,7 +16,7 @@ from core.permissions import (
 from vacaciones.utils import get_current_date_colombia
 
 class CustomLoginView(LoginView):
-    template_name = "usuarios/login.html"
+    template_name = "usuarios/iniciar-sesion.html"
     redirect_authenticated_user = True
     authentication_form = CustomAuthenticationForm
 

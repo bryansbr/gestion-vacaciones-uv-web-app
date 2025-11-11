@@ -717,7 +717,7 @@ class ReintegroVacaciones(models.Model):
         ('N/A', 'No aplica'),
     )
     MOTIVOS_REINTEGRO = [
-        ('finalizacion_normal', 'Finalización normal del periodo'),
+        ('finalizacion_normal', 'Finalización del periodo de vacaciones'),
         ('suspension_anticipada', 'Suspensión anticipada por necesidad del servicio'),
     ]
     ESTADOS = [
