@@ -163,13 +163,13 @@
     <tr>
       <td class="center big">{{ dias_disfrutados }}</td>
       <td class="center">
-        Hábiles: {% if disfrutados_es_habiles %}Sí{% else %}No{% endif %}<br>
-        Calendario: {% if disfrutados_es_calendario %}Sí{% else %}No{% endif %}
+        Hábiles: {{ dias_disfrutados_habiles }}<br>
+        Calendario: {{ dias_disfrutados_calendario }}
       </td>
       <td class="center big">{{ dias_pendientes }}</td>
       <td class="center">
-        Hábiles: {% if pendientes_es_habiles %}Sí{% else %}No{% endif %}<br>
-        Calendario: {% if pendientes_es_calendario %}Sí{% else %}No{% endif %}
+        Hábiles: {{ dias_pendientes_habiles }}<br>
+        Calendario: {{ dias_pendientes_calendario }}
       </td>
     </tr>
   </table>

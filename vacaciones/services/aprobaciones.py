@@ -1,6 +1,7 @@
 import logging
 from typing import Optional
 
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 
@@ -470,7 +471,35 @@ def reenviar_funcionario(user: CustomUser, solicitud: SolicitudVacaciones, obser
         
         etapa_activa = solicitud.etapa_activa
         if not etapa_activa:
-            raise ValidationError("No hay etapa activa para enviar la solicitud.")
+            if solicitud.aprobaciones.count() == 0:
+                ct_solicitud = ContentType.objects.get_for_model(SolicitudVacaciones)
+                AprobacionEtapa.objects.bulk_create([
+                    AprobacionEtapa(
+                        solicitud=solicitud,
+                        content_type=ct_solicitud,
+                        object_id=solicitud.pk,
+                        etapa='JEFE',
+                        estado='pendiente'
+                    ),
+                    AprobacionEtapa(
+                        solicitud=solicitud,
+                        content_type=ct_solicitud,
+                        object_id=solicitud.pk,
+                        etapa='COORD',
+                        estado='pendiente'
+                    ),
+                    AprobacionEtapa(
+                        solicitud=solicitud,
+                        content_type=ct_solicitud,
+                        object_id=solicitud.pk,
+                        etapa='RRHH',
+                        estado='pendiente'
+                    ),
+                ])
+                solicitud.refresh_from_db()
+                etapa_activa = solicitud.etapa_activa
+            else:
+                raise ValidationError("No hay etapa activa para enviar la solicitud.")
         
         _registrar_historial(
             solicitud=solicitud,
@@ -481,7 +510,7 @@ def reenviar_funcionario(user: CustomUser, solicitud: SolicitudVacaciones, obser
             estado_anterior='pendiente',
             observacion=observacion or 'Primer envío al Jefe Inmediato',
         )
-        etapa = None
+        etapa = etapa_activa
 
     solicitud.estado_solicitud = 'en_revision'
     solicitud.save(update_fields=['estado_solicitud'])

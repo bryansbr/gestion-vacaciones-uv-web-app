@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const codigo = form.dataset.codigo || '';
       Swal.fire({
         title: 'Confirmar eliminación',
-        html: `¿Estás seguro de que deseas eliminar el reintegro <strong>${codigo}</strong>?`,
+        html: `¿Estás seguro de que deseas eliminar la solicitud de reintegro <strong>${codigo}</strong>?. Esta acción no se puede deshacer.`,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#d33',

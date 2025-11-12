@@ -3,7 +3,7 @@
     const form = document.getElementById('form-reintegro-vacaciones');
     const cancelar = document.getElementById('cancelar-reintegro');
     const crearSolicitud = document.getElementById('crear-solicitud');
-    const motivoField = document.getElementById('id_motivo_reintegro');
+    const campoMotivo = document.getElementById('id_motivo_reintegro');
     const observacionesField = document.getElementById('id_observaciones');
     const numericDefaults = form ? Array.from(form.querySelectorAll('[data-default-zero="true"]')) : [];
 
@@ -18,20 +18,26 @@
         texto: '¿Deseas crear la solicitud de reintegro de vacaciones?'
       },
       edit: {
-        titulo: 'Guardar cambios',
-        texto: '¿Deseas guardar los cambios del reintegro?'
+        titulo: '¿Está seguro de guardar los cambios?',
+        texto: 'Se actualizará la información de la solicitud de reintegro de vacaciones.'
       },
       cancelar: {
-        titulo: '¿Está seguro de cancelar?',
-        texto: 'Se perderán todos los datos ingresados del reintegro de vacaciones.'
+        create: {
+          titulo: '¿Está seguro de cancelar?',
+          texto: 'Se perderán todos los datos ingresados del reintegro de vacaciones.'
+        },
+        edit: {
+          titulo: '¿Está seguro de cancelar?',
+          texto: 'Los datos de la solicitud de reintegro se mantendrán como están.'
+        }
       }
     };
 
     const observacionesObligatorias = () => {
-      if (!motivoField) {
+      if (!campoMotivo) {
         return false;
       }
-      return motivoField.value === 'suspension_anticipada';
+      return campoMotivo.value === 'suspension_anticipada';
     };
 
     const actualizarRequerimientoObservaciones = () => {
@@ -109,9 +115,79 @@
       });
     };
 
+    const limpiarErrorCampo = (campo) => {
+      if (!campo) return;
+      
+      campo.classList.remove('border-red-500', 'focus:border-red-500', 'focus:ring-red-500', 'input-error');
+      
+      const contenedor = campo.closest('.mb-4') || campo.parentElement || campo.closest('div');
+      if (contenedor) {
+        const mensajeError = contenedor.querySelector('[data-error-message="true"]');
+        if (mensajeError) {
+          mensajeError.remove();
+        }
+      }
+    };
+
+    const validarCampoCompleto = (campo) => {
+      if (!campo) return;
+      
+      let estaCompleto = false;
+      if (campo.type === 'checkbox' || campo.type === 'radio') {
+        estaCompleto = campo.checked;
+      } else {
+        const valor = (campo.value || '').trim();
+        estaCompleto = valor !== '';
+      }
+      
+      if (estaCompleto && campo.classList.contains('input-error')) {
+        limpiarErrorCampo(campo);
+      }
+    };
+
+    const agregarListenersValidacion = () => {
+      const camposObligatorios = obtenerCamposObligatorios();
+      camposObligatorios.forEach((campo) => {
+        if (!campo.dataset.validationListener) {
+          campo.addEventListener('input', () => validarCampoCompleto(campo));
+          campo.addEventListener('change', () => validarCampoCompleto(campo));
+          campo.dataset.validationListener = 'true';
+        }
+        
+        if (campo.classList.contains('flatpickr-input')) {
+          const esperarFlatpickr = () => {
+            if (campo._flatpickr) {
+              const onChangeOriginal = campo._flatpickr.config.onChange || [];
+              if (!campo.dataset.flatpickrListener) {
+                campo._flatpickr.config.onChange = [
+                  ...onChangeOriginal,
+                  () => validarCampoCompleto(campo)
+                ];
+                campo.dataset.flatpickrListener = 'true';
+              }
+            } else {
+              setTimeout(esperarFlatpickr, 100);
+            }
+          };
+          esperarFlatpickr();
+        }
+      });
+    };
+
+    agregarListenersValidacion();
+    
+    setTimeout(agregarListenersValidacion, 500);
+
     actualizarRequerimientoObservaciones();
-    if (motivoField) {
-      motivoField.addEventListener('change', actualizarRequerimientoObservaciones);
+    if (campoMotivo) {
+      campoMotivo.addEventListener('change', () => {
+        actualizarRequerimientoObservaciones();
+        if (observacionesField && observacionesObligatorias() && !observacionesField.dataset.validationListener) {
+          observacionesField.addEventListener('input', () => validarCampoCompleto(observacionesField));
+          observacionesField.addEventListener('change', () => validarCampoCompleto(observacionesField));
+          observacionesField.dataset.validationListener = 'true';
+        }
+      });
     }
 
     const restablecerSiVacio = (campo) => {
@@ -181,8 +257,8 @@
       cancelar.addEventListener('click', function (event) {
         event.preventDefault();
         Swal.fire({
-          title: mensajes.cancelar.titulo,
-          text: mensajes.cancelar.texto,
+          title: mensajes.cancelar[modo].titulo,
+          text: mensajes.cancelar[modo].texto,
           icon: 'warning',
           showCancelButton: true,
           confirmButtonColor: '#3085d6',

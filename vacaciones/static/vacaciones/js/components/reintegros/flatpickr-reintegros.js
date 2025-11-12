@@ -187,8 +187,133 @@
     });
   };
 
+  const esFinDeSemana = (fecha) => {
+    const d = fecha.getDay();
+    return d === 0 || d === 6;
+  };
+
+  const esFestivo = (fecha) => {
+    const festivosColombia = window.FESTIVOS_COLOMBIA || [];
+    const dia = String(fecha.getDate()).padStart(2, '0');
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+    const anio = fecha.getFullYear();
+    const fechaFormatoFestivo = `${dia}/${mes}/${anio}`;
+    return festivosColombia.includes(fechaFormatoFestivo);
+  };
+
+  const obtenerSiguienteDiaHabil = (fecha) => {
+    let f = new Date(fecha);
+    f.setDate(f.getDate() + 1);
+    while (esFinDeSemana(f) || esFestivo(f)) {
+      f.setDate(f.getDate() + 1);
+    }
+    return f;
+  };
+
+  const obtenerHoraColombia = () => {
+    try {
+      const ahora = new Date();
+      const horaColombia = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Bogota',
+        hour: 'numeric',
+        hour12: false
+      }).format(ahora);
+      return parseInt(horaColombia, 10);
+    } catch (e) {
+      const ahora = new Date();
+      const utc = ahora.getTime() + (ahora.getTimezoneOffset() * 60 * 1000);
+      const horaColombia = new Date(utc + (-5 * 60 * 60 * 1000));
+      return horaColombia.getHours();
+    }
+  };
+
+  const calcularFechaMinimaReintegro = () => {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    
+    const horaColombia = obtenerHoraColombia();
+    
+    if (horaColombia < 12) {
+      if (!esFinDeSemana(hoy) && !esFestivo(hoy)) {
+        return hoy;
+      } else {
+        const siguiente = new Date(hoy);
+        siguiente.setDate(siguiente.getDate() + 1);
+        while (esFinDeSemana(siguiente) || esFestivo(siguiente)) {
+          siguiente.setDate(siguiente.getDate() + 1);
+        }
+        return siguiente;
+      }
+    } else {
+      const manana = new Date(hoy);
+      manana.setDate(manana.getDate() + 1);
+      const siguienteDespuesManana = new Date(manana);
+      siguienteDespuesManana.setDate(siguienteDespuesManana.getDate() + 1);
+      while (esFinDeSemana(siguienteDespuesManana) || esFestivo(siguienteDespuesManana)) {
+        siguienteDespuesManana.setDate(siguienteDespuesManana.getDate() + 1);
+      }
+      return siguienteDespuesManana;
+    }
+  };
+
+  const configurarFechaReintegro = () => {
+    const campoFechaReintegro = document.getElementById('id_fecha_reintegro');
+    if (!campoFechaReintegro || typeof flatpickr === 'undefined') {
+      return;
+    }
+
+    if (campoFechaReintegro.dataset.fpInitialized === '1') {
+      return;
+    }
+
+    const container = document.getElementById('variables-container');
+    if (container && container.dataset.festivosColombia) {
+      try {
+        window.FESTIVOS_COLOMBIA = JSON.parse(container.dataset.festivosColombia);
+      } catch (e) {
+        console.warn('No se pudieron cargar los festivos de Colombia');
+      }
+    }
+
+    const fechaMinima = calcularFechaMinimaReintegro();
+
+    flatpickr(campoFechaReintegro, {
+      dateFormat: 'd/m/Y',
+      allowInput: true,
+      minDate: fechaMinima,
+      disable: [
+        function(date) {
+          const esFinSemana = esFinDeSemana(date);
+          const esFestivoFecha = esFestivo(date);
+          const fechaMinimaActual = calcularFechaMinimaReintegro();
+          const esMenorQueMinima = date < fechaMinimaActual;
+          return esFinSemana || esFestivoFecha || esMenorQueMinima;
+        }
+      ],
+      onChange: function(selectedDates, dateStr, instance) {
+        if (selectedDates.length > 0) {
+          const fecha = selectedDates[0];
+          const y = fecha.getFullYear();
+          const m = String(fecha.getMonth() + 1).padStart(2, '0');
+          const d = String(fecha.getDate()).padStart(2, '0');
+          instance.input.setAttribute('data-django-format', `${y}-${m}-${d}`);
+        }
+      }
+    });
+
+    campoFechaReintegro.dataset.fpInitialized = '1';
+  };
+
   document.addEventListener('DOMContentLoaded', () => {
-    configurarFlatpickr('.flatpickr-input');
+    configurarFechaReintegro();
+    
+    const otrosCampos = document.querySelectorAll('.flatpickr-input:not(#id_fecha_reintegro)');
+    otrosCampos.forEach((campo) => {
+      if (campo.dataset.fpInitialized !== '1') {
+        configurarFlatpickr('#' + campo.id);
+      }
+    });
+    
     configurarFlatpickrRango('.flatpickr-range-input');
   });
 })();

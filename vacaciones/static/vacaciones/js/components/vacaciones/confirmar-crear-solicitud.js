@@ -94,6 +94,69 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   };
 
+  const limpiarErrorCampo = (campo) => {
+    if (!campo) return;
+    
+    campo.classList.remove('border-red-500', 'focus:border-red-500', 'focus:ring-red-500', 'input-error');
+    
+    const contenedor = campo.closest('.mb-4') || campo.parentElement;
+    if (contenedor) {
+      const mensajeError = contenedor.querySelector('[data-error-message="true"]');
+      if (mensajeError) {
+        mensajeError.remove();
+      }
+    }
+  };
+
+  const validarCampoCompleto = (campo) => {
+    if (!campo) return;
+    
+    let estaCompleto = false;
+    if (campo.type === 'checkbox' || campo.type === 'radio') {
+      estaCompleto = campo.checked;
+    } else {
+      const valor = (campo.value || '').trim();
+      estaCompleto = valor !== '';
+    }
+    
+    if (estaCompleto && campo.classList.contains('input-error')) {
+      limpiarErrorCampo(campo);
+    }
+  };
+
+  const agregarListenersValidacion = () => {
+    const camposObligatorios = obtenerCamposObligatorios();
+    camposObligatorios.forEach((campo) => {
+      if (!campo.dataset.validationListener) {
+        campo.addEventListener('input', () => validarCampoCompleto(campo));
+        campo.addEventListener('change', () => validarCampoCompleto(campo));
+        campo.dataset.validationListener = 'true';
+      }
+      
+      if (campo.classList.contains('flatpickr-input')) {
+        const esperarFlatpickr = () => {
+          if (campo._flatpickr) {
+            if (!campo.dataset.flatpickrListener) {
+              const onChangeOriginal = campo._flatpickr.config.onChange || [];
+              campo._flatpickr.config.onChange = [
+                ...onChangeOriginal,
+                () => validarCampoCompleto(campo)
+              ];
+              campo.dataset.flatpickrListener = 'true';
+            }
+          } else {
+            setTimeout(esperarFlatpickr, 100);
+          }
+        };
+        esperarFlatpickr();
+      }
+    });
+  };
+
+  agregarListenersValidacion();
+  
+  setTimeout(agregarListenersValidacion, 500);
+
   btnAccion.addEventListener('click', function (event) {
     event.preventDefault();
     limpiarErroresPrevios();
@@ -110,6 +173,21 @@ document.addEventListener('DOMContentLoaded', function () {
         title: 'Campos incompletos',
         text: 'Por favor completa todos los campos obligatorios antes de continuar.',
         icon: 'warning',
+        confirmButtonText: 'Entendido'
+      });
+      return;
+    }
+
+    const campoReintegroAnticipado = formulario.querySelector('#id_es_por_reintegro_anticipado');
+    const tieneReintegrosAutorizados = document.getElementById('variables-container')?.dataset.tieneReintegrosAutorizados === 'true';
+    
+    if (campoReintegroAnticipado && campoReintegroAnticipado.value === 'True' && !tieneReintegrosAutorizados) {
+      marcarCampoInvalido(campoReintegroAnticipado, 'No tiene reintegros anticipados autorizados por necesidad del servicio.');
+      
+      Swal.fire({
+        title: '¡Solicitud de vacaciones no valida!',
+        text: 'No puede crear una solicitud de vacaciones por reintegro anticipado sin tener un reintegro autorizado previamente.',
+        icon: 'error',
         confirmButtonText: 'Entendido'
       });
       return;

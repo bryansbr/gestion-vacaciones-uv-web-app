@@ -1,6 +1,6 @@
 {% load static %}
 
-{% with activa=solicitud.etapa_activa aprobaciones=solicitud.aprobaciones_ordenadas %}
+{% with activa=reintegro.etapa_activa aprobaciones=reintegro.aprobaciones_ordenadas %}
 <div class="sem-col" role="group" aria-label="Avance de aprobación por etapas">
   {% if aprobaciones %}
     {% for ap in aprobaciones %}
@@ -24,3 +24,4 @@
   {% endif %}
 </div>
 {% endwith %}
+

@@ -8,7 +8,6 @@
         {% if form.instance.pk %}Editar{% else %}Registrar{% endif %} solicitud de vacaciones
     </h2>
 
-    <!-- Alerta cuando no hay periodos vacacionales -->
     {% if not tiene_periodos_vacacionales %}
     <div id="alerta-sin-periodos" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg relative">
         <button type="button" onclick="cerrarAlerta('alerta-sin-periodos')" class="absolute top-2 right-2 text-red-400 hover:text-red-600 focus:outline-none focus:text-red-600">
@@ -23,7 +22,6 @@
     </div>
     {% endif %}
 
-    <!-- Alerta cuando ya tiene una solicitud activa -->
     {% if not puede_crear_solicitud and solicitud_activa and not form.instance.pk %}
     <div id="alerta-solicitud-activa" class="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg relative">
         <button type="button" onclick="cerrarAlerta('alerta-solicitud-activa')" class="absolute top-2 right-2 text-orange-400 hover:text-orange-600 focus:outline-none focus:text-orange-600">
@@ -38,27 +36,6 @@
     </div>
     {% endif %}
 
-    <!-- Información sobre plazos de solicitud -->
-    {% if mensaje_plazo and not form.instance.pk %}
-    <div id="alerta-plazo-solicitud" class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg relative">
-        <button type="button" onclick="cerrarAlerta('alerta-plazo-solicitud')" class="absolute top-2 right-2 text-blue-400 hover:text-blue-600 focus:text-blue-600 focus:outline-none">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-            </svg>
-        </button>
-        <h3 class="text-lg font-semibold text-blue-800 mb-2">Información sobre su solicitud</h3>
-        <p class="text-blue-700 mb-3">{{ mensaje_plazo }}</p>
-        
-        {% if tiene_reintegros_pendientes %}
-        <div class="mt-3 p-3 bg-green-50 border border-green-200 rounded">
-            <p class="text-green-700 text-sm">
-                <strong>Opción disponible:</strong> Tiene días pendientes por reintegros aprobados. 
-                Puede marcarlos en "Disfrute de días pendientes" para solicitar con mayor flexibilidad.
-            </p>
-        </div>
-        {% endif %}
-    </div>
-    {% endif %}
 
     <div 
         data-festivos-colombia='{{ festivos_colombia|safe }}'
@@ -66,11 +43,12 @@
         data-funcionario-decreto="{{ funcionario_decreto|escapejs }}"
         data-reintegros-pendientes='{{ reintegros_pendientes|default:"[]"|safe }}'
         data-periodos-dias-pendientes='{{ periodos_dias_pendientes|default:"{}"|safe }}'
+        data-periodos-info='{{ periodos_info|default:"{}"|safe }}'
+        data-tiene-reintegros-autorizados="{{ tiene_reintegros_autorizados|yesno:'true,false' }}"
         id="variables-container"
     >
     <form method="post" class="space-y-6" {% if not tiene_periodos_vacacionales %}id="form-disabled"{% endif %} data-mode="{% if form.instance.pk %}edit{% else %}create{% endif %}">
         {% csrf_token %}
-        <!-- Campos del funcionario -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Número de identificación</label>
@@ -115,7 +93,6 @@
             </div>
         </div>
 
-        <!-- Campo Código SABS -->
         <div class="mb-4">
             <label for="{{ form.codigo_sabs.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
                 {{ form.codigo_sabs.label }}
@@ -123,7 +100,6 @@
             {% render_field form.codigo_sabs class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-500 cursor-not-allowed" readonly="readonly" %}
         </div>
 
-        <!-- Campo Fecha de solicitud -->
         <div class="mb-4">
             <label for="{{ form.fecha_solicitud.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
                 {{ form.fecha_solicitud.label }}
@@ -131,7 +107,6 @@
             {% render_field form.fecha_solicitud class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-500 cursor-not-allowed" readonly="readonly" %}
         </div>
 
-        <!-- Campo Periodo vacacional -->
         <div class="mb-4">
             <label for="{{ form.periodo_vacacional.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
                 {{ form.periodo_vacacional.label }}
@@ -157,7 +132,6 @@
             {% endif %}
         </div>
 
-        <!-- Campo Disfrute de días pendientes -->
         {% if tiene_reintegros_pendientes %}
         <div class="mb-4">
             <label for="{{ form.tiene_dias_pendientes.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
@@ -205,9 +179,8 @@
         </div>
         {% endif %}
 
-        <!-- Resto de los campos -->
         {% for field in form %}
-            {% if field.name not in 'numero_identificacion nombre_funcionario estamento facultad_dependencia dias_derecho dias_pendientes periodos_pendientes tipo_habiles tipo_calendario fecha_solicitud codigo_sabs periodo_vacacional tiene_dias_pendientes' %}
+            {% if field.name not in 'numero_identificacion nombre_funcionario estamento facultad_dependencia dias_derecho dias_pendientes periodos_pendientes tipo_habiles tipo_calendario fecha_solicitud codigo_sabs periodo_vacacional tiene_dias_pendientes es_por_reintegro_anticipado' %}
                 <div class="mb-4">
                     <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
                         {{ field.label }}
@@ -220,6 +193,26 @@
                         <p class="text-sm text-red-600 mt-1">{{ field.errors|first }}</p>
                     {% endif %}
                 </div>
+                
+                {% if field.name == 'fecha_fin_vacaciones' %}
+                <div class="mb-4">
+                    <label for="{{ form.es_por_reintegro_anticipado.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                        {{ form.es_por_reintegro_anticipado.label }}
+                    </label>
+                    <select name="es_por_reintegro_anticipado" id="{{ form.es_por_reintegro_anticipado.id_for_label }}" class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        {% with valor=form.es_por_reintegro_anticipado.value|default:False %}
+                        <option value="False" {% if not valor or valor == False or valor == 'False' %}selected{% endif %}>No</option>
+                        <option value="True" {% if valor == True or valor == 'True' %}selected{% endif %}>Sí</option>
+                        {% endwith %}
+                    </select>
+                    {% if form.es_por_reintegro_anticipado.help_text %}
+                        <p class="text-sm text-gray-500 mt-1">{{ form.es_por_reintegro_anticipado.help_text }}</p>
+                    {% endif %}
+                    {% if form.es_por_reintegro_anticipado.errors %}
+                        <p class="text-sm text-red-600 mt-1">{{ form.es_por_reintegro_anticipado.errors|first }}</p>
+                    {% endif %}
+                </div>
+                {% endif %}
             {% endif %}
         {% endfor %}
 

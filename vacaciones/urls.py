@@ -27,6 +27,7 @@ app_name = "vacaciones"
 urlpatterns = [
     # --- Semáforo ---
     path("semaforo-cell/<int:pk>/", views.semaforo_cell, name="semaforo_cell"),
+    path("semaforo-cell-reintegro/<int:pk>/", views.semaforo_cell_reintegro, name="semaforo_cell_reintegro"),
 
     # --- Acciones de flujo por etapa (Genéricas)
     path("<int:pk>/aprobar/",   views.aprobar_view,    name="aprobar_etapa"),

@@ -159,6 +159,11 @@ class SolicitudVacaciones(models.Model):
     )
     observaciones = models.TextField(blank=True, null=True)
     tiene_dias_pendientes = models.BooleanField(default=False)
+    es_por_reintegro_anticipado = models.BooleanField(
+        default=False,
+        verbose_name="Solicitud por reintegro anticipado",
+        help_text="Marque esta opción si la solicitud se realiza debido a un reintegro anticipado por necesidad del servicio"
+    )
     periodo_vacacional = models.ForeignKey(PeriodoVacacional, on_delete=models.PROTECT)
     funcionario = models.ForeignKey(Funcionario, on_delete=models.CASCADE)
     estado_solicitud = models.CharField(max_length=20, choices=ESTADOS, default='pendiente')
@@ -572,8 +577,8 @@ class SolicitudVacaciones(models.Model):
         if not self.codigo_sabs:
             anio_codigo = self.fecha_solicitud.year if self.fecha_solicitud else get_current_date_colombia().year
             self.codigo_sabs = generar_codigo_sabs('VAC', anio_codigo)
-            
-        if not self.fecha_pago:
+        
+        if not self.fecha_pago and not self.es_por_reintegro_anticipado:
             self.fecha_pago = self._calcular_fecha_pago_automatica()
         
         super().save(*args, **kwargs)
@@ -661,29 +666,9 @@ class AprobacionEtapa(models.Model):
 @receiver(post_save, sender=SolicitudVacaciones)
 def crear_etapas_por_defecto(sender, instance: SolicitudVacaciones, created, **kwargs):
     """
-    Crea las 3 etapas en 'pendiente' al crear la solicitud.
+    Las aprobaciones se crearán cuando el funcionario envíe la solicitud.
     """
-    if not created:
-        return
-
-    existentes = set(instance.aprobaciones.values_list('etapa', flat=True))
-    por_crear = [e for e in SolicitudVacaciones.ETAPAS_ORDEN if e not in existentes]
-
-    if not por_crear:
-        return
-
-    ct_sol = ContentType.objects.get_for_model(SolicitudVacaciones)
-    objs = [
-        AprobacionEtapa(
-            solicitud=instance,
-            etapa=e,
-            estado='pendiente',
-            content_type=ct_sol,
-            object_id=instance.pk,
-        )
-        for e in por_crear
-    ]
-    AprobacionEtapa.objects.bulk_create(objs)
+    pass
 
 
 # ============================================================
@@ -894,8 +879,6 @@ class ReintegroVacaciones(models.Model):
         if self.fecha_disfrute_desde and self.fecha_disfrute_hasta:
             if self.fecha_disfrute_desde > self.fecha_disfrute_hasta:
                 raise ValidationError("La fecha de inicio del disfrute no puede ser posterior a la fecha final.")
-        if self.fecha_reintegro and self.fecha_disfrute_hasta and self.fecha_reintegro <= self.fecha_disfrute_hasta:
-            raise ValidationError("La fecha de reintegro debe ser posterior al último día del disfrute.")
 
         if self.es_reintegro_anticipado and not (self.observaciones and self.observaciones.strip()):
             raise ValidationError("Las observaciones son obligatorias cuando el reintegro es anticipado.")
@@ -947,26 +930,10 @@ class ReintegroVacaciones(models.Model):
 
 @receiver(post_save, sender=ReintegroVacaciones)
 def crear_etapas_por_defecto_reintegro(sender, instance: ReintegroVacaciones, created, **kwargs):
-    if not created:
-        return
-
-    existentes = set(instance.aprobaciones.values_list('etapa', flat=True))
-    por_crear = [e for e in ReintegroVacaciones.ETAPAS_ORDEN if e not in existentes]
-
-    if not por_crear:
-        return
-
-    ct_reintegro = ContentType.objects.get_for_model(ReintegroVacaciones)
-    objs = [
-        AprobacionEtapa(
-            content_type=ct_reintegro,
-            object_id=instance.pk,
-            etapa=e,
-            estado='pendiente',
-        )
-        for e in por_crear
-    ]
-    AprobacionEtapa.objects.bulk_create(objs)
+    """
+    Las aprobaciones se crearán cuando el funcionario envíe el reintegro.
+    """
+    pass
 
 
 # ============================================================

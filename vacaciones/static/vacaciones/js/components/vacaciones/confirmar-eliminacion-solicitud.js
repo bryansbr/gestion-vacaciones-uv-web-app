@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   Swal.fire({
     title: 'Confirmar eliminación',
-    html: `¿Estás seguro de que deseas eliminar la solicitud <strong>${codigo}</strong>?`,
+    html: `¿Estás seguro de que deseas eliminar la solicitud de vacaciones <strong>${codigo}</strong>?. Esta acción no se puede deshacer.`,
     icon: 'warning',
     showCancelButton: true,
     confirmButtonColor: '#d33',

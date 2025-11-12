@@ -1,13 +1,14 @@
 import logging
 from typing import Optional
 
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.utils import timezone
 
 from notificaciones.models import Notificacion
 from usuarios.models import CustomUser
-from ..models import ReintegroVacaciones, HistoricoAcciones
+from ..models import AprobacionEtapa, ReintegroVacaciones, HistoricoAcciones
 
 logger = logging.getLogger(__name__)
 
@@ -150,11 +151,38 @@ def reenviar_funcionario_reintegro(usuario: CustomUser, reintegro: ReintegroVaca
                 observacion=observacion or 'Reenvío tras devolución',
             )
     else:
-        for etapa in reintegro.aprobaciones.filter(estado__in=('aprobada', 'autorizada')):
-            etapa.estado = 'pendiente'
-            etapa.observacion = ''
-            etapa.actualizado_por = None
-            etapa.save(update_fields=['estado', 'observacion', 'actualizado_por', 'actualizado_en'])
+        if reintegro.aprobaciones.count() == 0:
+            ct_reintegro = ContentType.objects.get_for_model(ReintegroVacaciones)
+            solicitud_fk = getattr(reintegro, 'solicitud_vacaciones', None)
+            AprobacionEtapa.objects.bulk_create([
+                AprobacionEtapa(
+                    content_type=ct_reintegro,
+                    object_id=reintegro.pk,
+                    solicitud=solicitud_fk,
+                    etapa='JEFE',
+                    estado='pendiente'
+                ),
+                AprobacionEtapa(
+                    content_type=ct_reintegro,
+                    object_id=reintegro.pk,
+                    solicitud=solicitud_fk,
+                    etapa='COORD',
+                    estado='pendiente'
+                ),
+                AprobacionEtapa(
+                    content_type=ct_reintegro,
+                    object_id=reintegro.pk,
+                    solicitud=solicitud_fk,
+                    etapa='RRHH',
+                    estado='pendiente'
+                ),
+            ])
+        else:
+            for etapa in reintegro.aprobaciones.filter(estado__in=('aprobada', 'autorizada')):
+                etapa.estado = 'pendiente'
+                etapa.observacion = ''
+                etapa.actualizado_por = None
+                etapa.save(update_fields=['estado', 'observacion', 'actualizado_por', 'actualizado_en'])
 
     reintegro.estado_solicitud = 'en_revision'
     reintegro.save(update_fields=['estado_solicitud'])

@@ -268,35 +268,66 @@
             const f = new Date(hoy);
             f.setDate(hoy.getDate() + 1);
             return obtenerSiguienteDiaHabil(f);
-        } else {
-            const estamento = (window.FUNCIONARIO_ESTAMENTO || '').toLowerCase();
-            let fechaSalida = new Date();
-            if (estamento === 'docente') {
-                if (hoy.getDate() <= 10) {
-                    fechaSalida = (hoy.getMonth() === 11) ? new Date(hoy.getFullYear()+1,0,1)
-                                                          : new Date(hoy.getFullYear(), hoy.getMonth()+1, 1);
-                } else {
-                    if (hoy.getMonth() === 11) {
-                        fechaSalida = new Date(hoy.getFullYear()+1, 1, 1);
-                    } else if (hoy.getMonth() === 10) {
-                        fechaSalida = new Date(hoy.getFullYear()+1, 0, 1);
-                    } else {
-                        fechaSalida = new Date(hoy.getFullYear(), hoy.getMonth()+2, 1);
-                    }
-                }
+        }
+
+        const container = document.getElementById('variables-container');
+        const periodosInfoStr = container ? container.dataset.periodosInfo : '{}';
+        const periodosInfo = JSON.parse(periodosInfoStr || '{}');
+        
+        const periodoSelect = document.getElementById('id_periodo_vacacional');
+        let periodoId = periodoSelect ? periodoSelect.value : null;
+        
+        if (!periodoId && Object.keys(periodosInfo).length > 0) {
+            periodoId = Object.keys(periodosInfo)[0];
+        }
+        
+        if (periodoId && periodosInfo[periodoId]) {
+            const periodo = periodosInfo[periodoId];
+            const fechaInicioPeriodo = new Date(periodo.fecha_inicio + 'T00:00:00');
+            const fechaFinPeriodo = new Date(periodo.fecha_fin + 'T00:00:00');
+            
+            fechaInicioPeriodo.setHours(0,0,0,0);
+            fechaFinPeriodo.setHours(0,0,0,0);
+            
+            if (hoy < fechaFinPeriodo) {
+                const fechaMinima = sumarDiasCalendario(fechaFinPeriodo, 1);
+                return obtenerSiguienteDiaHabil(fechaMinima);
             } else {
-                if (hoy.getDate() <= 3) {
-                    fechaSalida = new Date(hoy.getFullYear(), hoy.getMonth(), 16);
-                } else if (hoy.getDate() <= 17) {
-                    fechaSalida = (hoy.getMonth() === 11) ? new Date(hoy.getFullYear()+1,0,1)
-                                                          : new Date(hoy.getFullYear(), hoy.getMonth()+1, 1);
+                const siguienteDiaHabil = obtenerSiguienteDiaHabil(sumarDiasCalendario(hoy, 1));
+                if (siguienteDiaHabil < fechaInicioPeriodo) {
+                    return obtenerSiguienteDiaHabil(fechaInicioPeriodo);
+                }
+                return siguienteDiaHabil;
+            }
+        }
+
+        const estamento = (window.FUNCIONARIO_ESTAMENTO || '').toLowerCase();
+        let fechaSalida = new Date();
+        if (estamento === 'docente') {
+            if (hoy.getDate() <= 10) {
+                fechaSalida = (hoy.getMonth() === 11) ? new Date(hoy.getFullYear()+1,0,1)
+                                                      : new Date(hoy.getFullYear(), hoy.getMonth()+1, 1);
+            } else {
+                if (hoy.getMonth() === 11) {
+                    fechaSalida = new Date(hoy.getFullYear()+1, 1, 1);
+                } else if (hoy.getMonth() === 10) {
+                    fechaSalida = new Date(hoy.getFullYear()+1, 0, 1);
                 } else {
-                    fechaSalida = (hoy.getMonth() === 11) ? new Date(hoy.getFullYear()+1,0,16)
-                                                          : new Date(hoy.getFullYear(), hoy.getMonth()+1, 16);
+                    fechaSalida = new Date(hoy.getFullYear(), hoy.getMonth()+2, 1);
                 }
             }
-            return obtenerSiguienteDiaHabil(fechaSalida);
+        } else {
+            if (hoy.getDate() <= 3) {
+                fechaSalida = new Date(hoy.getFullYear(), hoy.getMonth(), 16);
+            } else if (hoy.getDate() <= 17) {
+                fechaSalida = (hoy.getMonth() === 11) ? new Date(hoy.getFullYear()+1,0,1)
+                                                      : new Date(hoy.getFullYear(), hoy.getMonth()+1, 1);
+            } else {
+                fechaSalida = (hoy.getMonth() === 11) ? new Date(hoy.getFullYear()+1,0,16)
+                                                      : new Date(hoy.getFullYear(), hoy.getMonth()+1, 16);
+            }
         }
+        return obtenerSiguienteDiaHabil(fechaSalida);
     }
 
     function calcularFechaFinAutomatica(fechaInicio) {
@@ -340,6 +371,29 @@
             }
         };
 
+        const validarFechaMinimaPeriodo = (date) => {
+            const container = document.getElementById('variables-container');
+            const periodosInfoStr = container ? container.dataset.periodosInfo : '{}';
+            const periodosInfo = JSON.parse(periodosInfoStr || '{}');
+            const periodoSelect = document.getElementById('id_periodo_vacacional');
+            let periodoId = periodoSelect ? periodoSelect.value : null;
+            
+            if (!periodoId && Object.keys(periodosInfo).length > 0) {
+                periodoId = Object.keys(periodosInfo)[0];
+            }
+            
+            if (periodoId && periodosInfo[periodoId]) {
+                const periodo = periodosInfo[periodoId];
+                const fechaInicioPeriodo = new Date(periodo.fecha_inicio + 'T00:00:00');
+                fechaInicioPeriodo.setHours(0,0,0,0);
+                
+                if (date < fechaInicioPeriodo) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
         const configInicio = {
             ...configBase,
             minDate: fechaMinimaInicio,
@@ -347,8 +401,10 @@
                 function(date) {
                     const esFinSemana = esFinDeSemana(date);
                     const esFestivoFecha = esFestivo(date);
-                    const esMenorQueMinima = date < fechaMinimaInicio;
-                    return esFinSemana || esFestivoFecha || esMenorQueMinima;
+                    const fechaMinimaActual = calcularFechaMinimaInicio();
+                    const esMenorQueMinima = date < fechaMinimaActual;
+                    const esAnteriorAlPeriodo = validarFechaMinimaPeriodo(date);
+                    return esFinSemana || esFestivoFecha || esMenorQueMinima || esAnteriorAlPeriodo;
                 }
             ],
             onChange: function(selectedDates, dateStr, instance) {
@@ -465,7 +521,31 @@
         }
 
         const periodoVacacional = document.getElementById('id_periodo_vacacional');
-        if (periodoVacacional) periodoVacacional.addEventListener('change', actualizarEstadoBoton);
+        if (periodoVacacional) {
+            periodoVacacional.addEventListener('change', function() {
+                actualizarEstadoBoton();
+                if (fechaInicio && fechaInicio._flatpickr) {
+                    const nuevaFechaMinima = calcularFechaMinimaInicio();
+                    fechaInicio._flatpickr.set('minDate', nuevaFechaMinima);
+                    fechaInicio._flatpickr.set('disable', [
+                        function(date) {
+                            const esFinSemana = esFinDeSemana(date);
+                            const esFestivoFecha = esFestivo(date);
+                            const fechaMinimaActual = calcularFechaMinimaInicio();
+                            const esMenorQueMinima = date < fechaMinimaActual;
+                            const esAnteriorAlPeriodo = validarFechaMinimaPeriodo(date);
+                            return esFinSemana || esFestivoFecha || esMenorQueMinima || esAnteriorAlPeriodo;
+                        }
+                    ]);
+                    if (fechaInicio._flatpickr.selectedDates.length > 0) {
+                        const fechaSeleccionada = fechaInicio._flatpickr.selectedDates[0];
+                        if (fechaSeleccionada < nuevaFechaMinima || validarFechaMinimaPeriodo(fechaSeleccionada)) {
+                            fechaInicio._flatpickr.clear();
+                        }
+                    }
+                }
+            });
+        }
 
         if (fechaInicio) {
             fechaInicio.addEventListener('input', actualizarEstadoBoton);

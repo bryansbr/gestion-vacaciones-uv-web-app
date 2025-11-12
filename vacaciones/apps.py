@@ -6,4 +6,4 @@ class VacacionesConfig(AppConfig):
     verbose_name = 'Módulo de Vacaciones'
 
     def ready(self):
-        from . import signals
+        pass

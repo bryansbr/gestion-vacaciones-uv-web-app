@@ -70,6 +70,15 @@ class SolicitudVacacionesForm(forms.ModelForm):
         help_text='Marque esta opción si desea solicitar vacaciones por días pendientes de reintegros aprobados'
     )
 
+    es_por_reintegro_anticipado = forms.ChoiceField(
+        label='¿Solicitud por reintegro anticipado?',
+        required=False,
+        choices=[(False, 'No'), (True, 'Sí')],
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        help_text='Seleccione "Sí" si la solicitud se realiza debido a un reintegro anticipado por necesidad del servicio',
+        initial=False
+    )
+
     fecha_inicio_vacaciones = forms.DateField(
         widget=forms.DateInput(format='%d/%m/%Y', attrs={'class': 'form-input flatpickr-input', 'placeholder': 'Seleccionar fecha', 'autocomplete': 'off'}),
         input_formats=['%d/%m/%Y', '%Y-%m-%d'],
@@ -90,6 +99,7 @@ class SolicitudVacacionesForm(forms.ModelForm):
             'fecha_pago',
             'observaciones',
             'tiene_dias_pendientes',
+            'es_por_reintegro_anticipado',
             'codigo_sabs',
             'fecha_solicitud'
         ]
@@ -98,8 +108,12 @@ class SolicitudVacacionesForm(forms.ModelForm):
             'fecha_inicio_vacaciones': 'Fecha de inicio vacaciones',
             'fecha_fin_vacaciones': 'Fecha de fin vacaciones',
             'fecha_pago': 'Fecha de pago vacaciones',
+            'es_por_reintegro_anticipado': '¿Solicitud por reintegro anticipado?',
             'codigo_sabs': 'Código SABS',
             'fecha_solicitud': 'Fecha de solicitud',
+        }
+        help_texts = {
+            'es_por_reintegro_anticipado': 'Seleccione "Sí" si la solicitud se realiza debido a un reintegro anticipado por necesidad del servicio',
         }
         widgets = {
             'fecha_pago': forms.DateInput(attrs={
@@ -265,7 +279,16 @@ class SolicitudVacacionesForm(forms.ModelForm):
                     else:
                         fecha_pago = date(hoy.year, hoy.month + 1, 15)
 
-            self.initial['fecha_pago'] = fecha_pago
+            reintegros_autorizados = ReintegroVacaciones.objects.filter(
+                funcionario=funcionario,
+                aprobaciones__etapa='RRHH',
+                aprobaciones__estado='autorizada'
+            ).distinct().exists()
+            
+            if not reintegros_autorizados:
+                self.initial['fecha_pago'] = fecha_pago
+            else:
+                self.fields['fecha_pago'].widget = forms.HiddenInput()
 
             periodos_pendientes_count = PeriodoVacacional.objects.filter(
                 funcionario=funcionario,
@@ -273,12 +296,22 @@ class SolicitudVacacionesForm(forms.ModelForm):
             ).count()
 
             self.initial['periodos_pendientes'] = periodos_pendientes_count
+            
+            self.fields['es_por_reintegro_anticipado'].widget = forms.Select(
+                attrs={'class': 'form-select'}
+            )
+            self.fields['es_por_reintegro_anticipado'].choices = [(False, 'No'), (True, 'Sí')]
+            if 'es_por_reintegro_anticipado' not in self.initial:
+                self.initial['es_por_reintegro_anticipado'] = False
 
         if self.instance and self.instance.pk:
             if self.instance.fecha_inicio_vacaciones:
                 self.fields['fecha_inicio_vacaciones'].initial = self.instance.fecha_inicio_vacaciones.strftime('%d/%m/%Y')
             if self.instance.fecha_fin_vacaciones:
                 self.fields['fecha_fin_vacaciones'].initial = self.instance.fecha_fin_vacaciones.strftime('%d/%m/%Y')
+            if hasattr(self.instance, 'es_por_reintegro_anticipado'):
+                self.initial['es_por_reintegro_anticipado'] = self.instance.es_por_reintegro_anticipado
+
 
     def clean_tiene_dias_pendientes(self):
         """
@@ -305,6 +338,17 @@ class SolicitudVacacionesForm(forms.ModelForm):
                 tiene_dias_pendientes = reintegros_pendientes.exists()
         
         return tiene_dias_pendientes
+
+    def clean_es_por_reintegro_anticipado(self):
+        """
+        Convierte el valor del Select (True/False o string) a booleano para guardar en el modelo.
+        """
+        value = self.cleaned_data.get('es_por_reintegro_anticipado')
+        if value is None:
+            return False
+        if isinstance(value, str):
+            return value.lower() in ('true', '1', 'sí', 'si', 'yes')
+        return bool(value)
 
     def clean(self):
         cleaned_data = super().clean()
@@ -447,18 +491,37 @@ class ReintegroVacacionesForm(forms.ModelForm):
             })
             self.funcionario_estamento = estamento_nombre
             self.funcionario_decreto = decreto_valor
-            solicitudes_autorizadas = (
-                SolicitudVacaciones.objects.filter(
-                    funcionario=funcionario,
-                    aprobaciones__etapa='RRHH',
-                    aprobaciones__estado='autorizada',
+            from django.db.models import Q
+            
+            if self.instance and self.instance.pk and self.instance.solicitud_vacaciones_id:
+                solicitud_actual_id = self.instance.solicitud_vacaciones_id
+                solicitudes_autorizadas = (
+                    SolicitudVacaciones.objects.filter(
+                        Q(
+                            funcionario=funcionario,
+                            aprobaciones__etapa='RRHH',
+                            aprobaciones__estado='autorizada',
+                        ) & ~Q(
+                            reintegrovacaciones__estado_solicitud__in=['pendiente', 'en_revision', 'devuelta', 'aprobado']
+                        ) | Q(pk=solicitud_actual_id)
+                    )
+                    .select_related('periodo_vacacional')
+                    .distinct()
                 )
-                .select_related('periodo_vacacional')
-                .distinct()
-            )
-            solicitudes_autorizadas = solicitudes_autorizadas.exclude(
-                reintegrovacaciones__estado_solicitud__in=['pendiente', 'en_revision', 'devuelta', 'aprobado']
-            )
+            else:
+                solicitudes_autorizadas = (
+                    SolicitudVacaciones.objects.filter(
+                        funcionario=funcionario,
+                        aprobaciones__etapa='RRHH',
+                        aprobaciones__estado='autorizada',
+                    )
+                    .select_related('periodo_vacacional')
+                    .exclude(
+                        reintegrovacaciones__estado_solicitud__in=['pendiente', 'en_revision', 'devuelta', 'aprobado']
+                    )
+                    .distinct()
+                )
+            
             self.fields['solicitud_vacaciones'].queryset = solicitudes_autorizadas
         else:
             self.funcionario_estamento = ''
@@ -467,6 +530,8 @@ class ReintegroVacacionesForm(forms.ModelForm):
 
         if self.instance and self.instance.pk:
             self.fields['solicitud_vacaciones'].disabled = True
+            if self.instance.solicitud_vacaciones_id:
+                self.initial['solicitud_vacaciones'] = self.instance.solicitud_vacaciones_id
             self.fields['fecha_reintegro'].initial = self.instance.fecha_reintegro
             self.fields['periodo_correspondiente_desde'].initial = self.instance.periodo_correspondiente_desde
             self.fields['periodo_correspondiente_hasta'].initial = self.instance.periodo_correspondiente_hasta

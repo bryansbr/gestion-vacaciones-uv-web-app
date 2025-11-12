@@ -3,6 +3,7 @@
 
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'vacaciones/css/tabla-solicitudes-vacaciones.css' %}">
+  <link rel="stylesheet" href="{% static 'vacaciones/css/semaforo.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -25,17 +26,6 @@
       </div>
     {% endif %}
   </div>
-
-  {% if solicitudes_autorizadas %}
-  <div class="mb-4 text-sm text-gray-600">
-    <p>Solicitudes autorizadas disponibles:</p>
-    <ul class="list-disc list-inside">
-      {% for solicitud in solicitudes_autorizadas %}
-      <li>{{ solicitud.codigo_sabs }} &middot; Periodo {{ solicitud.fecha_inicio_vacaciones|date:"d/m/Y" }} - {{ solicitud.fecha_fin_vacaciones|date:"d/m/Y" }}</li>
-      {% endfor %}
-    </ul>
-  </div>
-  {% endif %}
 
   <form method="get" class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
     <div>

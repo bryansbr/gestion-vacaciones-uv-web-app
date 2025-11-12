@@ -4,14 +4,13 @@
     <thead class="bg-gray-100 text-gray-600">
       <tr>
         <th class="px-4 py-2 border">Código SABS</th>
-        <th class="px-4 py-2 border">Periodo disfrutado</th>
+        <th class="px-4 py-2 border">Funcionario</th>
         <th class="px-4 py-2 border">Fecha de reintegro</th>
         <th class="px-4 py-2 border">Motivo</th>
         <th class="px-4 py-2 border">Días disfrutados</th>
-        <th class="px-4 py-2 border">Pendientes</th>
+        <th class="px-4 py-2 border">Días pendientes</th>
         <th class="px-4 py-2 border">Avance</th>
         <th class="px-4 py-2 border">Estado</th>
-        <th class="px-4 py-2 border">Firmado</th>
         <th class="px-4 py-2 border">Acciones</th>
       </tr>
     </thead>
@@ -20,8 +19,29 @@
       <tr class="border-b hover:bg-gray-50">
         <td class="px-4 py-2 border">{{ reintegro.codigo_sabs }}</td>
         <td class="px-4 py-2 border">
-          {{ reintegro.fecha_disfrute_desde|date:"d/m/Y" }} -
-          {{ reintegro.fecha_disfrute_hasta|date:"d/m/Y" }}
+          <div>
+            <div class="font-medium">{{ reintegro.funcionario.nombre }} {{ reintegro.funcionario.apellido }}</div>
+            <div class="text-xs text-gray-500">
+              {% if reintegro.funcionario.facultad_dependencia %}
+                {% if reintegro.funcionario.facultad_dependencia.nombre %}
+                  {{ reintegro.funcionario.facultad_dependencia.nombre }}
+                {% elif reintegro.funcionario.facultad_dependencia.descripcion %}
+                  {{ reintegro.funcionario.facultad_dependencia.descripcion }}
+                {% endif %}
+              {% endif %}
+            </div>
+            {% if reintegro.creada_por %}
+            <div class="text-xs text-blue-600 mt-1">
+              Creada por: {% if reintegro.creada_por.funcionario %}
+                {{ reintegro.creada_por.funcionario.nombre }} {{ reintegro.creada_por.funcionario.apellido }}
+              {% elif reintegro.creada_por.email %}
+                {{ reintegro.creada_por.email }}
+              {% else %}
+                N/A
+              {% endif %}
+            </div>
+            {% endif %}
+          </div>
         </td>
         <td class="px-4 py-2 border">{{ reintegro.fecha_reintegro|date:"d/m/Y" }}</td>
         <td class="px-4 py-2 border">{{ reintegro.get_motivo_reintegro_display }}</td>
@@ -35,22 +55,13 @@
           {% if reintegro.dias_pendientes_habiles %}<span class="block text-xs text-gray-500">{{ reintegro.dias_pendientes_habiles }} Hábiles</span>{% endif %}
           {% if reintegro.dias_pendientes_calendario %}<span class="block text-xs text-gray-500">{{ reintegro.dias_pendientes_calendario }} Calendario</span>{% endif %}
         </td>
-        <td class="px-4 py-2 border">
-          <div class="flex justify-center gap-1">
-            {% for color in reintegro.colores_semaforo %}
-              <span class="inline-block w-3 h-3 rounded-full border" data-color="{{ color }}"
-                    style="background-color: {% if color == 'verde' %}#22c55e{% elif color == 'rojo' %}#ef4444{% elif color == 'amarillo' %}#facc15{% else %}#e5e7eb{% endif %};"></span>
-            {% endfor %}
-          </div>
+        <td class="px-4 py-2 border"
+            hx-get="{% url 'vacaciones:semaforo_cell_reintegro' reintegro.id %}"
+            hx-trigger="load, every 25s"
+            hx-swap="innerHTML">
+          {% include 'vacaciones/partials/_semaforo-cell-reintegro.html' with reintegro=reintegro %}
         </td>
         <td class="px-4 py-2 border font-medium text-indigo-600">{{ reintegro.get_estado_solicitud_display }}</td>
-        <td class="px-4 py-2 border">
-          {% if reintegro.firmado_por %}
-            <span class="text-green-600 font-semibold">Firmado</span>
-          {% else %}
-            <span class="text-gray-500">Pendiente</span>
-          {% endif %}
-        </td>
         <td class="px-4 py-2 border">
           <div class="flex justify-center items-center">
             {% include 'vacaciones/partials/_menu-acciones-reintegro.html' with reintegro=reintegro %}

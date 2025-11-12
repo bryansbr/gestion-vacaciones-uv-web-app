@@ -21,6 +21,12 @@
   </div>
   {% endif %}
 
+  <div 
+    data-festivos-colombia='{{ festivos_colombia|default:"[]"|safe }}'
+    id="variables-container"
+    style="display: none;">
+  </div>
+
   <form method="post" id="form-reintegro-vacaciones" data-mode="{% if form.instance.pk %}edit{% else %}create{% endif %}" novalidate class="space-y-6">
     {% csrf_token %}
 
