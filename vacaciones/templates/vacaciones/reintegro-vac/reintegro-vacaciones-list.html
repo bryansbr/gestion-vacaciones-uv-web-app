@@ -5,6 +5,7 @@
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'vacaciones/css/tabla-solicitudes-vacaciones.css' %}">
   <link rel="stylesheet" href="{% static 'vacaciones/css/semaforo.css' %}">
+  <link rel="stylesheet" href="{% static 'vacaciones/css/menu-acciones-dropdown.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -19,6 +20,23 @@
               data-funcionarios='{{ funcionarios_bajo_jefe }}'
               data-secretaria-puede-crear="{{ secretaria_puede_crear|yesno:'true,false' }}"
               data-secretaria-solicitudes='{{ secretaria_solicitudes_autorizadas|default:"[]" }}'
+              class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200">
+        Crear
+      </button>
+      {% else %}
+      <div class="tooltip-container">
+        <button title="No se encontró información del funcionario asociado."
+                disabled class="btn-disabled bg-gray-400 text-white font-semibold py-2 px-4 rounded-md">
+          Crear
+        </button>
+      </div>
+      {% endif %}
+    {% elif request.user|has_group:"Jefe Inmediato" or request.user|has_group:"Coordinador Administrativo" %}
+      {% if jefe_id %}
+      <button id="btn-crear-reintegro-jefe" 
+              data-jefe-id="{{ jefe_id }}"
+              data-url-crear="{% url 'vacaciones:jefe-reintegro-create' %}"
+              data-funcionarios='{{ funcionarios_bajo_jefe }}'
               class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200">
         Crear
       </button>
@@ -107,10 +125,13 @@
 {% block extra_scripts %}
   {{ block.super }}
   <script src="{% static 'vacaciones/js/components/vacaciones/acciones-reintegro.js' %}"></script>
+  <script src="{% static 'vacaciones/js/components/vacaciones/confirmar-envio-reintegro.js' %}"></script>
   <script src="{% static 'vacaciones/js/components/vacaciones/creacion-exitosa-reintegro.js' %}"></script>
   <script src="{% static 'vacaciones/js/components/vacaciones/edicion-exitosa-reintegro.js' %}"></script>
   <script src="{% static 'vacaciones/js/components/vacaciones/eliminacion-exitosa-reintegro.js' %}"></script>
   {% if request.user|es_secretaria %}
   <script src="{% static 'vacaciones/js/components/secretaria/selector-crear-reintegro.js' %}"></script>
+  {% elif request.user|has_group:"Jefe Inmediato" or request.user|has_group:"Coordinador Administrativo" %}
+  <script src="{% static 'vacaciones/js/components/jefe/selector-crear-reintegro.js' %}"></script>
   {% endif %}
 {% endblock %}

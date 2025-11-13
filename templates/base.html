@@ -213,6 +213,34 @@
                   <span class="ml-9 sidebar-text" id="sidebar-text-mis-reintegros">Mis reintegros</span>
                 </a>
               </li>
+              {% if request.user.is_superuser or request.user|has_group:"Jefe Inmediato" or request.user|has_group:"Coordinador Administrativo" %}
+              <li class="relative">
+                <button class="sidebar-link block py-2 px-3 rounded hover:bg-red-600 w-full flex items-center gap-2 cursor-pointer"
+                        data-dropdown-toggle="dropdown-reintegros-jefe">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-5 w-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span class="sidebar-text">Listado de reintegros</span>
+                  <svg class="sidebar-icon h-5 w-5 transition-transform duration-200 ml-auto sidebar-dropdown-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <div id="dropdown-reintegros-jefe" class="sidebar-popover hidden">
+                  <ul class="space-y-1">
+                    {% if request.user.is_superuser or request.user|has_group:"Jefe Inmediato" %}
+                    <li>
+                      <a href="{% url 'vacaciones:jefe_reintegros_list' %}"
+                         id="submenu-link-jefe-reintegros"
+                         data-url-path="{% url 'vacaciones:jefe_reintegros_list' %}"
+                         class="popover-link">
+                        Como Jefe Inmediato
+                      </a>
+                    </li>
+                    {% endif %}
+                  </ul>
+                </div>
+              </li>
+              {% endif %}
               {% if request.user.is_superuser or request.user|has_group:"Secretaria" %}
               <li>
                 <a href="{% url 'vacaciones:secretaria-reintegros-list' %}"

@@ -2,11 +2,11 @@
   'use strict';
 
   document.addEventListener('DOMContentLoaded', function() {
-    const btnsMenu = document.querySelectorAll('[id^="actions-menu-"]');
+    const btnsMenu = document.querySelectorAll('[id^="reintegro-actions-"]');
 
     btnsMenu.forEach(btn => {
-      const idSolicitud = btn.id.replace('actions-menu-', '');
-      const desplegable = document.getElementById(`dropdown-${idSolicitud}`);
+      const idReintegro = btn.id.replace('reintegro-actions-', '');
+      const desplegable = document.getElementById(`reintegro-dropdown-${idReintegro}`);
 
       if (!desplegable) return;
 
@@ -15,7 +15,7 @@
 
         const estaAbierto = !desplegable.classList.contains('hidden');
 
-        document.querySelectorAll('[id^="dropdown-"]').forEach(menuDesplegable => {
+        document.querySelectorAll('[id^="reintegro-dropdown-"]').forEach(menuDesplegable => {
           menuDesplegable.classList.add('hidden');
           menuDesplegable.classList.remove('bottom-full', 'mb-2');
           menuDesplegable.classList.add('mt-2');
@@ -66,53 +66,14 @@
     });
 
     document.addEventListener('click', function(e) {
-      if (!e.target.closest('[id^="actions-menu-"]') && !e.target.closest('[id^="dropdown-"]')) {
-        document.querySelectorAll('[id^="dropdown-"]').forEach(menuDesplegable => {
+      if (!e.target.closest('[id^="reintegro-actions-"]') && !e.target.closest('[id^="reintegro-dropdown-"]')) {
+        document.querySelectorAll('[id^="reintegro-dropdown-"]').forEach(menuDesplegable => {
           menuDesplegable.classList.add('hidden');
         });
-        document.querySelectorAll('[id^="actions-menu-"]').forEach(btn => {
+        document.querySelectorAll('[id^="reintegro-actions-"]').forEach(btn => {
           btn.setAttribute('aria-expanded', 'false');
         });
       }
-    });
-
-    const btnEliminar = document.querySelectorAll('.btn-eliminar-solicitud');
-    btnEliminar.forEach(btn => {
-      btn.addEventListener('click', function() {
-        const urlEliminar = btn.dataset.url;
-        const codigo = btn.dataset.codigo || '';
-
-        Swal.fire({
-          title: '¿Está seguro?',
-          html: codigo 
-            ? `Está a punto de eliminar la solicitud <strong>${codigo}</strong>. La acción no se podrá deshacer.`
-            : 'Está a punto de eliminar la solicitud. La acción no se podrá deshacer.',
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonColor: '#d33',
-          cancelButtonColor: '#3085d6',
-          confirmButtonText: 'Sí, eliminar',
-          cancelButtonText: 'Cancelar'
-        }).then((resultado) => {
-          if (resultado.isConfirmed) {
-            const formulario = document.createElement('form');
-            formulario.method = 'POST';
-            formulario.action = urlEliminar;
-
-            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-            if (csrfToken) {
-              const csrfInput = document.createElement('input');
-              csrfInput.type = 'hidden';
-              csrfInput.name = 'csrfmiddlewaretoken';
-              csrfInput.value = csrfToken.value;
-              formulario.appendChild(csrfInput);
-            }
-
-            document.body.appendChild(formulario);
-            formulario.submit();
-          }
-        });
-      });
     });
   });
 })();

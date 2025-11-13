@@ -1,0 +1,50 @@
+.overflow-x-auto {
+  position: relative;
+}
+
+.overflow-x-auto td:has([id^="dropdown-"]),
+.overflow-x-auto td:has([id^="reintegro-dropdown-"]),
+.overflow-x-auto td:has([id^="actions-menu-"]),
+.overflow-x-auto td:has([id^="reintegro-actions-"]) {
+  position: relative;
+  overflow: visible !important;
+}
+
+.overflow-x-auto td .relative {
+  position: relative !important;
+  overflow: visible !important;
+  z-index: 1;
+}
+
+[id^="dropdown-"],
+[id^="reintegro-dropdown-"] {
+  z-index: 9999 !important;
+  overflow: visible !important;
+  max-height: 80vh !important;
+  overflow-y: auto !important;
+}
+
+[id^="dropdown-"]:not(.hidden),
+[id^="reintegro-dropdown-"]:not(.hidden) {
+  z-index: 9999 !important;
+}
+
+[id^="dropdown-"] ul,
+[id^="reintegro-dropdown-"] ul {
+  max-height: 60vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+[id^="dropdown-"] li,
+[id^="reintegro-dropdown-"] li {
+  white-space: nowrap;
+}
+
+[id^="dropdown-"].hidden,
+[id^="reintegro-dropdown-"].hidden {
+  position: absolute !important;
+  left: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+}

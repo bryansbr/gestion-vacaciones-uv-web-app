@@ -73,6 +73,10 @@ urlpatterns = [
     path("jefe/solicitudes/<int:pk>/aprobar/",        views_jefe.aprobar_solicitud,               name="jefe_aprobar_solicitud"),
     path("jefe/solicitudes/<int:pk>/devolver/",       views_jefe.devolver_solicitud,              name="jefe_devolver_solicitud"),
     path("jefe/solicitudes/<int:pk>/enviar-proximo/", views_jefe.enviar_solicitud_proximo_revisor, name="jefe_enviar_proximo_revisor"),
+    path("jefe/reintegros/",                         views_jefe.ReintegrosJefeListView.as_view(), name="jefe_reintegros_list"),
+    path("jefe/reintegros/crear/",                   views_jefe.JefeReintegroCreateView.as_view(), name="jefe-reintegro-create"),
+    path("jefe/reintegros/<int:pk>/aprobar/",        views_jefe.aprobar_reintegro,                name="jefe_aprobar_reintegro"),
+    path("jefe/reintegros/<int:pk>/devolver/",       views_jefe.devolver_reintegro,               name="jefe_devolver_reintegro"),
 
     # -----------------------------------------
     # Secretaria

@@ -113,6 +113,48 @@
             </li>
           {% endif %}
         {% endif %}
+        
+        {% comment %}Opciones para Jefe Inmediato{% endcomment %}
+        {% if request.user|has_group:"Jefe Inmediato" or request.user|has_group:"Coordinador Administrativo" %}
+          {% if reintegro.etapa_activa and reintegro.etapa_activa.etapa == 'JEFE' and reintegro.etapa_activa.estado == 'pendiente' %}
+            {% if reintegro.funcionario.jefe_inmediato_id == request.user.funcionario.pk or request.user.is_superuser %}
+              <li>
+                <form method="post"
+                      action="{% url 'vacaciones:jefe_aprobar_reintegro' reintegro.id %}"
+                      class="form-aprobar-reintegro-jefe"
+                      data-codigo="{{ reintegro.codigo_sabs }}">
+                  {% csrf_token %}
+                  <input type="hidden" name="obs" value="">
+                  <button type="button"
+                          class="flex items-center justify-start w-full px-4 py-2 text-sm text-green-700 hover:bg-green-50 btn-aprobar-reintegro-jefe">
+                    <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M5 13l4 4L19 7"/>
+                    </svg>
+                    <span class="text-left">Aprobar</span>
+                  </button>
+                </form>
+              </li>
+              <li>
+                <form method="post"
+                      action="{% url 'vacaciones:jefe_devolver_reintegro' reintegro.id %}"
+                      class="form-devolver-reintegro-jefe"
+                      data-codigo="{{ reintegro.codigo_sabs }}">
+                  {% csrf_token %}
+                  <input type="hidden" name="obs" value="">
+                  <button type="button"
+                          class="flex items-center justify-start w-full px-4 py-2 text-sm text-orange-700 hover:bg-orange-50 btn-devolver-reintegro-jefe">
+                    <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                    <span class="text-left">Devolver</span>
+                  </button>
+                </form>
+              </li>
+            {% endif %}
+          {% endif %}
+        {% endif %}
       {% endif %}
     </ul>
     {% endwith %}

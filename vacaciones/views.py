@@ -812,12 +812,73 @@ class ReintegroVacacionesListView(LoginRequiredMixin, ListView):
             context["funcionarios_bajo_jefe"] = json.dumps(funcionarios_data)
             context["secretaria_id"] = funcionario.pk
             context["puede_crear_reintegro"] = True  # Siempre habilitado para secretaria (mostrar modal)
+        elif es_jefe_inmediato(self.request.user) and funcionario:
+            funcionarios_bajo_jefe = Funcionario.objects.filter(
+                jefe_inmediato=funcionario
+            ).select_related('facultad_dependencia')
+            
+            funcionarios_data = []
+            
+            solicitudes_jefe = self._solicitudes_autorizadas_sin_reintegro(funcionario)
+            funcionarios_data.append({
+                'id': funcionario.pk,
+                'nombre': funcionario.nombre,
+                'apellido': funcionario.apellido,
+                'facultad_dependencia': funcionario.facultad_dependencia.nombre if funcionario.facultad_dependencia else '',
+                'tiene_solicitudes_autorizadas': len(solicitudes_jefe) > 0,
+                'solicitudes_autorizadas': [
+                    {
+                        'id': sol.pk,
+                        'codigo_sabs': sol.codigo_sabs,
+                        'fecha_inicio': sol.fecha_inicio_vacaciones.strftime('%d/%m/%Y'),
+                        'fecha_fin': sol.fecha_fin_vacaciones.strftime('%d/%m/%Y')
+                    }
+                    for sol in solicitudes_jefe
+                ]
+            })
+            
+            for func in funcionarios_bajo_jefe:
+                disponibles = self._solicitudes_autorizadas_sin_reintegro(func)
+                
+                funcionarios_data.append({
+                    'id': func.pk,
+                    'nombre': func.nombre,
+                    'apellido': func.apellido,
+                    'facultad_dependencia': func.facultad_dependencia.nombre if func.facultad_dependencia else '',
+                    'tiene_solicitudes_autorizadas': len(disponibles) > 0,
+                    'solicitudes_autorizadas': [
+                        {
+                            'id': sol.pk,
+                            'codigo_sabs': sol.codigo_sabs,
+                            'fecha_inicio': sol.fecha_inicio_vacaciones.strftime('%d/%m/%Y'),
+                            'fecha_fin': sol.fecha_fin_vacaciones.strftime('%d/%m/%Y')
+                        }
+                        for sol in disponibles
+                    ]
+                })
+            
+            context["jefe_puede_crear"] = len(solicitudes_jefe) > 0
+            context["jefe_solicitudes_autorizadas"] = json.dumps([
+                {
+                    'id': sol.pk,
+                    'codigo_sabs': sol.codigo_sabs,
+                    'fecha_inicio': sol.fecha_inicio_vacaciones.strftime('%d/%m/%Y'),
+                    'fecha_fin': sol.fecha_fin_vacaciones.strftime('%d/%m/%Y')
+                }
+                for sol in solicitudes_jefe
+            ])
+            context["funcionarios_bajo_jefe"] = json.dumps(funcionarios_data)
+            context["jefe_id"] = funcionario.pk
+            context["puede_crear_reintegro"] = True  # Siempre habilitado para jefe (mostrar modal)
         else:
             context["puede_crear_reintegro"] = len(solicitudes_disponibles) > 0
             context["secretaria_puede_crear"] = False
             context["secretaria_solicitudes_autorizadas"] = json.dumps([])
             context["funcionarios_bajo_jefe"] = json.dumps([])
             context["secretaria_id"] = None
+            context["jefe_puede_crear"] = False
+            context["jefe_solicitudes_autorizadas"] = json.dumps([])
+            context["jefe_id"] = None
 
         context["solicitudes_autorizadas"] = solicitudes_disponibles
         context["solicitud_preseleccionada"] = self.request.GET.get("solicitud_id")

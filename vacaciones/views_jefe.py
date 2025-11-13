@@ -14,7 +14,7 @@ from django.views.generic import CreateView, ListView
 
 from core.permissions import group_required
 from usuarios.models import Funcionario
-from .forms import SolicitudVacacionesForm
+from .forms import SolicitudVacacionesForm, ReintegroVacacionesForm
 from .models import (
     PeriodoVacacional,
     ReintegroVacaciones,
@@ -26,7 +26,12 @@ from .services.aprobaciones import (
     devolver_etapa,
     enviar_al_proximo_revisor,
 )
+from .services.reintegros import (
+    aprobar_etapa_reintegro,
+    devolver_etapa_reintegro,
+)
 from .utils import get_current_date_colombia
+from .views import ReintegroVacacionesListView
 
 # ==========================================================
 # CONSTANTES
@@ -34,12 +39,21 @@ from .utils import get_current_date_colombia
 JEFE_SOLICITUDES_TEMPLATE = "vacaciones/roles/jefe/jefe-solicitudes-list.html"
 JEFE_SOLICITUDES_TABLE_PARTIAL = "vacaciones/partials/_tabla-jefe-solicitudes.html"
 JEFE_SOLICITUD_FORM_TEMPLATE = "vacaciones/roles/jefe/jefe-solicitud-form.html"
+JEFE_REINTEGROS_TEMPLATE = "vacaciones/roles/jefe/jefe-reintegros-list.html"
+JEFE_REINTEGROS_TABLE_PARTIAL = "vacaciones/partials/_tabla-jefe-reintegros.html"
+JEFE_REINTEGRO_FORM_TEMPLATE = "vacaciones/roles/jefe/jefe-reintegro-form.html"
 
 def _es_jefe_de(solicitud, user):
     user_func = getattr(user, "funcionario", None)
     if not user_func:
         return False
     return solicitud.funcionario.jefe_inmediato_id == user_func.pk
+
+def _es_jefe_de_reintegro(reintegro, user):
+    user_func = getattr(user, "funcionario", None)
+    if not user_func:
+        return False
+    return reintegro.funcionario.jefe_inmediato_id == user_func.pk
 
 @method_decorator(group_required("Jefe Inmediato", "Coordinador Administrativo"), name="dispatch")
 class SolicitudesJefeListView(LoginRequiredMixin, ListView):
@@ -366,4 +380,297 @@ class JefeSolicitudCreateView(LoginRequiredMixin, CreateView):
             return super().form_valid(form)
         except Exception as e:
             messages.error(self.request, f"Error al guardar la solicitud: {e}")
+            return self.form_invalid(form)
+
+@method_decorator(group_required("Jefe Inmediato", "Coordinador Administrativo"), name="dispatch")
+class ReintegrosJefeListView(LoginRequiredMixin, ListView):
+    """
+    Lista los reintegros de vacaciones que el jefe puede ver:
+    - De funcionarios que tienen el mismo jefe_inmediato que él
+    - Incluye todas las solicitudes de reintegro de los subordinados
+    """
+    model = ReintegroVacaciones
+    template_name = JEFE_REINTEGROS_TEMPLATE
+    context_object_name = "reintegros"
+    paginate_by = 20
+
+    def get(self, request, *args, **kwargs):
+        if request.htmx:
+            self.object_list = self.get_queryset()
+            context = self.get_context_data()
+            html = render_to_string(JEFE_REINTEGROS_TABLE_PARTIAL, context, request)
+            return HttpResponse(html)
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        jefe_func = getattr(self.request.user, "funcionario", None)
+
+        if not jefe_func:
+            return ReintegroVacaciones.objects.none()
+
+        qs = (ReintegroVacaciones.objects
+              .select_related("funcionario", "funcionario__facultad_dependencia", "creada_por", "creada_por__funcionario", "solicitud_vacaciones", "periodo_vacacional")
+              .prefetch_related("aprobaciones")
+              .filter(funcionario__jefe_inmediato=jefe_func)
+              .exclude(estado_solicitud='pendiente')
+              .order_by("-fecha_solicitud", "-id"))
+
+        q = self.request.GET.get("q", "").strip()
+        estado = self.request.GET.get("estado", "").strip()
+
+        if q:
+            qs = qs.filter(
+                Q(codigo_sabs__icontains=q) |
+                Q(funcionario__nombre__icontains=q) |
+                Q(funcionario__apellido__icontains=q)
+            )
+        if estado:
+            qs = qs.filter(estado_solicitud=estado)
+
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        context["rol_actual"] = "jefe_inmediato"
+        context["mostrar_alerta_rol"] = user.groups.filter(name="Coordinador Administrativo").exists()
+        context["etiqueta_rol_actual"] = "Jefe Inmediato"
+        
+        jefe_func = getattr(self.request.user, "funcionario", None)
+        if jefe_func:
+            funcionarios_bajo_jefe = Funcionario.objects.filter(
+                jefe_inmediato=jefe_func
+            ).select_related('facultad_dependencia')
+            
+            funcionarios_data = []
+            
+            solicitudes_jefe = ReintegroVacacionesListView._solicitudes_autorizadas_sin_reintegro(jefe_func)
+            funcionarios_data.append({
+                'id': jefe_func.pk,
+                'nombre': jefe_func.nombre,
+                'apellido': jefe_func.apellido,
+                'facultad_dependencia': jefe_func.facultad_dependencia.nombre if jefe_func.facultad_dependencia else '',
+                'tiene_solicitudes_autorizadas': len(solicitudes_jefe) > 0,
+                'solicitudes_autorizadas': [
+                    {
+                        'id': sol.pk,
+                        'codigo_sabs': sol.codigo_sabs,
+                        'fecha_inicio': sol.fecha_inicio_vacaciones.strftime('%d/%m/%Y'),
+                        'fecha_fin': sol.fecha_fin_vacaciones.strftime('%d/%m/%Y')
+                    }
+                    for sol in solicitudes_jefe
+                ]
+            })
+            
+            # Agregar subordinados
+            for func in funcionarios_bajo_jefe:
+                # Obtener solicitudes autorizadas sin reintegro para cada funcionario
+                solicitudes_disponibles = ReintegroVacacionesListView._solicitudes_autorizadas_sin_reintegro(func)
+                
+                funcionarios_data.append({
+                    'id': func.pk,
+                    'nombre': func.nombre,
+                    'apellido': func.apellido,
+                    'facultad_dependencia': func.facultad_dependencia.nombre if func.facultad_dependencia else '',
+                    'tiene_solicitudes_autorizadas': len(solicitudes_disponibles) > 0,
+                    'solicitudes_autorizadas': [
+                        {
+                            'id': sol.pk,
+                            'codigo_sabs': sol.codigo_sabs,
+                            'fecha_inicio': sol.fecha_inicio_vacaciones.strftime('%d/%m/%Y'),
+                            'fecha_fin': sol.fecha_fin_vacaciones.strftime('%d/%m/%Y')
+                        }
+                        for sol in solicitudes_disponibles
+                    ]
+                })
+            
+            context["funcionarios_bajo_jefe"] = json.dumps(funcionarios_data)
+        else:
+            context["funcionarios_bajo_jefe"] = json.dumps([])
+
+        return context
+
+
+@group_required("Jefe Inmediato", "Coordinador Administrativo")
+def aprobar_reintegro(request, pk):
+    if request.method != "POST":
+        return HttpResponseBadRequest("Método no permitido")
+    reintegro = get_object_or_404(ReintegroVacaciones, pk=pk)
+    if not _es_jefe_de_reintegro(reintegro, request.user) and not request.user.is_superuser:
+        return HttpResponseForbidden()
+
+    try:
+        aprobar_etapa_reintegro(request.user, reintegro, observacion=request.POST.get('obs', ''))
+        messages.success(request, "Reintegro aprobado correctamente.")
+    except (ValidationError, PermissionDenied) as e:
+        messages.error(request, str(e))
+    
+    return redirect(reverse("vacaciones:jefe_reintegros_list"))
+
+
+@group_required("Jefe Inmediato", "Coordinador Administrativo")
+def devolver_reintegro(request, pk):
+    if request.method != "POST":
+        return HttpResponseBadRequest("Método no permitido")
+    reintegro = get_object_or_404(ReintegroVacaciones, pk=pk)
+    if not _es_jefe_de_reintegro(reintegro, request.user) and not request.user.is_superuser:
+        return HttpResponseForbidden()
+
+    try:
+        devolver_etapa_reintegro(request.user, reintegro, observacion=request.POST.get('obs', ''))
+        messages.info(request, "Reintegro devuelto correctamente.")
+    except (ValidationError, PermissionDenied) as e:
+        messages.error(request, str(e))
+    
+    return redirect(reverse("vacaciones:jefe_reintegros_list"))
+
+
+@method_decorator(group_required("Jefe Inmediato", "Coordinador Administrativo"), name="dispatch")
+class JefeReintegroCreateView(LoginRequiredMixin, CreateView):
+    """
+    Permite al jefe crear reintegros en nombre de funcionarios
+    que tienen a él como jefe_inmediato.
+    """
+    model = ReintegroVacaciones
+    form_class = ReintegroVacacionesForm
+    template_name = JEFE_REINTEGRO_FORM_TEMPLATE
+    success_url = reverse_lazy("vacaciones:jefe_reintegros_list")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        
+        funcionario_id = self.request.GET.get('funcionario_id')
+        if funcionario_id:
+            kwargs['funcionario_id'] = funcionario_id
+        
+        solicitud_id = self.request.GET.get('solicitud_id')
+        if solicitud_id:
+            kwargs['solicitud_id'] = solicitud_id
+        
+        return kwargs
+
+    def get_initial(self):
+        initial = super().get_initial()
+        hoy_colombia = get_current_date_colombia()
+        initial['fecha_solicitud'] = hoy_colombia
+        initial['codigo_sabs'] = generar_codigo_sabs('REI', hoy_colombia.year)
+        
+        solicitud_id = self.request.GET.get('solicitud_id')
+        if solicitud_id:
+            try:
+                solicitud = SolicitudVacaciones.objects.get(pk=solicitud_id)
+                initial['solicitud_vacaciones'] = solicitud
+                initial['fecha_disfrute_desde'] = solicitud.fecha_inicio_vacaciones
+                initial['fecha_disfrute_hasta'] = solicitud.fecha_fin_vacaciones
+                initial['periodo_correspondiente_desde'] = solicitud.periodo_vacacional.fecha_inicio_periodo
+                initial['periodo_correspondiente_hasta'] = solicitud.periodo_vacacional.fecha_fin_periodo
+            except SolicitudVacaciones.DoesNotExist:
+                pass
+        
+        return initial
+
+    def dispatch(self, request, *args, **kwargs):
+        funcionario_id = request.GET.get('funcionario_id')
+        if not funcionario_id:
+            messages.error(request, "Debe seleccionar un funcionario para crear el reintegro.")
+            return redirect("vacaciones:jefe_reintegros_list")
+        
+        jefe_func = getattr(request.user, "funcionario", None)
+        if not jefe_func:
+            messages.error(request, "No se encontró información del funcionario asociado.")
+            return redirect("vacaciones:jefe_reintegros_list")
+        
+        try:
+            funcionario_target = Funcionario.objects.get(pk=funcionario_id)
+        except Funcionario.DoesNotExist:
+            messages.error(request, "Funcionario no encontrado.")
+            return redirect("vacaciones:jefe_reintegros_list")
+        
+        if funcionario_target.jefe_inmediato != jefe_func:
+            messages.error(request, "No tiene permisos para crear reintegros para este funcionario.")
+            return redirect("vacaciones:jefe_reintegros_list")
+        
+        solicitudes_disponibles = ReintegroVacacionesListView._solicitudes_autorizadas_sin_reintegro(funcionario_target)
+        
+        if not solicitudes_disponibles:
+            messages.error(
+                request,
+                "El funcionario seleccionado no tiene solicitudes de vacaciones autorizadas disponibles para reintegro."
+            )
+            return redirect("vacaciones:jefe_reintegros_list")
+        
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        hoy_colombia = get_current_date_colombia()
+        years = [hoy_colombia.year, hoy_colombia.year + 1]
+        festivos = []
+
+        for y in years:
+            festivos += [d.strftime('%d/%m/%Y') for d in holidays.Colombia(years=[y]).keys()]
+        
+        context['festivos_colombia'] = json.dumps(festivos)
+
+        funcionario_id = self.request.GET.get('funcionario_id')
+        try:
+            funcionario = Funcionario.objects.get(pk=funcionario_id)
+        except Funcionario.DoesNotExist:
+            funcionario = None
+        
+        if funcionario:
+            context['funcionario_target'] = funcionario
+            context['funcionario_estamento'] = funcionario.estamento.nombre.lower()
+            context['funcionario_decreto'] = (funcionario.decreto_resolucion or '').strip()
+
+        context["rol_actual"] = "jefe_inmediato"
+        context["mostrar_alerta_rol"] = self.request.user.groups.filter(name="Coordinador Administrativo").exists()
+        context["etiqueta_rol_actual"] = "Jefe Inmediato"
+
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = None
+        funcionario_id = request.GET.get('funcionario_id')
+        
+        if not funcionario_id:
+            messages.error(request, "Debe seleccionar un funcionario para crear el reintegro.")
+            return self.form_invalid(self.get_form())
+
+        try:
+            funcionario_target = Funcionario.objects.get(pk=funcionario_id)
+        except Funcionario.DoesNotExist:
+            messages.error(request, "Funcionario no encontrado.")
+            return self.form_invalid(self.get_form())
+
+        jefe_func = getattr(request.user, "funcionario", None)
+        if not jefe_func:
+            messages.error(request, "No se encontró información del funcionario asociado.")
+            return self.form_invalid(self.get_form())
+
+        if funcionario_target.jefe_inmediato != jefe_func:
+            messages.error(request, "No tiene permisos para crear reintegros para este funcionario.")
+            return self.form_invalid(self.get_form())
+
+        form = self.get_form()
+        form.instance.funcionario = funcionario_target
+        
+        hoy_colombia = get_current_date_colombia()
+        form.instance.fecha_solicitud = hoy_colombia
+        
+        if form.is_valid():
+            return self.form_valid(form)
+        
+        return self.form_invalid(form)
+
+    def form_valid(self, form):
+        try:
+            self.object = form.save()
+            self.object.creada_por = self.request.user
+            self.object.save()
+            messages.success(self.request, "Reintegro registrado correctamente.")
+            return super().form_valid(form)
+        except Exception as e:
+            messages.error(self.request, f"Error al guardar el reintegro: {e}")
             return self.form_invalid(form)

@@ -15,6 +15,12 @@
     <h2 class="text-2xl font-bold text-gray-700">Reintegros de vacaciones a cargo</h2>
   </div>
 
+  <div class="mb-6 bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded">
+    <p>Estás revisando reintegros como <strong>{{ etiqueta_rol_actual }}</strong>. Aquí podrás gestionar los reintegros de tu personal a cargo.</p>
+    <br>
+    <p class="text-sm text-blue-700 mt-1">Si también cuentas con el rol de <strong>Coordinador(a) Administrativo(a)</strong>, recuerda gestionar los reintegros en la vista de Coordinación Administrativa.</p>
+  </div>
+
   <form method="get" class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
     <div>
       <label for="q" class="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
@@ -23,7 +29,7 @@
              name="q" 
              value="{{ request.GET.q }}" 
              placeholder="Código, nombre o apellido..." 
-             hx-get="{% url 'vacaciones:secretaria-reintegros-list' %}"
+             hx-get="{% url 'vacaciones:jefe_reintegros_list' %}"
              hx-target="#tabla-contenedor"
              hx-trigger="input changed delay:500ms"
              hx-swap="innerHTML"
@@ -33,7 +39,7 @@
       <label for="estado" class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
       <select id="estado" 
               name="estado" 
-              hx-get="{% url 'vacaciones:secretaria-reintegros-list' %}"
+              hx-get="{% url 'vacaciones:jefe_reintegros_list' %}"
               hx-target="#tabla-contenedor"
               hx-trigger="change"
               hx-swap="innerHTML"
@@ -49,8 +55,8 @@
     </div>
     <div class="flex items-end gap-2">
       {% if request.GET.q or request.GET.estado %}
-      <a href="{% url 'vacaciones:secretaria-reintegros-list' %}"
-         hx-get="{% url 'vacaciones:secretaria-reintegros-list' %}"
+      <a href="{% url 'vacaciones:jefe_reintegros_list' %}" 
+         hx-get="{% url 'vacaciones:jefe_reintegros_list' %}"
          hx-target="#tabla-contenedor"
          hx-swap="innerHTML"
          class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-md transition-colors duration-200">
@@ -61,21 +67,16 @@
   </form>
 
   <div id="tabla-contenedor">
-  {% include 'vacaciones/partials/_tabla-secretaria-reintegros.html' with solo_pdf=True %}
+  {% include 'vacaciones/partials/_tabla-jefe-reintegros.html' %}
   </div>
 </div>
-
-<form id="form-eliminar-reintegro" method="POST" action="" class="hidden">
-  {% csrf_token %}
-  <input type="hidden" name="_method" value="delete">
-  <button type="submit"></button>
-</form>
 {% endblock %}
 
 {% block extra_scripts %}
 {{ block.super }}
-<script src="{% static 'vacaciones/js/components/vacaciones/acciones-reintegro.js' %}"></script>
-<script src="{% static 'vacaciones/js/components/vacaciones/confirmar-envio-reintegro.js' %}"></script>
+<script src="{% static 'vacaciones/js/components/vacaciones/menu-acciones-reintegro.js' %}"></script>
+<script src="{% static 'vacaciones/js/components/vacaciones/acciones-jefe-aprobar-reintegro.js' %}"></script>
+<script src="{% static 'vacaciones/js/components/vacaciones/acciones-jefe-devolver-reintegro.js' %}"></script>
 <script src="{% static 'vacaciones/js/components/vacaciones/creacion-exitosa-reintegro.js' %}"></script>
 <script src="{% static 'vacaciones/js/components/vacaciones/edicion-exitosa-reintegro.js' %}"></script>
 <script src="{% static 'vacaciones/js/components/vacaciones/eliminacion-exitosa-reintegro.js' %}"></script>

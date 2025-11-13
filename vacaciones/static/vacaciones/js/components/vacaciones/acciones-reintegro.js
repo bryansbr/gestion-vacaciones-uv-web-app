@@ -122,6 +122,9 @@ document.addEventListener('DOMContentLoaded', function () {
           if (requiereObservacion && inputObs) {
             inputObs.value = resultado.value;
           }
+          try {
+            localStorage.setItem('reintegro_enviado', codigo);
+          } catch (_) {}
           form.submit();
         }
       });

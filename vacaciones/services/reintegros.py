@@ -123,14 +123,17 @@ def firmar_reintegro(usuario: CustomUser, reintegro: ReintegroVacaciones):
 
 @transaction.atomic
 def reenviar_funcionario_reintegro(usuario: CustomUser, reintegro: ReintegroVacaciones, observacion: Optional[str] = None):
-    if reintegro.funcionario.user_id != usuario.id and not usuario.is_superuser:
+    puede_reenviar = (
+        reintegro.funcionario.user_id == usuario.id or
+        (reintegro.creada_por_id and reintegro.creada_por_id == usuario.id) or
+        usuario.is_superuser
+    )
+    
+    if not puede_reenviar:
         raise PermissionDenied("No tiene permisos para enviar este reintegro.")
 
     if reintegro.estado_solicitud not in ('pendiente',) and reintegro.estado_global != 'devuelta':
         raise ValidationError("Solo se pueden enviar reintegros pendientes o devueltos.")
-
-    if not reintegro.firmado_por_id:
-        raise ValidationError("Debe firmar digitalmente el reintegro antes de enviarlo.")
 
     devueltas = reintegro.aprobaciones.filter(estado='devuelta', etapa__in=('JEFE', 'COORD'))
     if devueltas.exists():

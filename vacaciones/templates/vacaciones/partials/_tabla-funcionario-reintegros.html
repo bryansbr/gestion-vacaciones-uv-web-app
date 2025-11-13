@@ -5,6 +5,7 @@
       <tr>
         <th class="px-4 py-2 border">Código SABS</th>
         <th class="px-4 py-2 border">Funcionario</th>
+        <th class="px-4 py-2 border">Fecha de creación</th>
         <th class="px-4 py-2 border">Fecha de reintegro</th>
         <th class="px-4 py-2 border">Motivo</th>
         <th class="px-4 py-2 border">Días disfrutados</th>
@@ -43,6 +44,7 @@
             {% endif %}
           </div>
         </td>
+        <td class="px-4 py-2 border">{{ reintegro.fecha_solicitud|date:"d/m/Y" }}</td>
         <td class="px-4 py-2 border">{{ reintegro.fecha_reintegro|date:"d/m/Y" }}</td>
         <td class="px-4 py-2 border">{{ reintegro.get_motivo_reintegro_display }}</td>
         <td class="px-4 py-2 border">
