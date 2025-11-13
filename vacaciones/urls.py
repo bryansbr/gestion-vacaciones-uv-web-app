@@ -10,6 +10,10 @@ from .views import (
     SecretariaSolicitudCreateView,
     SecretariaSolicitudUpdateView,
     SecretariaSolicitudDeleteView,
+    SecretariaReintegrosListView,
+    SecretariaReintegroCreateView,
+    SecretariaReintegroUpdateView,
+    SecretariaReintegroDeleteView,
     SolicitudVacacionesListView,
     SolicitudVacacionesCreateView,
     SolicitudVacacionesUpdateView,
@@ -77,6 +81,10 @@ urlpatterns = [
     path("secretaria/solicitudes/crear/",                   SecretariaSolicitudCreateView.as_view(),   name="secretaria-solicitud-create"),
     path("secretaria/solicitudes/<int:pk>/editar/",         SecretariaSolicitudUpdateView.as_view(),   name="secretaria-solicitud-update"),
     path("secretaria/solicitudes/<int:pk>/eliminar/",       SecretariaSolicitudDeleteView.as_view(),   name="secretaria-solicitud-delete"),
+    path("secretaria/reintegros/",                          SecretariaReintegrosListView.as_view(),    name="secretaria-reintegros-list"),
+    path("secretaria/reintegros/crear/",                    SecretariaReintegroCreateView.as_view(),    name="secretaria-reintegro-create"),
+    path("secretaria/reintegros/<int:pk>/editar/",          SecretariaReintegroUpdateView.as_view(),    name="secretaria-reintegro-update"),
+    path("secretaria/reintegros/<int:pk>/eliminar/",        SecretariaReintegroDeleteView.as_view(),   name="secretaria-reintegro-delete"),
 
     # -----------------------------------------
     # Coordinador Administrativo

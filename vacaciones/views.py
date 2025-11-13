@@ -70,6 +70,11 @@ SECRETARIA_SOLICITUD_FORM_TEMPLATE = "vacaciones/roles/secretaria/secretaria-sol
 SECRETARIA_SOLICIT_CONFIRM_DELETE_TEMPLATE = "vacaciones/roles/secretaria/secretaria-solicitud-confirm-delete.html"
 TABLA_SECRETARIA_SOLICITUDES_PARTIAL = "vacaciones/partials/_tabla-secretaria-solicitudes.html"
 
+SECRETARIA_REINTEGROS_LIST_TEMPLATE = "vacaciones/roles/secretaria/secretaria-reintegros-list.html"
+SECRETARIA_REINTEGRO_FORM_TEMPLATE = "vacaciones/roles/secretaria/secretaria-reintegro-form.html"
+SECRETARIA_REINTEGRO_CONFIRM_DELETE_TEMPLATE = "vacaciones/roles/secretaria/secretaria-reintegro-confirm-delete.html"
+TABLA_SECRETARIA_REINTEGROS_PARTIAL = "vacaciones/partials/_tabla-secretaria-reintegros.html"
+
 REINTEGRO_P4_PDF_TEMPLATE = "vacaciones/pdf/reintegro-laboral-p4.html"
 REINTEGRO_VACACIONES_LIST_TEMPLATE = "vacaciones/reintegro-vac/reintegro-vacaciones-list.html"
 REINTEGRO_VACACIONES_FORM_TEMPLATE = "vacaciones/reintegro-vac/reintegro-vacaciones-form.html"
@@ -766,7 +771,54 @@ class ReintegroVacacionesListView(LoginRequiredMixin, ListView):
         if funcionario:
             solicitudes_disponibles = self._solicitudes_autorizadas_sin_reintegro(funcionario)
 
-        context["puede_crear_reintegro"] = len(solicitudes_disponibles) > 0
+        if es_secretaria(self.request.user) and funcionario and funcionario.jefe_inmediato:
+            funcionarios_permitidos = Funcionario.objects.filter(
+                jefe_inmediato=funcionario.jefe_inmediato
+            ).exclude(pk=funcionario.pk).select_related('facultad_dependencia')
+            
+            funcionarios_data = []
+            
+            for func in funcionarios_permitidos:
+                disponibles = self._solicitudes_autorizadas_sin_reintegro(func)
+                
+                funcionarios_data.append({
+                    'id': func.pk,
+                    'nombre': func.nombre,
+                    'apellido': func.apellido,
+                    'facultad_dependencia': func.facultad_dependencia.nombre if func.facultad_dependencia else '',
+                    'tiene_solicitudes_autorizadas': len(disponibles) > 0,
+                    'solicitudes_autorizadas': [
+                        {
+                            'id': sol.pk,
+                            'codigo_sabs': sol.codigo_sabs,
+                            'fecha_inicio': sol.fecha_inicio_vacaciones.strftime('%d/%m/%Y'),
+                            'fecha_fin': sol.fecha_fin_vacaciones.strftime('%d/%m/%Y')
+                        }
+                        for sol in disponibles
+                    ]
+                })
+            
+            secretaria_disponibles = self._solicitudes_autorizadas_sin_reintegro(funcionario)
+            context["secretaria_puede_crear"] = len(secretaria_disponibles) > 0
+            context["secretaria_solicitudes_autorizadas"] = json.dumps([
+                {
+                    'id': sol.pk,
+                    'codigo_sabs': sol.codigo_sabs,
+                    'fecha_inicio': sol.fecha_inicio_vacaciones.strftime('%d/%m/%Y'),
+                    'fecha_fin': sol.fecha_fin_vacaciones.strftime('%d/%m/%Y')
+                }
+                for sol in secretaria_disponibles
+            ])
+            context["funcionarios_bajo_jefe"] = json.dumps(funcionarios_data)
+            context["secretaria_id"] = funcionario.pk
+            context["puede_crear_reintegro"] = True  # Siempre habilitado para secretaria (mostrar modal)
+        else:
+            context["puede_crear_reintegro"] = len(solicitudes_disponibles) > 0
+            context["secretaria_puede_crear"] = False
+            context["secretaria_solicitudes_autorizadas"] = json.dumps([])
+            context["funcionarios_bajo_jefe"] = json.dumps([])
+            context["secretaria_id"] = None
+
         context["solicitudes_autorizadas"] = solicitudes_disponibles
         context["solicitud_preseleccionada"] = self.request.GET.get("solicitud_id")
 
@@ -1855,3 +1907,388 @@ class SecretariaSolicitudDeleteView(LoginRequiredMixin, DeleteView):
     def delete(self, request, *args, **kwargs):
         messages.success(request, "Solicitud eliminada correctamente.")
         return super().delete(request, *args, **kwargs)
+
+@method_decorator(group_required("Secretaria"), name="dispatch")
+class SecretariaReintegrosListView(LoginRequiredMixin, ListView):
+    """
+    Lista los reintegros de vacaciones que la secretaria puede ver:
+    - De funcionarios que tienen el mismo jefe_inmediato que la secretaria
+    """
+    model = ReintegroVacaciones
+    template_name = SECRETARIA_REINTEGROS_LIST_TEMPLATE
+    context_object_name = "reintegros"
+    paginate_by = 20
+
+    def get(self, request, *args, **kwargs):
+        if request.htmx:
+            self.object_list = self.get_queryset()
+            context = self.get_context_data()
+            html = render_to_string(TABLA_SECRETARIA_REINTEGROS_PARTIAL, context, request)
+            return HttpResponse(html)
+        return super().get(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['solo_pdf'] = True
+        
+        secretaria_func = getattr(self.request.user, "funcionario", None)
+        if secretaria_func and secretaria_func.jefe_inmediato:
+            funcionarios_permitidos = Funcionario.objects.filter(
+                jefe_inmediato=secretaria_func.jefe_inmediato
+            ).exclude(pk=secretaria_func.pk).select_related('facultad_dependencia')
+            
+            solicitudes_disponibles = []
+            funcionarios_data = []
+            
+            for funcionario in funcionarios_permitidos:
+                disponibles = ReintegroVacacionesListView._solicitudes_autorizadas_sin_reintegro(funcionario)
+                solicitudes_disponibles.extend(disponibles)
+                
+                funcionarios_data.append({
+                    'id': funcionario.pk,
+                    'nombre': funcionario.nombre,
+                    'apellido': funcionario.apellido,
+                    'facultad_dependencia': funcionario.facultad_dependencia.nombre if funcionario.facultad_dependencia else '',
+                    'tiene_solicitudes_autorizadas': len(disponibles) > 0,
+                    'solicitudes_autorizadas': [
+                        {
+                            'id': sol.pk,
+                            'codigo_sabs': sol.codigo_sabs,
+                            'fecha_inicio': sol.fecha_inicio_vacaciones.strftime('%d/%m/%Y'),
+                            'fecha_fin': sol.fecha_fin_vacaciones.strftime('%d/%m/%Y')
+                        }
+                        for sol in disponibles
+                    ]
+                })
+            
+            secretaria_disponibles = ReintegroVacacionesListView._solicitudes_autorizadas_sin_reintegro(secretaria_func)
+            context["secretaria_puede_crear"] = len(secretaria_disponibles) > 0
+            context["secretaria_solicitudes_autorizadas"] = [
+                {
+                    'id': sol.pk,
+                    'codigo_sabs': sol.codigo_sabs,
+                    'fecha_inicio': sol.fecha_inicio_vacaciones.strftime('%d/%m/%Y'),
+                    'fecha_fin': sol.fecha_fin_vacaciones.strftime('%d/%m/%Y')
+                }
+                for sol in secretaria_disponibles
+            ]
+            
+            context["puede_crear_reintegro"] = True  # Siempre habilitado para mostrar el modal
+            context["solicitudes_autorizadas"] = solicitudes_disponibles
+            context["solicitud_preseleccionada"] = self.request.GET.get("solicitud_id")
+            context["funcionarios_bajo_jefe"] = json.dumps(funcionarios_data)
+            context["secretaria_id"] = secretaria_func.pk
+        else:
+            context["puede_crear_reintegro"] = False
+            context["solicitudes_autorizadas"] = []
+            context["solicitud_preseleccionada"] = None
+            context["funcionarios_bajo_jefe"] = json.dumps([])
+            context["secretaria_id"] = None
+            context["secretaria_puede_crear"] = False
+            context["secretaria_solicitudes_autorizadas"] = []
+
+        if self.request.GET.get("creado"):
+            context["reintegro_creado_codigo"] = self.request.GET.get("codigo", "")
+        if self.request.GET.get("actualizado"):
+            context["reintegro_actualizado_codigo"] = self.request.GET.get("codigo", "")
+        if self.request.GET.get("eliminado"):
+            context["reintegro_eliminado_codigo"] = self.request.GET.get("codigo", "")
+
+        return context
+
+    def get_queryset(self):
+        secretaria_func = getattr(self.request.user, "funcionario", None)
+        
+        if not secretaria_func or not secretaria_func.jefe_inmediato:
+            return ReintegroVacaciones.objects.none()
+
+        qs = (ReintegroVacaciones.objects
+              .select_related(
+                  "funcionario",
+                  "funcionario__facultad_dependencia",
+                  "creada_por",
+                  "creada_por__funcionario",
+                  "solicitud_vacaciones",
+                  "periodo_vacacional",
+              )
+              .filter(funcionario__jefe_inmediato=secretaria_func.jefe_inmediato)
+              .order_by("-fecha_solicitud", "-id"))
+        
+        q = self.request.GET.get("q", "").strip()
+        estado = self.request.GET.get("estado", "").strip()
+
+        if q:
+            qs = qs.filter(
+                Q(codigo_sabs__icontains=q) |
+                Q(funcionario__nombre__icontains=q) |
+                Q(funcionario__apellido__icontains=q)
+            )
+        if estado:
+            qs = qs.filter(estado_solicitud=estado)
+
+        return qs
+
+@method_decorator(group_required("Secretaria"), name="dispatch")
+class SecretariaReintegroCreateView(LoginRequiredMixin, CreateView):
+    """
+    Permite a la secretaria crear reintegros en nombre de funcionarios
+    que cumplen los criterios de acceso.
+    """
+    model = ReintegroVacaciones
+    form_class = ReintegroVacacionesForm
+    template_name = SECRETARIA_REINTEGRO_FORM_TEMPLATE
+    success_url = reverse_lazy("vacaciones:secretaria-reintegros-list")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        
+        funcionario_id = self.request.GET.get('funcionario_id')
+        if funcionario_id:
+            kwargs['funcionario_id'] = funcionario_id
+        
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        hoy_colombia = get_current_date_colombia()
+        years = [hoy_colombia.year, hoy_colombia.year + 1]
+        festivos = []
+        
+        for y in years:
+            festivos += [d.strftime('%d/%m/%Y') for d in holidays.Colombia(years=[y]).keys()]
+        
+        context['festivos_colombia'] = json.dumps(festivos)
+        
+        secretaria_func = getattr(self.request.user, "funcionario", None)
+        funcionario_id = self.request.GET.get('funcionario_id')
+        
+        if funcionario_id and secretaria_func and secretaria_func.jefe_inmediato:
+            try:
+                funcionario_target = Funcionario.objects.get(pk=funcionario_id)
+                if funcionario_target.jefe_inmediato == secretaria_func.jefe_inmediato:
+                    context['funcionario_target'] = funcionario_target
+                    context['funcionario_estamento'] = funcionario_target.estamento.nombre.lower()
+                    context['funcionario_decreto'] = (funcionario_target.decreto_resolucion or '').strip()
+            except Funcionario.DoesNotExist:
+                pass
+        
+        return context
+
+    def get_initial(self):
+        initial = super().get_initial()
+        hoy_colombia = get_current_date_colombia()
+        initial["codigo_sabs"] = generar_codigo_sabs('REI', hoy_colombia.year)
+
+        solicitud_id = self.request.GET.get("solicitud_id")
+        funcionario_id = self.request.GET.get("funcionario_id")
+        
+        if solicitud_id:
+            initial["solicitud_vacaciones"] = solicitud_id
+            try:
+                solicitud = SolicitudVacaciones.objects.get(pk=solicitud_id)
+                initial.setdefault("fecha_disfrute_desde", solicitud.fecha_inicio_vacaciones)
+                initial.setdefault("fecha_disfrute_hasta", solicitud.fecha_fin_vacaciones)
+                if solicitud.periodo_vacacional:
+                    initial.setdefault("periodo_correspondiente_desde", solicitud.periodo_vacacional.fecha_inicio_periodo)
+                    initial.setdefault("periodo_correspondiente_hasta", solicitud.periodo_vacacional.fecha_fin_periodo)
+            except SolicitudVacaciones.DoesNotExist:
+                pass
+        
+        return initial
+
+    def dispatch(self, request, *args, **kwargs):
+        funcionario_id = request.GET.get('funcionario_id')
+        if not funcionario_id:
+            messages.error(request, "Debe seleccionar un funcionario para crear el reintegro.")
+            return redirect("vacaciones:secretaria-reintegros-list")
+        
+        secretaria_func = getattr(request.user, "funcionario", None)
+        if not secretaria_func:
+            messages.error(request, "No se encontró información del funcionario asociado.")
+            return redirect("vacaciones:secretaria-reintegros-list")
+
+        try:
+            funcionario_target = Funcionario.objects.get(pk=funcionario_id)
+        except Funcionario.DoesNotExist:
+            messages.error(request, "Funcionario no encontrado.")
+            return redirect("vacaciones:secretaria-reintegros-list")
+
+        if not secretaria_func.jefe_inmediato or funcionario_target.jefe_inmediato != secretaria_func.jefe_inmediato:
+            messages.error(request, "No tiene permisos para crear reintegros para este funcionario.")
+            return redirect("vacaciones:secretaria-reintegros-list")
+
+        disponibles = ReintegroVacacionesListView._solicitudes_autorizadas_sin_reintegro(funcionario_target)
+        if not disponibles:
+            messages.error(request, "El funcionario seleccionado no tiene solicitudes autorizadas disponibles para reintegro.")
+            return redirect("vacaciones:secretaria-reintegros-list")
+        
+        return super().dispatch(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        self.object = None
+        funcionario_id = request.GET.get('funcionario_id')
+        
+        if not funcionario_id:
+            messages.error(request, "Debe seleccionar un funcionario para crear el reintegro.")
+            return self.form_invalid(self.get_form())
+
+        try:
+            funcionario_target = Funcionario.objects.get(pk=funcionario_id)
+        except Funcionario.DoesNotExist:
+            messages.error(request, "Funcionario no encontrado.")
+            return self.form_invalid(self.get_form())
+
+        secretaria_func = getattr(request.user, "funcionario", None)
+        if not secretaria_func:
+            messages.error(request, "No se encontró información del funcionario asociado.")
+            return self.form_invalid(self.get_form())
+
+        if not secretaria_func.jefe_inmediato or funcionario_target.jefe_inmediato != secretaria_func.jefe_inmediato:
+            messages.error(request, "No tiene permisos para crear reintegros para este funcionario.")
+            return self.form_invalid(self.get_form())
+
+        disponibles = ReintegroVacacionesListView._solicitudes_autorizadas_sin_reintegro(funcionario_target)
+        if not disponibles:
+            messages.error(request, "El funcionario seleccionado no tiene solicitudes autorizadas disponibles para reintegro.")
+            return self.form_invalid(self.get_form())
+
+        form = self.get_form()
+        form.instance.funcionario = funcionario_target
+        
+        hoy_colombia = get_current_date_colombia()
+        form.instance.fecha_solicitud = hoy_colombia
+        
+        if form.is_valid():
+            return self.form_valid(form)
+        
+        return self.form_invalid(form)
+
+    def form_valid(self, form):
+        try:
+            reintegro = form.save(commit=False)
+            reintegro.creada_por = self.request.user
+            reintegro.save()
+            self.object = reintegro
+            form.save_m2m()
+
+            messages.success(self.request, "Reintegro registrado correctamente.")
+            url = self.get_success_url()
+            separador = '&' if ('?' in url) else '?'
+            codigo_q = urllib.parse.quote(reintegro.codigo_sabs)
+            return redirect(f"{url}{separador}creado=1&codigo={codigo_q}")
+        except Exception as e:
+            messages.error(self.request, f"Error al guardar el reintegro: {e}")
+            return self.form_invalid(form)
+
+@method_decorator(group_required("Secretaria"), name="dispatch")
+class SecretariaReintegroUpdateView(LoginRequiredMixin, UpdateView):
+    """
+    Permite a la secretaria editar reintegros SOLO si están en estado 'pendiente' o 'devuelta'.
+    """
+    model = ReintegroVacaciones
+    form_class = ReintegroVacacionesForm
+    template_name = SECRETARIA_REINTEGRO_FORM_TEMPLATE
+    success_url = reverse_lazy("vacaciones:secretaria-reintegros-list")
+
+    def get_queryset(self):
+        secretaria_func = getattr(self.request.user, "funcionario", None)
+        
+        if not secretaria_func:
+            return ReintegroVacaciones.objects.none()
+
+        if not secretaria_func.jefe_inmediato:
+            return ReintegroVacaciones.objects.none()
+
+        return ReintegroVacaciones.objects.filter(
+            funcionario__jefe_inmediato=secretaria_func.jefe_inmediato
+        )
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        
+        reintegro = self.get_object()
+        if reintegro and reintegro.funcionario:
+            kwargs['funcionario_id'] = reintegro.funcionario.pk
+        
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        reintegro = self.object
+        
+        hoy_colombia = get_current_date_colombia()
+        years = [hoy_colombia.year, hoy_colombia.year + 1]
+        festivos = []
+        
+        for y in years:
+            festivos += [d.strftime('%d/%m/%Y') for d in holidays.Colombia(years=[y]).keys()]
+        
+        context['festivos_colombia'] = json.dumps(festivos)
+        
+        funcionario = reintegro.funcionario
+        context['funcionario_target'] = funcionario
+        context['funcionario_estamento'] = funcionario.estamento.nombre.lower()
+        context['funcionario_decreto'] = (funcionario.decreto_resolucion or '').strip()
+        
+        return context
+
+    def dispatch(self, request, *args, **kwargs):
+        reintegro = self.get_object()
+        
+        if not reintegro.puede_editar_eliminar:
+            messages.error(request, "Solo puede editar reintegros en estado 'pendiente' o 'devuelta'.")
+            return redirect("vacaciones:secretaria-reintegros-list")
+        
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        messages.success(self.request, "Reintegro actualizado correctamente.")
+        response = super().form_valid(form)
+        url = self.get_success_url()
+        separador = '&' if ('?' in url) else '?'
+        codigo_q = urllib.parse.quote(self.object.codigo_sabs)
+        return redirect(f"{url}{separador}actualizado=1&codigo={codigo_q}")
+
+
+@method_decorator(group_required("Secretaria"), name="dispatch")
+class SecretariaReintegroDeleteView(LoginRequiredMixin, DeleteView):
+    """
+    Permite a la secretaria eliminar reintegros SOLO si están en estado 'pendiente' o 'devuelta'.
+    """
+    model = ReintegroVacaciones
+    template_name = SECRETARIA_REINTEGRO_CONFIRM_DELETE_TEMPLATE
+    success_url = reverse_lazy("vacaciones:secretaria-reintegros-list")
+
+    def get_queryset(self):
+        secretaria_func = getattr(self.request.user, "funcionario", None)
+        
+        if not secretaria_func:
+            return ReintegroVacaciones.objects.none()
+
+        if not secretaria_func.jefe_inmediato:
+            return ReintegroVacaciones.objects.none()
+
+        return ReintegroVacaciones.objects.filter(
+            funcionario__jefe_inmediato=secretaria_func.jefe_inmediato
+        )
+
+    def dispatch(self, request, *args, **kwargs):
+        reintegro = self.get_object()
+        
+        if not reintegro.puede_editar_eliminar:
+            messages.error(request, "Solo puede eliminar reintegros en estado 'pendiente' o 'devuelta'.")
+            return redirect("vacaciones:secretaria-reintegros-list")
+        
+        return super().dispatch(request, *args, **kwargs)
+
+    def delete(self, request, *args, **kwargs):
+        reintegro = self.get_object()
+        codigo = reintegro.codigo_sabs
+        messages.success(request, "Reintegro eliminado correctamente.")
+        response = super().delete(request, *args, **kwargs)
+        url = self.get_success_url()
+        separador = '&' if ('?' in url) else '?'
+        codigo_q = urllib.parse.quote(codigo)
+        return redirect(f"{url}{separador}eliminado=1&codigo={codigo_q}")

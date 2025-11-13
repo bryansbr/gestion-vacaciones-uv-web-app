@@ -93,16 +93,16 @@ document.addEventListener('DOMContentLoaded', function () {
       const requiereObservacion = form.dataset.requiereObservacion === '1';
 
       const swalConfig = {
-        title: 'Enviar reintegro',
+        title: `¿Está seguro de enviar la solicitud de reintegro de vacaciones?`,
         html: requiereObservacion
           ? `Indica las observaciones para reenviar el reintegro <strong>${codigo}</strong>.`
-          : `¿Confirmas el envío del reintegro <strong>${codigo}</strong> al flujo de aprobación?`,
+          : `Una vez enviada a su Jefe Inmediato esta acción no se podrá revertir.`,
         icon: 'question',
         showCancelButton: true,
-        confirmButtonColor: '#2563eb',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Enviar',
-        cancelButtonText: 'Cancelar'
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33",
+        confirmButtonText: "Sí, enviar",
+        cancelButtonText: "Cancelar"
       };
 
       if (requiereObservacion) {

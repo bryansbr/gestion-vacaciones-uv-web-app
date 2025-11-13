@@ -1,6 +1,7 @@
 from datetime import date, datetime
 
 from django import forms
+from django.db.models import Q
 
 from core.permissions import es_secretaria, es_jefe_inmediato
 from usuarios.models import Funcionario
@@ -467,16 +468,30 @@ class ReintegroVacacionesForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
+        funcionario_id = kwargs.pop('funcionario_id', None)
         super().__init__(*args, **kwargs)
 
         funcionario = None
         if self.instance and self.instance.pk:
             funcionario = self.instance.funcionario
+        elif funcionario_id:
+            try:
+                funcionario = Funcionario.objects.get(pk=funcionario_id)
+            except Funcionario.DoesNotExist:
+                funcionario = None
         elif self.user and hasattr(self.user, 'funcionario'):
             funcionario = self.user.funcionario
 
-        if self.user and hasattr(self.user, 'funcionario'):
-            funcionario = self.user.funcionario
+        if self.user and es_secretaria(self.user) and not (self.instance and self.instance.pk) and not funcionario_id:
+            secretaria_func = self.user.funcionario
+            if secretaria_func and secretaria_func.jefe_inmediato:
+                self.fields['funcionario'] = forms.ModelChoiceField(
+                    queryset=Funcionario.objects.filter(jefe_inmediato=secretaria_func.jefe_inmediato).exclude(pk=secretaria_func.pk),
+                    widget=forms.Select(attrs={'class': 'form-select'}),
+                    required=True,
+                    empty_label="Seleccione un funcionario"
+                )
+                funcionario = None  # No establecer funcionario todavía
 
         if funcionario is not None:
             estamento_nombre = getattr(funcionario.estamento, 'nombre', '') or ''
@@ -491,7 +506,6 @@ class ReintegroVacacionesForm(forms.ModelForm):
             })
             self.funcionario_estamento = estamento_nombre
             self.funcionario_decreto = decreto_valor
-            from django.db.models import Q
             
             if self.instance and self.instance.pk and self.instance.solicitud_vacaciones_id:
                 solicitud_actual_id = self.instance.solicitud_vacaciones_id
@@ -523,6 +537,60 @@ class ReintegroVacacionesForm(forms.ModelForm):
                 )
             
             self.fields['solicitud_vacaciones'].queryset = solicitudes_autorizadas
+        elif self.user and es_secretaria(self.user) and funcionario_id:
+            try:
+                funcionario_target = Funcionario.objects.get(pk=funcionario_id)
+                secretaria_func = self.user.funcionario
+                if secretaria_func.jefe_inmediato == funcionario_target.jefe_inmediato:
+                    if self.instance and self.instance.pk and self.instance.solicitud_vacaciones_id:
+                        solicitud_actual_id = self.instance.solicitud_vacaciones_id
+                        solicitudes_autorizadas = (
+                            SolicitudVacaciones.objects.filter(
+                                Q(
+                                    funcionario=funcionario_target,
+                                    aprobaciones__etapa='RRHH',
+                                    aprobaciones__estado='autorizada',
+                                ) & ~Q(
+                                    reintegrovacaciones__estado_solicitud__in=['pendiente', 'en_revision', 'devuelta', 'aprobado']
+                                ) | Q(pk=solicitud_actual_id)
+                            )
+                            .select_related('periodo_vacacional')
+                            .distinct()
+                        )
+                    else:
+                        solicitudes_autorizadas = (
+                            SolicitudVacaciones.objects.filter(
+                                funcionario=funcionario_target,
+                                aprobaciones__etapa='RRHH',
+                                aprobaciones__estado='autorizada',
+                            )
+                            .select_related('periodo_vacacional')
+                            .exclude(
+                                reintegrovacaciones__estado_solicitud__in=['pendiente', 'en_revision', 'devuelta', 'aprobado']
+                            )
+                            .distinct()
+                        )
+                    self.fields['solicitud_vacaciones'].queryset = solicitudes_autorizadas
+                    
+                    estamento_nombre = getattr(funcionario_target.estamento, 'nombre', '') or ''
+                    decreto_valor = (getattr(funcionario_target, 'decreto_resolucion', '') or '').strip()
+                    self.initial.update({
+                        'numero_identificacion': funcionario_target.numero_identificacion,
+                        'nombre_funcionario': f"{funcionario_target.nombre} {funcionario_target.apellido}",
+                        'estamento': estamento_nombre,
+                        'facultad_dependencia': getattr(funcionario_target.facultad_dependencia, 'nombre', ''),
+                        'sede': getattr(funcionario_target.sede, 'nombre', '') or getattr(funcionario_target.sede, 'descripcion', ''),
+                    })
+                    self.funcionario_estamento = estamento_nombre
+                    self.funcionario_decreto = decreto_valor
+                else:
+                    self.funcionario_estamento = ''
+                    self.funcionario_decreto = ''
+                    self.fields['solicitud_vacaciones'].queryset = SolicitudVacaciones.objects.none()
+            except Funcionario.DoesNotExist:
+                self.funcionario_estamento = ''
+                self.funcionario_decreto = ''
+                self.fields['solicitud_vacaciones'].queryset = SolicitudVacaciones.objects.none()
         else:
             self.funcionario_estamento = ''
             self.funcionario_decreto = ''
@@ -598,7 +666,12 @@ class ReintegroVacacionesForm(forms.ModelForm):
         if not solicitud.autorizada_rrhh:
             raise forms.ValidationError("Solo se pueden reintegrar solicitudes autorizadas por Recursos Humanos.")
 
-        if self.user and hasattr(self.user, 'funcionario'):
+        if self.user and es_secretaria(self.user):
+            secretaria_func = self.user.funcionario
+            if secretaria_func and secretaria_func.jefe_inmediato:
+                if solicitud.funcionario.jefe_inmediato != secretaria_func.jefe_inmediato:
+                    raise forms.ValidationError("La solicitud seleccionada no pertenece a un funcionario de su dependencia.")
+        elif self.user and hasattr(self.user, 'funcionario'):
             if solicitud.funcionario != self.user.funcionario:
                 raise forms.ValidationError("La solicitud seleccionada no pertenece al funcionario autenticado.")
         return solicitud
@@ -651,7 +724,9 @@ class ReintegroVacacionesForm(forms.ModelForm):
     def save(self, commit=True):
         instance = super().save(commit=False)
 
-        if self.user and hasattr(self.user, 'funcionario') and not instance.pk:
+        if self.user and es_secretaria(self.user) and 'funcionario' in self.cleaned_data:
+            instance.funcionario = self.cleaned_data['funcionario']
+        elif self.user and hasattr(self.user, 'funcionario') and not instance.pk:
             instance.funcionario = self.user.funcionario
 
         if instance.solicitud_vacaciones_id and not instance.periodo_vacacional_id:
