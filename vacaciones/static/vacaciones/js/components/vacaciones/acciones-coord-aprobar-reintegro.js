@@ -11,7 +11,7 @@ document.addEventListener('click', function (e) {
 
   Swal.fire({
     title: "¿Está seguro de aprobar la solicitud de reintegro de vacaciones?",
-    html: `Una vez aprobada, la solicitud <strong>${codigo}</strong> será enviada a Recursos Humanos para su autorización final.`,
+    html: `Una vez aprobada, la solicitud <strong>${codigo}</strong> será enviada a la División de Recursos Humanos para su revisión final.`,
     icon: "question",
     showCancelButton: true,
     confirmButtonColor: "#10b981",
@@ -19,9 +19,18 @@ document.addEventListener('click', function (e) {
     confirmButtonText: "Sí, aprobar",
     cancelButtonText: "Cancelar",
     input: 'textarea',
-    inputPlaceholder: 'Observaciones (opcional)',
+    inputPlaceholder: 'Observaciones (obligatorio)',
     inputAttributes: {
       'aria-label': 'Observaciones'
+    },
+    inputValidator: (value) => {
+      return new Promise((resolve) => {
+        if (!value || !value.trim()) {
+          resolve('Debe proporcionar observaciones');
+        } else {
+          resolve();
+        }
+      });
     }
   }).then((resultado) => {
     if (resultado.isConfirmed) {
