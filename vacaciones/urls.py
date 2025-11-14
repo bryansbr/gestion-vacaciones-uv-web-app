@@ -96,6 +96,12 @@ urlpatterns = [
     path("coord/solicitudes/",                         views_coord.SolicitudesCoordListView.as_view(), name="coord_solicitudes_list"),
     path("coord/solicitudes/<int:pk>/aprobar/",        views_coord.aprobar_solicitud,               name="coord_aprobar_solicitud"),
     path("coord/solicitudes/<int:pk>/devolver/",       views_coord.devolver_solicitud,              name="coord_devolver_solicitud"),
+    path("coord/reintegros/",                         views_coord.ReintegrosCoordListView.as_view(), name="coord_reintegros_list"),
+    path("coord/reintegros/crear/",                   views_coord.CoordReintegroCreateView.as_view(), name="coord-reintegro-create"),
+    path("coord/reintegros/<int:pk>/editar/",         views_coord.CoordReintegroUpdateView.as_view(), name="coord-reintegro-update"),
+    path("coord/reintegros/<int:pk>/eliminar/",       views_coord.CoordReintegroDeleteView.as_view(), name="coord-reintegro-delete"),
+    path("coord/reintegros/<int:pk>/aprobar/",        views_coord.aprobar_reintegro,                name="coord_aprobar_reintegro"),
+    path("coord/reintegros/<int:pk>/devolver/",       views_coord.devolver_reintegro,               name="coord_devolver_reintegro"),
 
     # -----------------------------------------
     # Recursos Humanos (RRHH)

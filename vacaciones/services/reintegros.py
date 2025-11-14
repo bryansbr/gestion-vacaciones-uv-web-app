@@ -1,6 +1,7 @@
 import logging
 from typing import Optional
 
+from django.contrib.auth.models import Group
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
@@ -11,7 +12,6 @@ from usuarios.models import CustomUser
 from ..models import AprobacionEtapa, ReintegroVacaciones, HistoricoAcciones
 
 logger = logging.getLogger(__name__)
-
 
 ETAPA_HUMANA = {
     'JEFE': 'Jefe Inmediato',
@@ -26,7 +26,6 @@ ESTADO_GLOBAL_MAP = {
     'en_progreso': 'en_revision',
     'desconocido': 'en_revision',
 }
-
 
 def _validar_permiso_etapa(user: CustomUser, etapa: str):
     if etapa == 'JEFE' and not (
@@ -51,12 +50,10 @@ def _validar_permiso_etapa(user: CustomUser, etapa: str):
         if not tiene_permiso:
             raise PermissionDenied("No tienes permisos para autorizar/rechazar reintegros como RRHH.")
 
-
 def _refrescar_estado(reintegro: ReintegroVacaciones):
     global_derivado = reintegro.estado_global
     reintegro.estado_solicitud = ESTADO_GLOBAL_MAP.get(global_derivado, 'en_revision')
     reintegro.save(update_fields=['estado_solicitud'])
-
 
 def _registrar_historial(*, reintegro: ReintegroVacaciones, usuario: CustomUser, accion: str,
                          grupo_autorizador: str, nuevo_estado: str, estado_anterior: str,
@@ -72,7 +69,6 @@ def _registrar_historial(*, reintegro: ReintegroVacaciones, usuario: CustomUser,
         observacion=observacion or '',
     )
 
-
 def _notificar(reintegro: ReintegroVacaciones, *, destinatario, asunto: str, mensaje: str, cc=None):
     try:
         Notificacion.objects.create(
@@ -86,7 +82,6 @@ def _notificar(reintegro: ReintegroVacaciones, *, destinatario, asunto: str, men
     except Exception as exc:  # pragma: no cover - logging de fallos
         logger.exception("No se pudo crear la notificación para el reintegro %s: %s", reintegro.pk, exc)
 
-
 def _crear_mensaje_estado(reintegro: ReintegroVacaciones, comentario: Optional[str] = None) -> str:
     periodo = f"{reintegro.fecha_disfrute_desde.strftime('%d/%m/%Y')} - {reintegro.fecha_disfrute_hasta.strftime('%d/%m/%Y')}"
     base = (
@@ -95,7 +90,6 @@ def _crear_mensaje_estado(reintegro: ReintegroVacaciones, comentario: Optional[s
     if comentario:
         base = f"{base}\n\nObservaciones: {comentario.strip()}"
     return base
-
 
 @transaction.atomic
 def firmar_reintegro(usuario: CustomUser, reintegro: ReintegroVacaciones):
@@ -119,7 +113,6 @@ def firmar_reintegro(usuario: CustomUser, reintegro: ReintegroVacaciones):
         observacion='Firmado digitalmente por el funcionario',
     )
     return reintegro
-
 
 @transaction.atomic
 def reenviar_funcionario_reintegro(usuario: CustomUser, reintegro: ReintegroVacaciones, observacion: Optional[str] = None):
@@ -212,7 +205,6 @@ def reenviar_funcionario_reintegro(usuario: CustomUser, reintegro: ReintegroVaca
         )
     return reintegro
 
-
 @transaction.atomic
 def aprobar_etapa_reintegro(usuario: CustomUser, reintegro: ReintegroVacaciones, observacion: Optional[str] = None):
     etapa = reintegro.etapa_activa
@@ -253,8 +245,40 @@ def aprobar_etapa_reintegro(usuario: CustomUser, reintegro: ReintegroVacaciones,
             asunto=f"Reintegro {reintegro.codigo_sabs} aprobado por Jefe Inmediato",
             mensaje=mensaje,
         )
+    elif etapa.etapa == 'COORD':
+        mensaje = _crear_mensaje_estado(reintegro, observacion)
+        _notificar(
+            reintegro,
+            destinatario=funcionario,
+            asunto=f"Reintegro {reintegro.codigo_sabs} aprobado por Coordinación Administrativa",
+            mensaje=mensaje,
+        )
+        
+        try:
+            grupo_rrhh = Group.objects.get(name='Recursos Humanos')
+            usuarios_rrhh = grupo_rrhh.user_set.filter(is_active=True)
+            
+            for usuario_rrhh in usuarios_rrhh:
+                rrhh_func = getattr(usuario_rrhh, 'funcionario', None)
+                if rrhh_func:
+                    mensaje_rrhh = (
+                        f"El reintegro {reintegro.codigo_sabs} del funcionario {funcionario} "
+                        f"ha sido aprobado por Coordinación Administrativa y está pendiente de su revisión.\n\n"
+                        f"{mensaje}"
+                    )
+                    _notificar(
+                        reintegro,
+                        destinatario=rrhh_func,
+                        asunto=f"Reintegro {reintegro.codigo_sabs} pendiente de autorización",
+                        mensaje=mensaje_rrhh,
+                        cc=funcionario,
+                    )
+        except Group.DoesNotExist:
+            logger.warning("No se encontró el grupo 'Recursos Humanos' para notificar.")
+        except Exception as exc:
+            logger.exception("Error al notificar a RRHH sobre reintegro aprobado por COORD: %s", exc)
+    
     return etapa
-
 
 @transaction.atomic
 def devolver_etapa_reintegro(usuario: CustomUser, reintegro: ReintegroVacaciones, observacion: str):
@@ -304,7 +328,6 @@ def devolver_etapa_reintegro(usuario: CustomUser, reintegro: ReintegroVacaciones
     )
     return etapa
 
-
 @transaction.atomic
 def autorizar_rrhh_reintegro(usuario: CustomUser, reintegro: ReintegroVacaciones, observacion: Optional[str] = None):
     etapa = reintegro.etapa_activa
@@ -347,7 +370,6 @@ def autorizar_rrhh_reintegro(usuario: CustomUser, reintegro: ReintegroVacaciones
         mensaje=_crear_mensaje_estado(reintegro, observacion),
     )
     return etapa
-
 
 @transaction.atomic
 def rechazar_rrhh_reintegro(usuario: CustomUser, reintegro: ReintegroVacaciones, observacion: str):

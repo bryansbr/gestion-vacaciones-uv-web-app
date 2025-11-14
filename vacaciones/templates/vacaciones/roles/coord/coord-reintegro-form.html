@@ -1,0 +1,226 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto p-6 mt-8 bg-white rounded-md shadow-md">
+  <div class="mb-6 bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded">
+    <p>Estás creando un reintegro como <strong>{{ etiqueta_rol_actual }}</strong>.</p>
+  </div>
+
+  <h2 class="text-2xl font-bold text-gray-700 mb-6">
+    {% if form.instance.pk %}Editar reintegro de vacaciones{% else %}Registrar reintegro de vacaciones{% endif %}
+  </h2>
+
+  {% if form.non_field_errors %}
+  <div class="mb-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">
+    {% for error in form.non_field_errors %}
+      <p>{{ error }}</p>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div 
+    data-festivos-colombia='{{ festivos_colombia|default:"[]"|safe }}'
+    data-funcionarios-bajo-coord='{{ funcionarios_bajo_coord|default:"[]"|safe }}'
+    id="variables-container"
+    style="display: none;">
+  </div>
+
+  <form method="post" id="form-reintegro-vacaciones" data-mode="{% if form.instance.pk %}edit{% else %}create{% endif %}" novalidate class="space-y-6">
+    {% csrf_token %}
+
+    {% if not form.instance.pk %}
+    <section class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+      <label class="block text-sm font-medium text-gray-700 mb-2">Seleccionar funcionario</label>
+      <select id="funcionario-selector" 
+              name="funcionario_id" 
+              class="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        <option value="">-- Seleccione un funcionario --</option>
+      </select>
+      <p class="text-xs text-gray-500 mt-1">Seleccione el funcionario para el cual desea crear el reintegro.</p>
+    </section>
+    {% endif %}
+
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Número de identificación</label>
+        {% render_field form.numero_identificacion class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-600 cursor-not-allowed" disabled="disabled" %}
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Nombre del funcionario</label>
+        {% render_field form.nombre_funcionario class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-600 cursor-not-allowed" disabled="disabled" %}
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Estamento</label>
+        {% render_field form.estamento class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-600 cursor-not-allowed" disabled="disabled" %}
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Facultad / Dependencia</label>
+        {% render_field form.facultad_dependencia class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-600 cursor-not-allowed" disabled="disabled" %}
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Sede</label>
+        {% render_field form.sede class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-600 cursor-not-allowed" disabled="disabled" %}
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Código SABS</label>
+        {% render_field form.codigo_sabs class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-gray-600 cursor-not-allowed" readonly="readonly" %}
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Solicitud autorizada</label>
+        {% render_field form.solicitud_vacaciones class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
+        {% if form.solicitud_vacaciones.errors %}
+          <p class="text-sm text-red-600 mt-1">{{ form.solicitud_vacaciones.errors|join:', ' }}</p>
+        {% endif %}
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de reintegro</label>
+        {% render_field form.fecha_reintegro class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 flatpickr-input" %}
+        {% if form.fecha_reintegro.errors %}
+          <p class="text-sm text-red-600 mt-1">{{ form.fecha_reintegro.errors|join:', ' }}</p>
+        {% endif %}
+      </div>
+      <div class="md:col-span-2">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Vacaciones correspondientes al periodo</label>
+        {% render_field form.periodo_correspondiente_resumen %}
+        {{ form.periodo_correspondiente_desde }}
+        {{ form.periodo_correspondiente_hasta }}
+        {% if form.periodo_correspondiente_desde.errors or form.periodo_correspondiente_hasta.errors %}
+          <p class="text-sm text-red-600 mt-1">
+            {{ form.periodo_correspondiente_desde.errors|join:', ' }}
+            {% if form.periodo_correspondiente_hasta.errors %}
+              {{ form.periodo_correspondiente_hasta.errors|join:', ' %}
+            {% endif %}
+          </p>
+        {% endif %}
+      </div>
+      <div class="md:col-span-2">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Periodo en el cual disfrutó</label>
+        {% render_field form.periodo_disfrute_resumen %}
+        {{ form.fecha_disfrute_desde }}
+        {{ form.fecha_disfrute_hasta }}
+        {% if form.fecha_disfrute_desde.errors or form.fecha_disfrute_hasta.errors %}
+          <p class="text-sm text-red-600 mt-1">
+            {{ form.fecha_disfrute_desde.errors|join:', ' }}
+            {% if form.fecha_disfrute_hasta.errors %}
+              {{ form.fecha_disfrute_hasta.errors|join:', ' %}
+            {% endif %}
+          </p>
+        {% endif %}
+      </div>
+    </section>
+
+    {% with estamento=funcionario_estamento|default:''|lower decreto=funcionario_decreto|default:''|lower %}
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {% if estamento == 'docente' and decreto == '1279' %}
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Días hábiles disfrutados</label>
+          {% render_field form.dias_disfrutados_habiles class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Días calendario disfrutados</label>
+          {% render_field form.dias_disfrutados_calendario class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Días hábiles por disfrutar</label>
+          {% render_field form.dias_pendientes_habiles class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Días calendario por disfrutar</label>
+          {% render_field form.dias_pendientes_calendario class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
+        </div>
+      {% elif estamento == 'docente' and decreto == '115' %}
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Días calendario disfrutados</label>
+          {% render_field form.dias_disfrutados_calendario class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Días calendario por disfrutar</label>
+          {% render_field form.dias_pendientes_calendario class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
+        </div>
+      {% elif estamento == 'administrativo' %}
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Días hábiles disfrutados</label>
+          {% render_field form.dias_disfrutados_habiles class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Días hábiles por disfrutar</label>
+          {% render_field form.dias_pendientes_habiles class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
+        </div>
+      {% elif estamento == 'trabajador oficial' %}
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Días calendario disfrutados</label>
+          {% render_field form.dias_disfrutados_calendario class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Días calendario por disfrutar</label>
+          {% render_field form.dias_pendientes_calendario class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
+        </div>
+      {% else %}
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Días hábiles disfrutados</label>
+          {% render_field form.dias_disfrutados_habiles class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Días calendario disfrutados</label>
+          {% render_field form.dias_disfrutados_calendario class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Días hábiles por disfrutar</label>
+          {% render_field form.dias_pendientes_habiles class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Días calendario por disfrutar</label>
+          {% render_field form.dias_pendientes_calendario class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
+        </div>
+      {% endif %}
+    </section>
+    {% endwith %}
+
+    <section class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Motivo</label>
+        {% render_field form.motivo_reintegro class="w-full rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %}
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
+        {% render_field form.observaciones rows="6" class="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-3 text-gray-700 focus:outline-none focus:ring-0 focus:border-gray-400" %}
+        <p class="text-xs text-gray-500 mt-1">Obligatorio si el motivo es suspensión anticipada por necesidad del servicio.</p>
+      </div>
+    </section>
+
+    <div class="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <button type="button"
+              id="crear-solicitud"
+              class="w-full md:w-auto flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-md transition-colors duration-200">
+        {% if form.instance.pk %}Guardar cambios{% else %}Crear reintegro{% endif %}
+      </button>
+      <button type="button"
+              id="cancelar-reintegro"
+              data-redirect="{% url 'vacaciones:coord_reintegros_list' %}"
+              class="w-full md:w-auto flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-md transition-colors duration-200">
+        Cancelar
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+  {{ block.super }}
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="{% static 'vacaciones/js/components/reintegros/flatpickr-reintegros.js' %}"></script>
+  <script src="{% static 'vacaciones/js/components/reintegros/confirmaciones-reintegros.js' %}"></script>
+  {% if not form.instance.pk %}
+  <script src="{% static 'vacaciones/js/components/reintegros/selector-funcionario-coord.js' %}"></script>
+  {% endif %}
+{% endblock %}

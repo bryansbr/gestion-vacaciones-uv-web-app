@@ -172,6 +172,14 @@ class SolicitudVacaciones(models.Model):
 
     @property
     def aprobaciones_ordenadas(self):
+        """
+        Retorna las aprobaciones ordenadas que pertenecen directamente a esta solicitud.
+        Filtra por content_type y object_id para excluir aprobaciones de reintegros asociados.
+        """
+        from django.contrib.contenttypes.models import ContentType
+        
+        ct_solicitud = ContentType.objects.get_for_model(SolicitudVacaciones)
+        
         orden = Case(
             When(etapa='JEFE',  then=0),
             When(etapa='COORD', then=1),
@@ -179,21 +187,32 @@ class SolicitudVacaciones(models.Model):
             output_field=IntegerField(),
         )
 
-        return list(self.aprobaciones.order_by(orden, 'id'))
+        aprobaciones_directas = self.aprobaciones.filter(
+            content_type=ct_solicitud,
+            object_id=self.pk
+        ).order_by(orden, 'id')
+        
+        return list(aprobaciones_directas)
+
+    def _aprobaciones_directas(self):
+        """Helper para obtener aprobaciones que pertenecen directamente a esta solicitud."""
+        from django.contrib.contenttypes.models import ContentType
+        ct_solicitud = ContentType.objects.get_for_model(SolicitudVacaciones)
+        return self.aprobaciones.filter(content_type=ct_solicitud, object_id=self.pk)
 
     @property
     def aprobada_por_jefe(self) -> bool:
-        a = self.aprobaciones.filter(etapa='JEFE').first()
+        a = self._aprobaciones_directas().filter(etapa='JEFE').first()
         return bool(a and a.estado == 'aprobada')
 
     @property
     def aprobada_por_coord(self) -> bool:
-        a = self.aprobaciones.filter(etapa='COORD').first()
+        a = self._aprobaciones_directas().filter(etapa='COORD').first()
         return bool(a and a.estado == 'aprobada')
 
     @property
     def autorizada_rrhh(self) -> bool:
-        a = self.aprobaciones.filter(etapa='RRHH').first()
+        a = self._aprobaciones_directas().filter(etapa='RRHH').first()
         return bool(a and a.estado == 'autorizada')
 
     @property
@@ -229,16 +248,17 @@ class SolicitudVacaciones(models.Model):
         - 'autorizada' si RRHH autoriza.
         - 'en_progreso' si hay pendientes y ninguna roja.
         """
-        mapa = {a.etapa: a for a in self.aprobaciones.all()}
+        aprobaciones_directas = self._aprobaciones_directas()
+        mapa = {a.etapa: a for a in aprobaciones_directas}
         rrhh = mapa.get('RRHH')
 
         if rrhh and rrhh.estado == 'rechazada':
             return 'rechazada'
-        if any(a.estado == 'devuelta' for a in self.aprobaciones.all() if a.etapa in ('JEFE', 'COORD')):
+        if any(a.estado == 'devuelta' for a in aprobaciones_directas if a.etapa in ('JEFE', 'COORD')):
             return 'devuelta'
         if rrhh and rrhh.estado == 'autorizada':
             return 'autorizada'
-        if any(a.estado == 'pendiente' for a in self.aprobaciones.all()):
+        if any(a.estado == 'pendiente' for a in aprobaciones_directas):
             return 'en_progreso'
 
         return 'desconocido'

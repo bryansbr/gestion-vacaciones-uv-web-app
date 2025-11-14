@@ -31,11 +31,28 @@
         </button>
       </div>
       {% endif %}
-    {% elif request.user|has_group:"Jefe Inmediato" or request.user|has_group:"Coordinador Administrativo" %}
+    {% elif request.user|has_group:"Jefe Inmediato" %}
       {% if jefe_id %}
       <button id="btn-crear-reintegro-jefe" 
               data-jefe-id="{{ jefe_id }}"
               data-url-crear="{% url 'vacaciones:jefe-reintegro-create' %}"
+              data-funcionarios='{{ funcionarios_bajo_jefe }}'
+              class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200">
+        Crear
+      </button>
+      {% else %}
+      <div class="tooltip-container">
+        <button title="No se encontró información del funcionario asociado."
+                disabled class="btn-disabled bg-gray-400 text-white font-semibold py-2 px-4 rounded-md">
+          Crear
+        </button>
+      </div>
+      {% endif %}
+    {% elif request.user|has_group:"Coordinador Administrativo" %}
+      {% if jefe_id %}
+      <button id="btn-crear-reintegro-jefe" 
+              data-jefe-id="{{ jefe_id }}"
+              data-url-crear="{% url 'vacaciones:coord-reintegro-create' %}"
               data-funcionarios='{{ funcionarios_bajo_jefe }}'
               class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200">
         Crear

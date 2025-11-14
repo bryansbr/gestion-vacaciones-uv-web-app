@@ -130,7 +130,7 @@
                     data-codigo="{{ solicitud.codigo_sabs }}">
                     {% csrf_token %}
                     <button type="button"
-                      class="flex items-center justify-start w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 btn-aprobar-jefe">
+                      class="flex items-center justify-start w-full px-4 py-2 text-sm text-green-700 hover:bg-green-50 btn-aprobar-jefe">
                       <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M5 13l4 4L19 7"/>
@@ -146,7 +146,7 @@
                     data-codigo="{{ solicitud.codigo_sabs }}">
                     {% csrf_token %}
                     <button type="button"
-                      class="flex items-center justify-start w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 btn-devolver-jefe">
+                      class="flex items-center justify-start w-full px-4 py-2 text-sm text-orange-700 hover:bg-orange-50 btn-devolver-jefe">
                       <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
@@ -172,7 +172,7 @@
                     {% csrf_token %}
                     <input type="hidden" name="obs" value="">
                     <button type="button"
-                      class="flex items-center justify-start w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 btn-aprobar-coord">
+                      class="flex items-center justify-start w-full px-4 py-2 text-sm text-green-700 hover:bg-green-50 btn-aprobar-coord">
                       <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M5 13l4 4L19 7"/>
@@ -189,7 +189,7 @@
                     {% csrf_token %}
                     <input type="hidden" name="obs" value="">
                     <button type="button"
-                      class="flex items-center justify-start w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 btn-devolver-coord">
+                      class="flex items-center justify-start w-full px-4 py-2 text-sm text-orange-700 hover:bg-orange-50 btn-devolver-coord">
                       <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
@@ -242,7 +242,6 @@
                   </form>
                 </li>
               {% elif ap.estado == 'autorizada' %}
-                {# Sin botones adicionales cuando ya fue autorizada #}
               {% endif %}
             {% endif %}
           {% endfor %}

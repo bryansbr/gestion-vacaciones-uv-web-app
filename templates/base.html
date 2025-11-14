@@ -237,6 +237,16 @@
                       </a>
                     </li>
                     {% endif %}
+                    {% if request.user.is_superuser or request.user|has_group:"Coordinador Administrativo" %}
+                    <li>
+                      <a href="{% url 'vacaciones:coord_reintegros_list' %}"
+                         id="submenu-link-coord-reintegros"
+                         data-url-path="{% url 'vacaciones:coord_reintegros_list' %}"
+                         class="popover-link">
+                        Como Coordinación Administrativa
+                      </a>
+                    </li>
+                    {% endif %}
                   </ul>
                 </div>
               </li>
