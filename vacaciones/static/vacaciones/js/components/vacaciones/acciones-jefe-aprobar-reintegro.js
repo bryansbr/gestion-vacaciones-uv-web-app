@@ -10,8 +10,8 @@ document.addEventListener('click', function (e) {
   const codigo = formulario.dataset.codigo || '';
 
   Swal.fire({
-    title: "¿Está seguro de aprobar el reintegro de vacaciones?",
-    html: `Una vez aprobado, el reintegro <strong>${codigo}</strong> será enviado al Coordinador Administrativo para su revisión.`,
+    title: "¿Está seguro de aprobar la solicitud de reintegro de vacaciones?",
+    html: `Una vez aprobada, la solicitud <strong>${codigo}</strong> será enviada al Coordinador Administrativo para su revisión.`,
     icon: "question",
     showCancelButton: true,
     confirmButtonColor: "#10b981",
@@ -19,13 +19,17 @@ document.addEventListener('click', function (e) {
     confirmButtonText: "Sí, aprobar",
     cancelButtonText: "Cancelar",
     input: 'textarea',
-    inputPlaceholder: 'Observaciones (opcional)',
+    inputPlaceholder: 'Observaciones (obligatorio)',
     inputAttributes: {
       'aria-label': 'Observaciones'
     },
     inputValidator: (value) => {
       return new Promise((resolve) => {
-        resolve();
+        if (!value || !value.trim()) {
+          resolve('Debe proporcionar observaciones');
+        } else {
+          resolve();
+        }
       });
     }
   }).then((resultado) => {

@@ -35,7 +35,6 @@ document.addEventListener('DOMContentLoaded', function () {
           if (btnParaMi) {
             btnParaMi.addEventListener('click', function() {
               Swal.close();
-              // Buscar si el jefe tiene solicitudes autorizadas disponibles
               const jefeData = funcionariosData.find(f => f.id.toString() === jefeId);
               
               if (!jefeData || !jefeData.tiene_solicitudes_autorizadas) {

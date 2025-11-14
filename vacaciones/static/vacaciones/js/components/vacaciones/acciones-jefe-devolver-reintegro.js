@@ -10,8 +10,8 @@ document.addEventListener('click', function (e) {
   const codigo = formulario.dataset.codigo || '';
 
   Swal.fire({
-    title: "¿Está seguro de devolver el reintegro de vacaciones?",
-    html: `El reintegro <strong>${codigo}</strong> será devuelto al funcionario para su corrección.`,
+    title: "¿Está seguro de devolver la solicitud de reintegro de vacaciones?",
+    html: `La solicitud <strong>${codigo}</strong> será devuelta al funcionario para su corrección.`,
     icon: "warning",
     showCancelButton: true,
     confirmButtonColor: "#f59e0b",

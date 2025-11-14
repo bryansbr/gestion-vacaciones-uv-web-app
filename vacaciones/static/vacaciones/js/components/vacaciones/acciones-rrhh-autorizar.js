@@ -19,13 +19,17 @@ document.addEventListener('click', function (e) {
     confirmButtonText: "Sí, autorizar",
     cancelButtonText: "Cancelar",
     input: 'textarea',
-    inputPlaceholder: 'Observaciones (opcional)',
+    inputPlaceholder: 'Observaciones (obligatorio)',
     inputAttributes: {
       'aria-label': 'Observaciones'
     },
     inputValidator: (value) => {
       return new Promise((resolve) => {
-        resolve();
+        if (!value || !value.trim()) {
+          resolve('Debe proporcionar observaciones');
+        } else {
+          resolve();
+        }
       });
     }
   }).then((resultado) => {
