@@ -264,6 +264,19 @@
                 </a>
               </li>
               {% endif %}
+              {% if request.user.is_superuser or request.user|has_group:"Recursos Humanos" or "recursos.humanos" in request.user.email|lower %}
+              <li>
+                <a href="{% url 'vacaciones:rrhh_reintegros_list' %}"
+                   id="submenu-link-rrhh-reintegros"
+                   data-url-path="{% url 'vacaciones:rrhh_reintegros_list' %}"
+                   class="sidebar-link block py-2 px-3 rounded hover:bg-red-600 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-5 w-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span class="ml-9 sidebar-text" id="sidebar-text-rrhh-reintegros">Listado de reintegros</span>
+                </a>
+              </li>
+              {% endif %}
             </ul>
           </li>
         </ul>

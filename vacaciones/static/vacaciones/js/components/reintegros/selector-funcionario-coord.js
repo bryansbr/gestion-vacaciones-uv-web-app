@@ -79,3 +79,4 @@ document.addEventListener('DOMContentLoaded', function() {
     selector.dispatchEvent(new Event('change'));
   }
 });
+

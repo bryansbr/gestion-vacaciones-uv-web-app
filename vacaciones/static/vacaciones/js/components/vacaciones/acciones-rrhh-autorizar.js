@@ -11,7 +11,7 @@ document.addEventListener('click', function (e) {
 
   Swal.fire({
     title: "¿Está seguro de autorizar la solicitud de vacaciones?",
-    html: `Una vez autorizada, la solicitud <strong>${codigo}</strong> quedará oficialmente aprobada. El funcionario saldrá a vacaciones y se realizará el pago correspondiente.`,
+    html: `Una vez autorizada la solicitud <strong>${codigo}</strong>, el funcionario saldrá a vacaciones y se realizará el pago correspondiente.`,
     icon: "question",
     showCancelButton: true,
     confirmButtonColor: "#10b981",

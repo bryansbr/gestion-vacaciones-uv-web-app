@@ -33,7 +33,7 @@ ETAPA_HUMANA = {
 }
 
 ESTADO_GLOBAL_MAP = {
-    'autorizada': 'aprobado',
+    'autorizada': 'autorizada',
     'rechazada':  'rechazado',
     'devuelta':   'pendiente',
     'en_progreso': 'en_revision',

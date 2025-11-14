@@ -228,6 +228,45 @@
             {% endif %}
           {% endif %}
         {% endif %}
+        
+        {% if request.user|has_group:"Recursos Humanos" or "recursos.humanos" in request.user.email|lower %}
+          {% if reintegro.etapa_activa and reintegro.etapa_activa.etapa == 'RRHH' and reintegro.etapa_activa.estado == 'pendiente' %}
+            <li>
+              <form method="post"
+                    action="{% url 'vacaciones:rrhh_autorizar_reintegro' reintegro.id %}"
+                    class="form-autorizar-reintegro-rrhh"
+                    data-codigo="{{ reintegro.codigo_sabs }}">
+                {% csrf_token %}
+                <input type="hidden" name="obs" value="">
+                <button type="button"
+                        class="flex items-center justify-start w-full px-4 py-2 text-sm text-green-700 hover:bg-green-50 btn-autorizar-rrhh-reintegro">
+                  <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M5 13l4 4L19 7"/>
+                  </svg>
+                  <span class="text-left">Autorizar</span>
+                </button>
+              </form>
+            </li>
+            <li>
+              <form method="post"
+                    action="{% url 'vacaciones:rrhh_rechazar_reintegro' reintegro.id %}"
+                    class="form-rechazar-reintegro-rrhh"
+                    data-codigo="{{ reintegro.codigo_sabs }}">
+                {% csrf_token %}
+                <input type="hidden" name="obs" value="">
+                <button type="button"
+                        class="flex items-center justify-start w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50 btn-rechazar-rrhh-reintegro">
+                  <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                  <span class="text-left">Rechazar</span>
+                </button>
+              </form>
+            </li>
+          {% endif %}
+        {% endif %}
       {% endif %}
     </ul>
     {% endwith %}

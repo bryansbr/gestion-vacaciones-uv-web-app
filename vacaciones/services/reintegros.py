@@ -20,7 +20,7 @@ ETAPA_HUMANA = {
 }
 
 ESTADO_GLOBAL_MAP = {
-    'autorizada': 'completado',
+    'autorizada': 'autorizada',
     'rechazada': 'rechazado',
     'devuelta': 'pendiente',
     'en_progreso': 'en_revision',
@@ -349,8 +349,7 @@ def autorizar_rrhh_reintegro(usuario: CustomUser, reintegro: ReintegroVacaciones
     etapa.actualizado_por = usuario
     etapa.save(update_fields=['estado', 'observacion', 'actualizado_por', 'actualizado_en'])
 
-    reintegro.estado_solicitud = 'completado'
-    reintegro.save(update_fields=['estado_solicitud'])
+    _refrescar_estado(reintegro)
 
     _registrar_historial(
         reintegro=reintegro,
@@ -406,12 +405,14 @@ def rechazar_rrhh_reintegro(usuario: CustomUser, reintegro: ReintegroVacaciones,
 
     funcionario = reintegro.funcionario
     jefe = funcionario.jefe_inmediato
+    
     _notificar(
         reintegro,
         destinatario=funcionario,
         asunto=f"Reintegro {reintegro.codigo_sabs} rechazado",
         mensaje=_crear_mensaje_estado(reintegro, observacion),
     )
+    
     if jefe:
         _notificar(
             reintegro,
@@ -420,4 +421,25 @@ def rechazar_rrhh_reintegro(usuario: CustomUser, reintegro: ReintegroVacaciones,
             mensaje=_crear_mensaje_estado(reintegro, observacion),
             cc=funcionario,
         )
+    
+    try:
+        grupo_coord = Group.objects.get(name='Coordinador Administrativo')
+        usuarios_coord = grupo_coord.user_set.filter(is_active=True)
+        
+        for usuario_coord in usuarios_coord:
+            coord_func = getattr(usuario_coord, 'funcionario', None)
+            if coord_func and coord_func.facultad_dependencia_id == funcionario.facultad_dependencia_id:
+                _notificar(
+                    reintegro,
+                    destinatario=coord_func,
+                    asunto=f"Reintegro {reintegro.codigo_sabs} rechazado",
+                    mensaje=_crear_mensaje_estado(reintegro, observacion),
+                    cc=funcionario,
+                )
+                break
+    except Group.DoesNotExist:
+        logger.warning("No se encontró el grupo 'Coordinador Administrativo' para notificar.")
+    except Exception as exc:
+        logger.exception("Error al notificar al C.A. sobre reintegro rechazado: %s", exc)
+    
     return etapa

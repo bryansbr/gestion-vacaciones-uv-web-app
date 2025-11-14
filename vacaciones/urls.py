@@ -73,10 +73,10 @@ urlpatterns = [
     path("jefe/solicitudes/<int:pk>/aprobar/",        views_jefe.aprobar_solicitud,               name="jefe_aprobar_solicitud"),
     path("jefe/solicitudes/<int:pk>/devolver/",       views_jefe.devolver_solicitud,              name="jefe_devolver_solicitud"),
     path("jefe/solicitudes/<int:pk>/enviar-proximo/", views_jefe.enviar_solicitud_proximo_revisor, name="jefe_enviar_proximo_revisor"),
-    path("jefe/reintegros/",                         views_jefe.ReintegrosJefeListView.as_view(), name="jefe_reintegros_list"),
-    path("jefe/reintegros/crear/",                   views_jefe.JefeReintegroCreateView.as_view(), name="jefe-reintegro-create"),
-    path("jefe/reintegros/<int:pk>/aprobar/",        views_jefe.aprobar_reintegro,                name="jefe_aprobar_reintegro"),
-    path("jefe/reintegros/<int:pk>/devolver/",       views_jefe.devolver_reintegro,               name="jefe_devolver_reintegro"),
+    path("jefe/reintegros/",                          views_jefe.ReintegrosJefeListView.as_view(), name="jefe_reintegros_list"),
+    path("jefe/reintegros/crear/",                    views_jefe.JefeReintegroCreateView.as_view(), name="jefe-reintegro-create"),
+    path("jefe/reintegros/<int:pk>/aprobar/",         views_jefe.aprobar_reintegro,                name="jefe_aprobar_reintegro"),
+    path("jefe/reintegros/<int:pk>/devolver/",        views_jefe.devolver_reintegro,               name="jefe_devolver_reintegro"),
 
     # -----------------------------------------
     # Secretaria
@@ -96,12 +96,12 @@ urlpatterns = [
     path("coord/solicitudes/",                         views_coord.SolicitudesCoordListView.as_view(), name="coord_solicitudes_list"),
     path("coord/solicitudes/<int:pk>/aprobar/",        views_coord.aprobar_solicitud,               name="coord_aprobar_solicitud"),
     path("coord/solicitudes/<int:pk>/devolver/",       views_coord.devolver_solicitud,              name="coord_devolver_solicitud"),
-    path("coord/reintegros/",                         views_coord.ReintegrosCoordListView.as_view(), name="coord_reintegros_list"),
-    path("coord/reintegros/crear/",                   views_coord.CoordReintegroCreateView.as_view(), name="coord-reintegro-create"),
-    path("coord/reintegros/<int:pk>/editar/",         views_coord.CoordReintegroUpdateView.as_view(), name="coord-reintegro-update"),
-    path("coord/reintegros/<int:pk>/eliminar/",       views_coord.CoordReintegroDeleteView.as_view(), name="coord-reintegro-delete"),
-    path("coord/reintegros/<int:pk>/aprobar/",        views_coord.aprobar_reintegro,                name="coord_aprobar_reintegro"),
-    path("coord/reintegros/<int:pk>/devolver/",       views_coord.devolver_reintegro,               name="coord_devolver_reintegro"),
+    path("coord/reintegros/",                          views_coord.ReintegrosCoordListView.as_view(), name="coord_reintegros_list"),
+    path("coord/reintegros/crear/",                    views_coord.CoordReintegroCreateView.as_view(), name="coord-reintegro-create"),
+    path("coord/reintegros/<int:pk>/editar/",          views_coord.CoordReintegroUpdateView.as_view(), name="coord-reintegro-update"),
+    path("coord/reintegros/<int:pk>/eliminar/",        views_coord.CoordReintegroDeleteView.as_view(), name="coord-reintegro-delete"),
+    path("coord/reintegros/<int:pk>/aprobar/",         views_coord.aprobar_reintegro,                name="coord_aprobar_reintegro"),
+    path("coord/reintegros/<int:pk>/devolver/",        views_coord.devolver_reintegro,               name="coord_devolver_reintegro"),
 
     # -----------------------------------------
     # Recursos Humanos (RRHH)
@@ -109,6 +109,9 @@ urlpatterns = [
     path("rrhh/solicitudes/",                         views_rrhh.SolicitudesRRHHListView.as_view(), name="rrhh_solicitudes_list"),
     path("rrhh/solicitudes/<int:pk>/autorizar/",      views_rrhh.autorizar_solicitud,               name="rrhh_autorizar_solicitud"),
     path("rrhh/solicitudes/<int:pk>/rechazar/",       views_rrhh.rechazar_solicitud,                name="rrhh_rechazar_solicitud"),
+    path("rrhh/reintegros/",                          views_rrhh.ReintegrosRRHHListView.as_view(), name="rrhh_reintegros_list"),
+    path("rrhh/reintegros/<int:pk>/autorizar/",       views_rrhh.autorizar_reintegro,               name="rrhh_autorizar_reintegro"),
+    path("rrhh/reintegros/<int:pk>/rechazar/",        views_rrhh.rechazar_reintegro,                name="rrhh_rechazar_reintegro"),
 
     path("reintegros/<int:pk>/firmar/",    views.firmar_reintegro_view,    name="reintegro_firmar"),
     path("reintegros/<int:pk>/enviar/",    views.reenviar_reintegro_view,  name="reintegro_enviar"),

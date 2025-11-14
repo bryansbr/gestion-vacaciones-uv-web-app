@@ -9,10 +9,14 @@ from django.urls import reverse
 from django.views.generic import ListView
 
 from core.permissions import es_rrhh
-from .models import SolicitudVacaciones
+from .models import SolicitudVacaciones, ReintegroVacaciones
 from .services.aprobaciones import (
     autorizar_rrhh,
     rechazar_rrhh,
+)
+from .services.reintegros import (
+    autorizar_rrhh_reintegro,
+    rechazar_rrhh_reintegro,
 )
 
 # ==========================================================
@@ -20,6 +24,8 @@ from .services.aprobaciones import (
 # ==========================================================
 RRHH_SOLICITUDES_TEMPLATE = "vacaciones/roles/rrhh/rrhh-solicitudes-list.html"
 RRHH_SOLICITUDES_TABLE_PARTIAL = "vacaciones/partials/_tabla-rrhh-solicitudes.html"
+RRHH_REINTEGROS_TEMPLATE = "vacaciones/roles/rrhh/rrhh-reintegros-list.html"
+RRHH_REINTEGROS_TABLE_PARTIAL = "vacaciones/partials/_tabla-rrhh-reintegros.html"
 
 def _es_rrhh_o_email(user):
     """
@@ -163,3 +169,123 @@ def rechazar_solicitud(request, pk):
         messages.error(request, str(e))
     
     return redirect(reverse("vacaciones:rrhh_solicitudes_list"))
+
+class ReintegrosRRHHListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    """
+    Lista todas las solicitudes de reintegro de vacaciones que RRHH puede ver:
+    - De todos los funcionarios de la Universidad (sin restricción por Facultad o Dependencia)
+    - Solo aquellas que han sido aprobadas por el Coordinador Administrativo (etapa COORD aprobada)
+    """
+    model = ReintegroVacaciones
+    template_name = RRHH_REINTEGROS_TEMPLATE
+    context_object_name = "reintegros"
+    paginate_by = 20
+    raise_exception = False
+    
+    def test_func(self):
+        """Verifica si el usuario tiene permiso para acceder."""
+        return _es_rrhh_o_email(self.request.user)
+    
+    def handle_no_permission(self):
+        """Maneja el caso cuando el usuario no tiene permisos."""
+        messages.error(self.request, "No tiene permisos para acceder a esta sección.")
+        return redirect('usuarios:dashboard')
+
+    def get(self, request, *args, **kwargs):
+        if request.htmx:
+            self.object_list = self.get_queryset()
+            context = self.get_context_data()
+            html = render_to_string(RRHH_REINTEGROS_TABLE_PARTIAL, context, request)
+            return HttpResponse(html)
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        """
+        RRHH puede ver todas las solicitudes de reintegro que:
+        1. Han pasado por el flujo completo (JEFE y COORD aprobadas)
+        2. O las que RRHH haya procesado anteriormente (autorizadas o rechazadas)
+        """
+        ids_jefe_aprobada = set(
+            ReintegroVacaciones.objects
+            .filter(aprobaciones__etapa='JEFE', aprobaciones__estado='aprobada')
+            .values_list('id', flat=True)
+            .distinct()
+        )
+        
+        ids_coord_aprobada = set(
+            ReintegroVacaciones.objects
+            .filter(aprobaciones__etapa='COORD', aprobaciones__estado='aprobada')
+            .values_list('id', flat=True)
+            .distinct()
+        )
+        
+        ids_jefe_y_coord = ids_jefe_aprobada & ids_coord_aprobada
+        
+        ids_rrhh_procesadas = set(
+            ReintegroVacaciones.objects
+            .filter(aprobaciones__etapa='RRHH', aprobaciones__estado__in=['autorizada', 'rechazada'])
+            .values_list('id', flat=True)
+            .distinct()
+        )
+        
+        ids_combinados = ids_jefe_y_coord | ids_rrhh_procesadas
+        
+        if not ids_combinados:
+            return ReintegroVacaciones.objects.none()
+        
+        qs_final = (ReintegroVacaciones.objects
+                   .select_related("funcionario", "funcionario__facultad_dependencia", "creada_por", "creada_por__funcionario", "solicitud_vacaciones", "periodo_vacacional")
+                   .prefetch_related("aprobaciones")
+                   .filter(id__in=ids_combinados)
+                   .distinct()
+                   .order_by("-fecha_solicitud", "-id"))
+
+        q = self.request.GET.get("q", "").strip()
+        estado = self.request.GET.get("estado", "").strip()
+
+        if q:
+            qs_final = qs_final.filter(
+                Q(codigo_sabs__icontains=q) |
+                Q(funcionario__nombre__icontains=q) |
+                Q(funcionario__apellido__icontains=q)
+            )
+        if estado:
+            qs_final = qs_final.filter(estado_solicitud=estado)
+
+        return qs_final
+
+def autorizar_reintegro(request, pk):
+    """Autoriza un reintegro de vacaciones."""
+    if not _es_rrhh_o_email(request.user):
+        return HttpResponseForbidden("No tiene permisos para autorizar reintegros.")
+    
+    if request.method != "POST":
+        return HttpResponseBadRequest("Método no permitido")
+    
+    reintegro = get_object_or_404(ReintegroVacaciones, pk=pk)
+    
+    try:
+        autorizar_rrhh_reintegro(request.user, reintegro, observacion=request.POST.get('obs', ''))
+        messages.success(request, "Reintegro autorizado correctamente. El funcionario queda oficialmente reincorporado a sus labores.")
+    except (ValidationError, PermissionDenied) as e:
+        messages.error(request, str(e))
+    
+    return redirect(reverse("vacaciones:rrhh_reintegros_list"))
+
+def rechazar_reintegro(request, pk):
+    """Rechaza un reintegro de vacaciones."""
+    if not _es_rrhh_o_email(request.user):
+        return HttpResponseForbidden("No tiene permisos para rechazar reintegros.")
+    
+    if request.method != "POST":
+        return HttpResponseBadRequest("Método no permitido")
+    
+    reintegro = get_object_or_404(ReintegroVacaciones, pk=pk)
+    
+    try:
+        rechazar_rrhh_reintegro(request.user, reintegro, observacion=request.POST.get('obs', ''))
+        messages.warning(request, "El reintegro fue rechazado. Se notificó al funcionario, C.A. y Jefe Inmediato.")
+    except (ValidationError, PermissionDenied) as e:
+        messages.error(request, str(e))
+    
+    return redirect(reverse("vacaciones:rrhh_reintegros_list"))
