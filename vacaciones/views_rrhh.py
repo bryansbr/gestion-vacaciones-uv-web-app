@@ -50,7 +50,6 @@ class SolicitudesRRHHListView(LoginRequiredMixin, UserPassesTestMixin, ListView)
     model = SolicitudVacaciones
     template_name = RRHH_SOLICITUDES_TEMPLATE
     context_object_name = "solicitudes"
-    paginate_by = 20
     raise_exception = False
     
     def test_func(self):
@@ -113,17 +112,6 @@ class SolicitudesRRHHListView(LoginRequiredMixin, UserPassesTestMixin, ListView)
                    .distinct()
                    .order_by("-fecha_solicitud", "-id"))
 
-        q = self.request.GET.get("q", "").strip()
-        estado = self.request.GET.get("estado", "").strip()
-
-        if q:
-            qs_final = qs_final.filter(
-                Q(codigo_sabs__icontains=q) |
-                Q(funcionario__nombre__icontains=q) |
-                Q(funcionario__apellido__icontains=q)
-            )
-        if estado:
-            qs_final = qs_final.filter(estado_solicitud=estado)
 
         return qs_final
 

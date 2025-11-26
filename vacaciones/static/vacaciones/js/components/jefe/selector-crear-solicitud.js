@@ -34,28 +34,22 @@ document.addEventListener('DOMContentLoaded', function () {
           if (btnParaMi) {
             btnParaMi.addEventListener('click', function() {
               const tienePeriodos = btnCrear.dataset.tienePeriodos === 'true';
+              const tienePeriodosDisponibles = btnCrear.dataset.tienePeriodosDisponibles === 'true';
               const tieneSolicitudActiva = btnCrear.dataset.tieneSolicitudActiva === 'true';
+              const solicitudActivaCodigo = btnCrear.dataset.solicitudActivaCodigo || '';
+              const tieneReintegroEnCurso = btnCrear.dataset.tieneReintegroEnCurso === 'true';
               
-              if (!tienePeriodos) {
-                Swal.close();
-                Swal.fire({
-                  icon: 'error',
-                  title: '¡Atención!',
-                  text: 'No puede solicitar vacaciones porque no tiene periodos registrados en el sistema. Contacte al administrador para que registre su(s) periodo(s) vacacional(es).',
-                  confirmButtonText: 'OK'
-                });
-                return;
-              }
+              const resultado = validarCrearSolicitud({
+                tiene_periodos: tienePeriodos,
+                tiene_periodos_disponibles: tienePeriodosDisponibles,
+                tiene_solicitud_activa: tieneSolicitudActiva,
+                solicitud_activa_codigo: solicitudActivaCodigo,
+                tiene_reintegro_en_curso: tieneReintegroEnCurso
+              });
               
-              if (tieneSolicitudActiva) {
-                const codigo = btnCrear.dataset.solicitudActivaCodigo || '';
+              if (!resultado.puede_crear) {
                 Swal.close();
-                Swal.fire({
-                  icon: 'warning',
-                  title: 'Solicitud en curso',
-                  html: `Ya tiene una solicitud de vacaciones en curso${codigo ? ` (${codigo})` : ''}. Debe culminar el disfrute del periodo actual antes de crear una nueva solicitud.`,
-                  confirmButtonText: 'OK'
-                });
+                mostrarAlertaValidacion(resultado);
                 return;
               }
               
@@ -101,26 +95,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (result.isConfirmed && result.value) {
                   const funcionarioSeleccionado = funcionariosData.find(f => f.id.toString() === result.value);
                   
-                  if (!funcionarioSeleccionado.tiene_periodos) {
-                    Swal.fire({
-                      icon: 'error',
-                      title: '¡Atención!',
-                      html: `El(la) funcionario(a) <strong>${funcionarioSeleccionado.nombre} ${funcionarioSeleccionado.apellido}</strong> no tiene periodos vacacionales registrados. Contacte al administrador para que registre su(s) periodo(s) vacacional(es).`,
-                      confirmButtonText: 'OK'
-                    });
+                  const resultado = validarCrearSolicitud({
+                    tiene_periodos: funcionarioSeleccionado.tiene_periodos || false,
+                    tiene_periodos_disponibles: funcionarioSeleccionado.tiene_periodos_disponibles || false,
+                    tiene_solicitud_activa: funcionarioSeleccionado.tiene_solicitud_activa || false,
+                    solicitud_activa_codigo: funcionarioSeleccionado.solicitud_activa_codigo || '',
+                    tiene_reintegro_en_curso: funcionarioSeleccionado.tiene_reintegro_en_curso || false,
+                    nombre_funcionario: `${funcionarioSeleccionado.nombre} ${funcionarioSeleccionado.apellido}`
+                  });
+                  
+                  if (!resultado.puede_crear) {
+                    mostrarAlertaValidacion(resultado);
                     return;
                   }
-                  
-                  if (funcionarioSeleccionado && funcionarioSeleccionado.tiene_solicitud_activa) {
-                    Swal.fire({
-                      icon: 'info',
-                      title: 'Solicitud en curso',
-                      html: `El(la) funcionario(a) <strong>${funcionarioSeleccionado.nombre} ${funcionarioSeleccionado.apellido}</strong> ya tiene una solicitud de vacaciones en curso${funcionarioSeleccionado.solicitud_activa_codigo ? ` (${funcionarioSeleccionado.solicitud_activa_codigo})` : ''}.  Puede visualizarla en la opción "Listado de solicitudes".`,
-                      confirmButtonText: 'OK'
-                    });
-                    return;
-                  }
-                  
                   window.location.href = btnCrear.dataset.urlCrear + '?funcionario_id=' + result.value;
                 }
               });

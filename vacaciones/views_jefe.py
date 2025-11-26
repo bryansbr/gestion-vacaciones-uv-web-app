@@ -1,6 +1,8 @@
 import holidays
 import json
 
+from datetime import timedelta
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -30,6 +32,7 @@ from .services.reintegros import (
     aprobar_etapa_reintegro,
     devolver_etapa_reintegro,
 )
+
 from .utils import get_current_date_colombia
 from .views import ReintegroVacacionesListView
 
@@ -37,7 +40,7 @@ from .views import ReintegroVacacionesListView
 # CONSTANTES
 # ==========================================================
 JEFE_SOLICITUDES_TEMPLATE = "vacaciones/roles/jefe/jefe-solicitudes-list.html"
-JEFE_SOLICITUDES_TABLE_PARTIAL = "vacaciones/partials/_tabla-jefe-solicitudes.html"
+JEFE_SOLICITUDES_TABLE_PARTIAL = "vacaciones/partials/_tabla-solicitudes.html"
 JEFE_SOLICITUD_FORM_TEMPLATE = "vacaciones/roles/jefe/jefe-solicitud-form.html"
 JEFE_REINTEGROS_TEMPLATE = "vacaciones/roles/jefe/jefe-reintegros-list.html"
 JEFE_REINTEGROS_TABLE_PARTIAL = "vacaciones/partials/_tabla-jefe-reintegros.html"
@@ -65,12 +68,12 @@ class SolicitudesJefeListView(LoginRequiredMixin, ListView):
     model = SolicitudVacaciones
     template_name = JEFE_SOLICITUDES_TEMPLATE
     context_object_name = "solicitudes"
-    paginate_by = 20
 
     def get(self, request, *args, **kwargs):
         if request.htmx:
             self.object_list = self.get_queryset()
             context = self.get_context_data()
+            context['tabla_id'] = 'tabla-solicitudes-jefe'
             html = render_to_string(JEFE_SOLICITUDES_TABLE_PARTIAL, context, request)
             return HttpResponse(html)
         return super().get(request, *args, **kwargs)
@@ -86,19 +89,117 @@ class SolicitudesJefeListView(LoginRequiredMixin, ListView):
               .filter(funcionario__jefe_inmediato=jefe_func)
               .order_by("-fecha_solicitud", "-id"))
 
-        q = self.request.GET.get("q", "").strip()
-        estado = self.request.GET.get("estado", "").strip()
-
-        if q:
-            qs = qs.filter(
-                Q(codigo_sabs__icontains=q) |
-                Q(funcionario__nombre__icontains=q) |
-                Q(funcionario__apellido__icontains=q)
-            )
-        if estado:
-            qs = qs.filter(estado_solicitud=estado)
 
         return qs
+
+    def _verificar_periodos_con_dias_disponibles(self, funcionario):
+        """
+        Verifica si el funcionario tiene periodos vacacionales con días disponibles.
+        Retorna True si hay al menos un periodo con días pendientes > 0.
+        """
+        periodos = PeriodoVacacional.objects.filter(funcionario=funcionario)
+        if not periodos.exists():
+            return False
+        
+        periodo_ids = [p.pk for p in periodos]
+
+        solicitudes_aprobadas = SolicitudVacaciones.objects.filter(
+            periodo_vacacional_id__in=periodo_ids,
+            estado_solicitud__in=['aprobado', 'autorizada']
+        ).select_related('funcionario', 'funcionario__estamento')
+        
+        solicitudes_por_periodo = {}
+        for solicitud in solicitudes_aprobadas:
+            periodo_id = solicitud.periodo_vacacional_id
+            if periodo_id not in solicitudes_por_periodo:
+                solicitudes_por_periodo[periodo_id] = []
+            solicitudes_por_periodo[periodo_id].append(solicitud)
+        
+        for periodo in periodos:
+            dias_habiles_disfrutados = 0
+            dias_calendario_disfrutados = 0
+            
+            solicitudes_periodo = solicitudes_por_periodo.get(periodo.pk, [])
+            for solicitud in solicitudes_periodo:
+                habiles, calendario = self._calcular_dias_habiles_calendario_solicitud(solicitud)
+                dias_habiles_disfrutados += habiles
+                dias_calendario_disfrutados += calendario
+            
+            habiles_totales, calendario_totales = self._obtener_tipo_dias_periodo(periodo)
+            dias_habiles_pendientes = max(0, habiles_totales - dias_habiles_disfrutados)
+            dias_calendario_pendientes = max(0, calendario_totales - dias_calendario_disfrutados)
+            dias_pendientes_reales = dias_habiles_pendientes + dias_calendario_pendientes
+            
+            if dias_pendientes_reales > 0:
+                return True
+        
+        return False
+    
+    def _calcular_dias_habiles_calendario_solicitud(self, solicitud):
+        """Calcula los días hábiles y calendario de una solicitud según el estamento."""
+        if not (solicitud.fecha_inicio_vacaciones and solicitud.fecha_fin_vacaciones):
+            return 0, 0
+        
+        estamento = solicitud.funcionario.estamento.nombre.lower()
+        decreto = (solicitud.funcionario.decreto_resolucion or '').strip()
+        
+        festivos = holidays.Colombia(years=range(
+            solicitud.fecha_inicio_vacaciones.year, 
+            solicitud.fecha_fin_vacaciones.year + 1
+        ))
+        
+        if estamento == 'docente' and decreto == '1279':
+            actual = solicitud.fecha_inicio_vacaciones
+            habiles_marcados = 0
+            
+            while actual <= solicitud.fecha_fin_vacaciones and habiles_marcados < 15:
+                if actual.weekday() < 5 and actual not in festivos:
+                    habiles_marcados += 1
+                actual += timedelta(days=1)
+            
+            dias_calendario = 0
+            while actual <= solicitud.fecha_fin_vacaciones and dias_calendario < 15:
+                dias_calendario += 1
+                actual += timedelta(days=1)
+            
+            return habiles_marcados, dias_calendario
+            
+        elif estamento == 'administrativo':
+            actual = solicitud.fecha_inicio_vacaciones
+            dias_habiles = 0
+            while actual <= solicitud.fecha_fin_vacaciones:
+                if actual.weekday() < 5 and actual not in festivos:
+                    dias_habiles += 1
+                actual += timedelta(days=1)
+            return dias_habiles, 0
+            
+        elif estamento == 'docente' and decreto == '115':
+            dias_calendario = (solicitud.fecha_fin_vacaciones - solicitud.fecha_inicio_vacaciones).days + 1
+            return 0, dias_calendario
+            
+        elif estamento == 'trabajador oficial':
+            dias_calendario = (solicitud.fecha_fin_vacaciones - solicitud.fecha_inicio_vacaciones).days + 1
+            return 0, dias_calendario
+            
+        else:
+            dias_calendario = (solicitud.fecha_fin_vacaciones - solicitud.fecha_inicio_vacaciones).days + 1
+            return 0, dias_calendario
+    
+    def _obtener_tipo_dias_periodo(self, periodo):
+        """Obtiene el tipo de días que otorga el periodo según el estamento."""
+        estamento = periodo.funcionario.estamento.nombre.lower()
+        decreto = (periodo.funcionario.decreto_resolucion or '').strip()
+        
+        if estamento == 'docente' and decreto == '1279':
+            return 15, 15
+        elif estamento == 'administrativo':
+            return 15, 0
+        elif estamento == 'docente' and decreto == '115':
+            return 0, 30
+        elif estamento == 'trabajador oficial':
+            return 0, 30
+        else:
+            return 0, 0
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -106,6 +207,103 @@ class SolicitudesJefeListView(LoginRequiredMixin, ListView):
         context["rol_actual"] = "jefe_inmediato"
         context["mostrar_alerta_rol"] = user.groups.filter(name="Coordinador Administrativo").exists()
         context["etiqueta_rol_actual"] = "Jefe Inmediato"
+        
+        jefe_func = getattr(user, "funcionario", None)
+        if jefe_func:
+            context['jefe_id'] = jefe_func.pk
+            
+            periodos_jefe = PeriodoVacacional.objects.filter(funcionario=jefe_func)
+            context['tiene_periodos'] = periodos_jefe.exists()
+            
+            context['tiene_periodos_disponibles'] = self._verificar_periodos_con_dias_disponibles(jefe_func)
+            
+            solicitudes_activas_jefe = SolicitudVacaciones.objects.filter(
+                funcionario=jefe_func,
+                estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
+            ).prefetch_related('reintegrovacaciones_set')
+            
+            solicitudes_sin_reintegro_jefe = []
+            for solicitud in solicitudes_activas_jefe:
+                tiene_reintegro = any(
+                    reintegro.estado_solicitud in ('aprobado', 'completado')
+                    for reintegro in solicitud.reintegrovacaciones_set.all()
+                )
+                if not tiene_reintegro:
+                    solicitudes_sin_reintegro_jefe.append(solicitud)
+            
+            context['tiene_solicitud_activa'] = len(solicitudes_sin_reintegro_jefe) > 0
+            context['solicitud_activa'] = solicitudes_sin_reintegro_jefe[0] if solicitudes_sin_reintegro_jefe else None
+            
+            reintegros_en_curso_jefe = ReintegroVacaciones.objects.filter(
+                funcionario=jefe_func,
+                estado_solicitud__in=['pendiente', 'en_revision', 'devuelta']
+            ).exists()
+            context['tiene_reintegro_en_curso'] = reintegros_en_curso_jefe
+
+            tiene_dias_pendientes_jefe = ReintegroVacaciones.objects.filter(
+                funcionario=jefe_func,
+                estado_solicitud='aprobado',
+                dias_pendientes__gt=0
+            ).exists()
+            context['tiene_dias_pendientes_reintegro'] = tiene_dias_pendientes_jefe
+            
+            funcionarios_bajo_jefe = Funcionario.objects.filter(
+                jefe_inmediato=jefe_func
+            ).exclude(pk=jefe_func.pk).select_related('facultad_dependencia')
+            
+            funcionarios_data = []
+            for func in funcionarios_bajo_jefe:
+                solicitudes_activas_func = SolicitudVacaciones.objects.filter(
+                    funcionario=func,
+                    estado_solicitud__in=['pendiente', 'en_revision', 'aprobado']
+                ).prefetch_related('reintegrovacaciones_set')
+                
+                solicitudes_sin_reintegro_func = []
+                for solicitud in solicitudes_activas_func:
+                    tiene_reintegro = any(
+                        reintegro.estado_solicitud in ('aprobado', 'completado')
+                        for reintegro in solicitud.reintegrovacaciones_set.all()
+                    )
+                    if not tiene_reintegro:
+                        solicitudes_sin_reintegro_func.append(solicitud)
+                
+                tiene_periodos_func = PeriodoVacacional.objects.filter(funcionario=func).exists()
+                
+                tiene_periodos_disponibles_func = self._verificar_periodos_con_dias_disponibles(func)
+                
+                reintegros_en_curso_func = ReintegroVacaciones.objects.filter(
+                    funcionario=func,
+                    estado_solicitud__in=['pendiente', 'en_revision', 'devuelta']
+                ).exists()
+                
+                tiene_dias_pendientes_func = ReintegroVacaciones.objects.filter(
+                    funcionario=func,
+                    estado_solicitud='aprobado',
+                    dias_pendientes__gt=0
+                ).exists()
+                
+                funcionarios_data.append({
+                    'id': func.pk,
+                    'nombre': func.nombre,
+                    'apellido': func.apellido,
+                    'facultad_dependencia': func.facultad_dependencia.nombre,
+                    'tiene_solicitud_activa': len(solicitudes_sin_reintegro_func) > 0,
+                    'solicitud_activa_codigo': solicitudes_sin_reintegro_func[0].codigo_sabs if solicitudes_sin_reintegro_func else None,
+                    'tiene_periodos': tiene_periodos_func,
+                    'tiene_periodos_disponibles': tiene_periodos_disponibles_func,
+                    'tiene_reintegro_en_curso': reintegros_en_curso_func,
+                    'tiene_dias_pendientes_reintegro': tiene_dias_pendientes_func
+                })
+            
+            context['funcionarios_bajo_jefe'] = json.dumps(funcionarios_data)
+        else:
+            context['jefe_id'] = None
+            context['tiene_periodos'] = False
+            context['tiene_solicitud_activa'] = False
+            context['tiene_reintegro_en_curso'] = False
+            context['tiene_dias_pendientes_reintegro'] = False
+            context['funcionarios_bajo_jefe'] = '[]'
+        
         return context
 
 def solicitud_pdf(request, pk):
@@ -462,9 +660,7 @@ class ReintegrosJefeListView(LoginRequiredMixin, ListView):
                 ]
             })
             
-            # Agregar subordinados
             for func in funcionarios_bajo_jefe:
-                # Obtener solicitudes autorizadas sin reintegro para cada funcionario
                 solicitudes_disponibles = ReintegroVacacionesListView._solicitudes_autorizadas_sin_reintegro(func)
                 
                 funcionarios_data.append({

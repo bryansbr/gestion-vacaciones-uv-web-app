@@ -128,3 +128,239 @@
 #tabla-periodos-vacacionales tbody tr td {
     background-color: inherit !important;
 }
+
+#tabla-solicitudes-funcionario tbody tr:nth-child(even) {
+    background-color: #f3f4f6 !important;
+}
+
+#tabla-solicitudes-funcionario tbody tr:nth-child(odd) {
+    background-color: #ffffff !important;
+}
+
+#tabla-solicitudes-funcionario tbody tr:hover {
+    background-color: #e5e7eb !important;
+    transition: background-color 0.15s ease-in-out;
+}
+
+#tabla-solicitudes-funcionario tbody tr td {
+    background-color: inherit !important;
+}
+
+#tabla-solicitudes-jefe tbody tr:nth-child(even) {
+    background-color: #f3f4f6 !important;
+}
+
+#tabla-solicitudes-jefe tbody tr:nth-child(odd) {
+    background-color: #ffffff !important;
+}
+
+#tabla-solicitudes-jefe tbody tr:hover {
+    background-color: #e5e7eb !important;
+    transition: background-color 0.15s ease-in-out;
+}
+
+#tabla-solicitudes-jefe tbody tr td {
+    background-color: inherit !important;
+}
+
+#tabla-solicitudes-secretaria tbody tr:nth-child(even) {
+    background-color: #f3f4f6 !important;
+}
+
+#tabla-solicitudes-secretaria tbody tr:nth-child(odd) {
+    background-color: #ffffff !important;
+}
+
+#tabla-solicitudes-secretaria tbody tr:hover {
+    background-color: #e5e7eb !important;
+    transition: background-color 0.15s ease-in-out;
+}
+
+#tabla-solicitudes-secretaria tbody tr td {
+    background-color: inherit !important;
+}
+
+#tabla-solicitudes-coord tbody tr:nth-child(even) {
+    background-color: #f3f4f6 !important;
+}
+
+#tabla-solicitudes-coord tbody tr:nth-child(odd) {
+    background-color: #ffffff !important;
+}
+
+#tabla-solicitudes-coord tbody tr:hover {
+    background-color: #e5e7eb !important;
+    transition: background-color 0.15s ease-in-out;
+}
+
+#tabla-solicitudes-coord tbody tr td {
+    background-color: inherit !important;
+}
+
+#tabla-solicitudes-rrhh tbody tr:nth-child(even) {
+    background-color: #f3f4f6 !important;
+}
+
+#tabla-solicitudes-rrhh tbody tr:nth-child(odd) {
+    background-color: #ffffff !important;
+}
+
+#tabla-solicitudes-rrhh tbody tr:hover {
+    background-color: #e5e7eb !important;
+    transition: background-color 0.15s ease-in-out;
+}
+
+#tabla-solicitudes-rrhh tbody tr td {
+    background-color: inherit !important;
+}
+
+.badge-estado {
+    display: inline-block !important;
+    padding: 0.375rem 0.75rem !important;
+    border-radius: 9999px !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    margin: 0 !important;
+}
+
+.badge-estado-pendiente {
+    background-color: #9ca3af !important;
+    color: #ffffff !important;
+}
+
+.badge-estado-en_revision {
+    background-color: #f59e0b !important;
+    color: #ffffff !important;
+}
+
+.badge-estado-aprobado {
+    background-color: #3b82f6 !important;
+    color: #ffffff !important;
+}
+
+.badge-estado-autorizada {
+    background-color: #10b981 !important;
+    color: #ffffff !important;
+}
+
+.badge-estado-rechazado {
+    background-color: #ef4444 !important;
+    color: #ffffff !important;
+}
+
+.badge-estado-devuelta {
+    background-color: #f97316 !important;
+    color: #ffffff !important;
+}
+
+.badge-estado-cancelado {
+    background-color: #6b7280 !important;
+    color: #ffffff !important;
+}
+
+#tabla-solicitudes-funcionario .badge-estado,
+#tabla-solicitudes-jefe .badge-estado,
+#tabla-solicitudes-secretaria .badge-estado,
+#tabla-solicitudes-coord .badge-estado,
+#tabla-solicitudes-rrhh .badge-estado {
+    display: inline-block !important;
+    padding: 0.375rem 0.75rem !important;
+    border-radius: 9999px !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    margin: 0 !important;
+}
+
+#tabla-solicitudes-funcionario .badge-estado-pendiente,
+#tabla-solicitudes-jefe .badge-estado-pendiente,
+#tabla-solicitudes-secretaria .badge-estado-pendiente,
+#tabla-solicitudes-coord .badge-estado-pendiente,
+#tabla-solicitudes-rrhh .badge-estado-pendiente {
+    background-color: #9ca3af !important;
+    color: #ffffff !important;
+}
+
+#tabla-solicitudes-funcionario .badge-estado-en_revision,
+#tabla-solicitudes-jefe .badge-estado-en_revision,
+#tabla-solicitudes-secretaria .badge-estado-en_revision,
+#tabla-solicitudes-coord .badge-estado-en_revision,
+#tabla-solicitudes-rrhh .badge-estado-en_revision {
+    background-color: #f59e0b !important;
+    color: #ffffff !important;
+}
+
+#tabla-solicitudes-funcionario .badge-estado-aprobado,
+#tabla-solicitudes-jefe .badge-estado-aprobado,
+#tabla-solicitudes-secretaria .badge-estado-aprobado,
+#tabla-solicitudes-coord .badge-estado-aprobado,
+#tabla-solicitudes-rrhh .badge-estado-aprobado {
+    background-color: #3b82f6 !important;
+    color: #ffffff !important;
+}
+
+#tabla-solicitudes-funcionario .badge-estado-autorizada,
+#tabla-solicitudes-jefe .badge-estado-autorizada,
+#tabla-solicitudes-secretaria .badge-estado-autorizada,
+#tabla-solicitudes-coord .badge-estado-autorizada,
+#tabla-solicitudes-rrhh .badge-estado-autorizada {
+    background-color: #10b981 !important;
+    color: #ffffff !important;
+}
+
+#tabla-solicitudes-funcionario .badge-estado-rechazado,
+#tabla-solicitudes-jefe .badge-estado-rechazado,
+#tabla-solicitudes-secretaria .badge-estado-rechazado,
+#tabla-solicitudes-coord .badge-estado-rechazado,
+#tabla-solicitudes-rrhh .badge-estado-rechazado {
+    background-color: #ef4444 !important;
+    color: #ffffff !important;
+}
+
+#tabla-solicitudes-funcionario .badge-estado-devuelta,
+#tabla-solicitudes-jefe .badge-estado-devuelta,
+#tabla-solicitudes-secretaria .badge-estado-devuelta,
+#tabla-solicitudes-coord .badge-estado-devuelta,
+#tabla-solicitudes-rrhh .badge-estado-devuelta {
+    background-color: #f97316 !important;
+    color: #ffffff !important;
+}
+
+#tabla-solicitudes-funcionario .badge-estado-cancelado,
+#tabla-solicitudes-jefe .badge-estado-cancelado,
+#tabla-solicitudes-secretaria .badge-estado-cancelado,
+#tabla-solicitudes-coord .badge-estado-cancelado,
+#tabla-solicitudes-rrhh .badge-estado-cancelado {
+    background-color: #6b7280 !important;
+    color: #ffffff !important;
+}
+
+#tabla-solicitudes-funcionario tbody td,
+#tabla-solicitudes-jefe tbody td,
+#tabla-solicitudes-secretaria tbody td,
+#tabla-solicitudes-coord tbody td,
+#tabla-solicitudes-rrhh tbody td {
+    text-align: center !important;
+    vertical-align: middle !important;
+}
+
+#tabla-solicitudes-funcionario thead th,
+#tabla-solicitudes-jefe thead th,
+#tabla-solicitudes-secretaria thead th,
+#tabla-solicitudes-coord thead th,
+#tabla-solicitudes-rrhh thead th {
+    text-align: center !important;
+}
+
+#tabla-solicitudes-funcionario tbody td:nth-child(6) > div,
+#tabla-solicitudes-jefe tbody td:nth-child(6) > div,
+#tabla-solicitudes-secretaria tbody td:nth-child(6) > div,
+#tabla-solicitudes-coord tbody td:nth-child(6) > div,
+#tabla-solicitudes-rrhh tbody td:nth-child(6) > div {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}

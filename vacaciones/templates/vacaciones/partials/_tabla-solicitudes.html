@@ -1,0 +1,81 @@
+{% if solicitudes %}
+<div class="overflow-x-auto bg-white shadow-lg rounded-lg p-6">
+  <table id="{{ tabla_id }}" class="min-w-full divide-y divide-gray-200 table-rounded table-actions-center">
+    <thead class="bg-red-600 text-white">
+      <tr>
+        <th class="px-8 py-4 text-center text-sm font-medium tracking-wider">Código SABS</th>
+        <th class="px-8 py-4 text-center text-sm font-medium tracking-wider">Funcionario</th>
+        <th class="px-8 py-4 text-center text-sm font-medium tracking-wider">Periodo disfrute vacaciones</th>
+        <th class="px-8 py-4 text-center text-sm font-medium tracking-wider">Días</th>
+        <th class="px-8 py-4 text-center text-sm font-medium tracking-wider">Fecha de pago</th>
+        <th class="px-8 py-4 text-center text-sm font-medium tracking-wider">Avance</th>
+        <th class="px-8 py-4 text-center text-sm font-medium tracking-wider">Estado</th>
+        <th class="px-8 py-4 text-center text-sm font-medium tracking-wider">Fecha de creación</th>
+        <th class="px-8 py-4 text-sm font-medium tracking-wider text-center !text-center">Acciones</th>
+      </tr>
+    </thead>
+    <tbody class="bg-white divide-y divide-gray-200">
+      {% for solicitud in solicitudes %}
+      <tr class="{% if forloop.counter0|divisibleby:2 %}bg-white{% else %}bg-gray-100{% endif %} hover:bg-gray-200 transition-colors duration-150">
+        <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900 text-center">{{ solicitud.codigo_sabs }}</td>
+
+        <td class="px-8 py-5 text-sm text-gray-900 text-center">
+          <div class="text-center">
+            <div class="font-medium">{{ solicitud.funcionario.nombre }} {{ solicitud.funcionario.apellido }}</div>
+            <div class="text-xs text-gray-500">{{ solicitud.funcionario.facultad_dependencia.nombre }}</div>
+            {% if solicitud.creada_por %}
+            <div class="text-xs text-blue-600 mt-1">
+              Creada por: {{ solicitud.creada_por.funcionario.nombre }} {{ solicitud.creada_por.funcionario.apellido }}
+            </div>
+            {% endif %}
+          </div>
+        </td>
+
+        <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900 text-center">
+          {{ solicitud.fecha_inicio_vacaciones|date:"d/m/Y" }} -
+          {{ solicitud.fecha_fin_vacaciones|date:"d/m/Y" }}
+        </td>
+
+        <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900 text-center">
+          {{ solicitud.total_dias_solicitados }}
+          {% if mostrar_tipo_dias|default:True %}
+          {{ solicitud.get_tipo_dias_solicitados_display }}
+          {% endif %}
+        </td>
+
+        <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900 text-center">{{ solicitud.fecha_pago|date:"d/m/Y" }}</td>
+
+        <td class="px-8 py-5 text-sm text-gray-900 text-center"
+            hx-get="{% url 'vacaciones:semaforo_cell' solicitud.id %}"
+            hx-trigger="load, every 25s"
+            hx-swap="innerHTML">
+          {% include 'vacaciones/partials/_semaforo-cell.html' with solicitud=solicitud %}
+        </td>
+
+        <td class="px-8 py-5 whitespace-nowrap text-sm text-center">
+          <span class="badge-estado badge-estado-{{ solicitud.estado_solicitud }}">
+            {{ solicitud.get_estado_solicitud_display }}
+          </span>
+        </td>
+
+        <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900 text-center">{{ solicitud.fecha_solicitud|date:"d/m/Y" }}</td>
+
+        <td class="px-8 py-5 whitespace-nowrap text-center">
+          <div class="flex justify-center items-center">
+            {% if origen_menu == 'mis_solicitudes' %}
+              {% include "vacaciones/partials/_menu-acciones-solicitud.html" with solicitud=solicitud origen='mis_solicitudes' %}
+            {% elif origen_menu == 'solo_pdf' %}
+              {% include "vacaciones/partials/_menu-acciones-solicitud.html" with solicitud=solicitud solo_pdf=True %}
+            {% else %}
+              {% include "vacaciones/partials/_menu-acciones-solicitud.html" with solicitud=solicitud %}
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="text-gray-600 text-base py-4">{{ mensaje_vacio|default:"No hay solicitudes registradas." }}</p>
+{% endif %}

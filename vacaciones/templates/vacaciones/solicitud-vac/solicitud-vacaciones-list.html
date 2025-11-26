@@ -1,138 +1,66 @@
-{% extends 'base.html' %}
+{% extends 'vacaciones/solicitud-vac/solicitud-vacaciones-list-base.html' %}
 {% load static %}
 {% load grupos_tags %}
 
-{% block extra_head %}
-  <link rel="stylesheet" href="{% static 'vacaciones/css/tabla-solicitudes-vacaciones.css' %}">
-  <link rel="stylesheet" href="{% static 'vacaciones/css/semaforo.css' %}">
-  <link rel="stylesheet" href="{% static 'vacaciones/css/menu-acciones-solicitud.css' %}">
-  <link rel="stylesheet" href="{% static 'vacaciones/css/menu-acciones-dropdown.css' %}">
+{% block titulo_tabla %}
+<h2 class="text-2xl font-bold text-gray-700">Mis solicitudes de vacaciones</h2>
 {% endblock %}
 
-{% block content %}
-<div class="max-w-6xl mx-auto p-6 bg-white rounded-md shadow-md mt-8">
-  <div class="flex justify-between items-center mb-6">
-    <h2 class="text-2xl font-bold text-gray-700">Mis solicitudes de vacaciones</h2>
-    {% if puede_crear_solicitud %}
-      {% if request.user|es_secretaria %}
-        <button id="btn-crear-solicitud-secretaria" 
-                data-secretaria-id="{{ secretaria_id }}"
-                data-url-crear="{% url 'vacaciones:secretaria-solicitud-create' %}"
-                data-funcionarios='{{ funcionarios_bajo_jefe }}'
-                data-tiene-periodos="{{ tiene_periodos|yesno:'true,false' }}"
-                data-tiene-solicitud-activa="{{ tiene_solicitud_activa|yesno:'true,false' }}"
-                data-solicitud-activa-codigo="{% if solicitud_activa %}{{ solicitud_activa.codigo_sabs }}{% endif %}"
-                class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200">
-          Crear
-        </button>
-      {% elif request.user|es_jefe_inmediato %}
-        <button id="btn-crear-solicitud-jefe" 
-                data-jefe-id="{{ jefe_id }}"
-                data-url-crear="{% url 'vacaciones:jefe-solicitud-create' %}"
-                data-funcionarios='{{ funcionarios_bajo_jefe }}'
-                data-tiene-periodos="{{ tiene_periodos|yesno:'true,false' }}"
-                data-tiene-solicitud-activa="{{ tiene_solicitud_activa|yesno:'true,false' }}"
-                data-solicitud-activa-codigo="{% if solicitud_activa %}{{ solicitud_activa.codigo_sabs }}{% endif %}"
-                class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200">
-          Crear
-        </button>
-      {% elif tiene_periodos %}
-        <a href="{% url 'vacaciones:solicitud_vacaciones_create' %}"
-           class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200"
-           data-has-rechazada="{{ solicitud_rechazada_reciente|yesno:'1,0' }}"
-           data-per-acum="{{ mostrar_alerta_periodos_acumulados|yesno:'1,0' }}"
-           {% if solicitud_rechazada_reciente %}
-           data-solicitud-rechazada="{{ solicitud_rechazada_reciente.codigo_sabs }}"
-           {% endif %}
-           {% if mostrar_alerta_periodos_acumulados %}
-           data-periodos-acumulados="1"
-           {% endif %}>
-          Crear
-        </a>
-      {% else %}
-        <button id="btn-crear-sin-periodos" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200">
-          Crear
-        </button>
-      {% endif %}
-    {% else %}
-      <div class="tooltip-container">
-        <button title="No puedes crear una nueva solicitud mientras tengas una solicitud activa."
-                disabled class="btn-disabled bg-gray-400 text-white font-semibold py-2 px-4 rounded-md">
-          Crear
-        </button>
-      </div>
+{% block boton_crear %}
+{% if request.user|es_secretaria %}
+  <button id="btn-crear-solicitud-secretaria" 
+    data-secretaria-id="{{ secretaria_id }}"
+    data-url-crear="{% url 'vacaciones:secretaria-solicitud-create' %}"
+    data-funcionarios='{{ funcionarios_bajo_jefe }}'
+    data-tiene-periodos="{{ tiene_periodos|yesno:'true,false' }}"
+    data-tiene-periodos-disponibles="{{ tiene_periodos_disponibles|yesno:'true,false' }}"
+    data-tiene-solicitud-activa="{{ tiene_solicitud_activa|yesno:'true,false' }}"
+    data-solicitud-activa-codigo="{% if solicitud_activa %}{{ solicitud_activa.codigo_sabs }}{% endif %}"
+    data-tiene-reintegro-en-curso="{{ tiene_reintegro_en_curso|yesno:'true,false' }}"
+    class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200">
+    Crear
+  </button>
+{% elif request.user|es_jefe_inmediato %}
+  <button id="btn-crear-solicitud-jefe" 
+    data-jefe-id="{{ jefe_id }}"
+    data-url-crear="{% url 'vacaciones:jefe-solicitud-create' %}"
+    data-funcionarios='{{ funcionarios_bajo_jefe }}'
+    data-tiene-periodos="{{ tiene_periodos|yesno:'true,false' }}"
+    data-tiene-periodos-disponibles="{{ tiene_periodos_disponibles|yesno:'true,false' }}"
+    data-tiene-solicitud-activa="{{ tiene_solicitud_activa|yesno:'true,false' }}"
+    data-solicitud-activa-codigo="{% if solicitud_activa %}{{ solicitud_activa.codigo_sabs }}{% endif %}"
+    data-tiene-reintegro-en-curso="{{ tiene_reintegro_en_curso|yesno:'true,false' }}"
+    class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200">
+    Crear
+  </button>
+{% else %}
+  <button type="button"
+    id="btn-crear-solicitud-funcionario"
+    data-url-crear="{% url 'vacaciones:solicitud_vacaciones_create' %}"
+    class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200"
+    data-tiene-periodos="{{ tiene_periodos|yesno:'true,false' }}"
+    data-tiene-periodos-disponibles="{{ tiene_periodos_disponibles|yesno:'true,false' }}"
+    data-tiene-solicitud-activa="{{ tiene_solicitud_activa|yesno:'true,false' }}"
+    data-solicitud-activa-codigo="{% if solicitud_activa %}{{ solicitud_activa.codigo_sabs }}{% endif %}"
+    data-tiene-reintegro-en-curso="{{ tiene_reintegro_en_curso|yesno:'true,false' }}"
+    data-has-rechazada="{{ solicitud_rechazada_reciente|yesno:'1,0' }}"
+    data-per-acum="{{ mostrar_alerta_periodos_acumulados|yesno:'1,0' }}"
+    {% if solicitud_rechazada_reciente %}
+    data-solicitud-rechazada="{{ solicitud_rechazada_reciente.codigo_sabs }}"
     {% endif %}
-  </div>
+    {% if mostrar_alerta_periodos_acumulados %}
+    data-periodos-acumulados="1"
+    {% endif %}>
+    Crear
+  </button>
+{% endif %}
+{% endblock %}
 
-  {% if mensaje_plazo %}
-    <div class="mb-4 p-4 bg-blue-100 border-l-4 border-blue-500 text-blue-700 rounded-md">
-      <div class="flex">
-        <div class="flex-shrink-0">
-          <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-          </svg>
-        </div>
-        <div class="ml-3">
-          <p class="text-sm font-medium">{{ mensaje_plazo }}</p>
-        </div>
-      </div>
-    </div>
-  {% endif %}
+{% block tabla_contenido %}
+{% include 'vacaciones/partials/_tabla-solicitudes.html' with tabla_id='tabla-solicitudes-funcionario' origen_menu='mis_solicitudes' mensaje_vacio='No has registrado solicitudes aún.' %}
+{% endblock %}
 
-  <form method="get" class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-    <div>
-      <label for="q" class="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
-      <input type="text" 
-             id="q" 
-             name="q" 
-             value="{{ request.GET.q }}" 
-             {% if request.user|es_secretaria or request.user|es_jefe_inmediato %}
-             placeholder="Código, nombre o apellido..."
-             {% else %}
-             placeholder="Código SABS..."
-             {% endif %}
-             hx-get="{% url 'vacaciones:solicitud-vacaciones-list' %}"
-             hx-target="#tabla-contenedor"
-             hx-trigger="input changed delay:500ms"
-             hx-swap="innerHTML"
-             class="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-    </div>
-    <div>
-      <label for="estado" class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-      <select id="estado" 
-              name="estado" 
-              hx-get="{% url 'vacaciones:solicitud-vacaciones-list' %}"
-              hx-target="#tabla-contenedor"
-              hx-trigger="change"
-              hx-swap="innerHTML"
-              class="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <option value="">Todos</option>
-        <option value="pendiente" {% if request.GET.estado == 'pendiente' %}selected{% endif %}>Pendiente</option>
-        <option value="en_revision" {% if request.GET.estado == 'en_revision' %}selected{% endif %}>En revisión</option>
-        <option value="aprobado" {% if request.GET.estado == 'aprobado' %}selected{% endif %}>Aprobada</option>
-        <option value="rechazado" {% if request.GET.estado == 'rechazado' %}selected{% endif %}>Rechazada</option>
-        <option value="cancelado" {% if request.GET.estado == 'cancelado' %}selected{% endif %}>Cancelado</option>
-      </select>
-    </div>
-    <div class="flex items-end gap-2">
-      {% if request.GET.q or request.GET.estado %}
-      <a href="{% url 'vacaciones:solicitud-vacaciones-list' %}"
-         hx-get="{% url 'vacaciones:solicitud-vacaciones-list' %}"
-         hx-target="#tabla-contenedor"
-         hx-swap="innerHTML"
-         class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-md transition-colors duration-200">
-        Limpiar
-      </a>
-      {% endif %}
-    </div>
-  </form>
-
-  <div id="tabla-contenedor">
-  {% include 'vacaciones/partials/_tabla-funcionario-solicitudes.html' %}
-  </div>
-</div>
-
-{# Formulario oculto para enviar el POST de eliminación (usado por SweetAlert2) #}
+{% block formulario_eliminacion %}
 <form id="form-eliminar-solicitud" method="POST" action="" class="hidden">
   {% csrf_token %}
   <input type="hidden" name="_method" value="delete">
@@ -140,26 +68,19 @@
 </form>
 {% endblock %}
 
-{% block extra_scripts %}
-  {{ block.super }}
-  <script src="{% static 'vacaciones/js/components/vacaciones/menu-acciones-solicitud.js' %}"></script>
-  <script src="{% static 'vacaciones/js/components/vacaciones/acciones-jefe-aprobar.js' %}"></script>
-  <script src="{% static 'vacaciones/js/components/vacaciones/acciones-jefe-devolver.js' %}"></script>
-  <script src="{% static 'vacaciones/js/components/vacaciones/acciones-jefe-enviar-proximo.js' %}"></script>
-  <script src="{% static 'vacaciones/js/components/vacaciones/acciones-reenviar-solicitud.js' %}"></script>
-  
-  <script src="{% static 'vacaciones/js/components/vacaciones/creacion-exitosa-solicitud.js' %}"></script>
-  <script src="{% static 'vacaciones/js/components/vacaciones/edicion-exitosa-solicitud.js' %}"></script>
-  <script src="{% static 'vacaciones/js/components/vacaciones/eliminacion-exitosa-solicitud.js' %}"></script>
-  
-  {% if not tiene_periodos and puede_crear_solicitud and not request.user|es_secretaria and not request.user|es_jefe_inmediato %}
-  <script src="{% static 'vacaciones/js/components/vacaciones/alerta-sin-periodos.js' %}"></script>
-  {% endif %}
-  <script src="{% static 'vacaciones/js/components/vacaciones/alerta-periodos-acumulados.js' %}"></script>
-  {% if request.user|es_secretaria and puede_crear_solicitud %}
-  <script src="{% static 'vacaciones/js/components/secretaria/selector-crear-solicitud.js' %}"></script>
-  {% endif %}
-  {% if request.user|es_jefe_inmediato and puede_crear_solicitud %}
-  <script src="{% static 'vacaciones/js/components/jefe/selector-crear-solicitud.js' %}"></script>
-  {% endif %}
+{% block scripts_especificos %}
+<script src="{% static 'vacaciones/js/components/vacaciones/acciones-jefe-aprobar.js' %}"></script>
+<script src="{% static 'vacaciones/js/components/vacaciones/acciones-jefe-devolver.js' %}"></script>
+<script src="{% static 'vacaciones/js/components/vacaciones/acciones-jefe-enviar-proximo.js' %}"></script>
+<script src="{% static 'vacaciones/js/components/vacaciones/acciones-reenviar-solicitud.js' %}"></script>
+<script src="{% static 'vacaciones/js/components/vacaciones/alerta-periodos-acumulados.js' %}"></script>
+{% if request.user|es_secretaria %}
+<script src="{% static 'vacaciones/js/components/secretaria/selector-crear-solicitud.js' %}"></script>
+{% endif %}
+{% if request.user|es_jefe_inmediato %}
+<script src="{% static 'vacaciones/js/components/jefe/selector-crear-solicitud.js' %}"></script>
+{% endif %}
+{% if not request.user|es_secretaria and not request.user|es_jefe_inmediato %}
+<script src="{% static 'vacaciones/js/components/vacaciones/validar-crear-solicitud-funcionario.js' %}"></script>
+{% endif %}
 {% endblock %}

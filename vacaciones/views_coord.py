@@ -59,7 +59,6 @@ class SolicitudesCoordListView(LoginRequiredMixin, ListView):
     model = SolicitudVacaciones
     template_name = COORD_SOLICITUDES_TEMPLATE
     context_object_name = "solicitudes"
-    paginate_by = 20
 
     def get(self, request, *args, **kwargs):
         if request.htmx:
@@ -86,17 +85,6 @@ class SolicitudesCoordListView(LoginRequiredMixin, ListView):
               .distinct()
               .order_by("-fecha_solicitud", "-id"))
 
-        q = self.request.GET.get("q", "").strip()
-        estado = self.request.GET.get("estado", "").strip()
-
-        if q:
-            qs = qs.filter(
-                Q(codigo_sabs__icontains=q) |
-                Q(funcionario__nombre__icontains=q) |
-                Q(funcionario__apellido__icontains=q)
-            )
-        if estado:
-            qs = qs.filter(estado_solicitud=estado)
 
         return qs
 
@@ -566,7 +554,3 @@ class CoordReintegroDeleteView(LoginRequiredMixin, DeleteView):
         codigo = reintegro.codigo_sabs
         messages.success(request, "Reintegro eliminado correctamente.")
         response = super().delete(request, *args, **kwargs)
-        url = self.get_success_url()
-        separador = '&' if ('?' in url) else '?'
-        codigo_q = urllib.parse.quote(codigo)
-        return redirect(f"{url}{separador}eliminado=1&codigo={codigo_q}")
