@@ -10,6 +10,10 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <link rel="stylesheet" href="https://cdn.datatables.net/2.3.5/css/dataTables.dataTables.css" />
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.datatables.net/2.3.5/js/dataTables.js"></script>
+  <script src="{% static 'vacaciones/js/utils/datatables-utils.js' %}"></script>
   {% htmx_script %}
   {% block extra_head %}{% endblock %}
 </head>
@@ -20,7 +24,7 @@
   {% if request.user.is_authenticated %}
   <header class="bg-white shadow flex items-center justify-between px-4 h-16">
     <div class="flex items-center gap-3">
-      <!-- Botón hamburguesa (visible solo cuando sidebar está colapsado) -->
+      <!-- Botón hamburguesa -->
       <button data-toggle="sidebar" class="text-gray-600 focus:outline-none">
         <svg id="icon-open" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

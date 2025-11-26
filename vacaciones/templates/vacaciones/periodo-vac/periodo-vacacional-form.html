@@ -7,8 +7,8 @@
 <div class="container mx-auto px-4 py-8">
 
   <div class="flex items-center justify-between mb-6">
-    <h1 class="text-3xl font-bold text-red-700">
-      {% if object %}Editar{% else %}Crear{% endif %} Periodo Vacacional
+    <h1 class="text-3xl font-bold text-black-700">
+      {% if object %}Editar{% else %}Crear{% endif %} periodo vacacional
     </h1>
     <a href="{% url 'vacaciones:periodo-vacacional-list' %}" class="bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-md">
       ← Volver
@@ -35,7 +35,7 @@
       {% endfor %}
 
       <div class="flex justify-end">
-        <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-6 rounded-md">
+        <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-md">
           {% if object %}Actualizar{% else %}Crear{% endif %}
         </button>
       </div>

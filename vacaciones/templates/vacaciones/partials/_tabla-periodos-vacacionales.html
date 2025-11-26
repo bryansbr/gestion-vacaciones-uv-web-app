@@ -1,69 +1,150 @@
 {% if periodos %}
-<div class="overflow-x-auto bg-white shadow rounded-lg">
-  <table class="min-w-full divide-y divide-gray-200">
+<div class="overflow-x-auto bg-white shadow-lg rounded-lg p-6">
+  <table id="tabla-periodos-vacacionales" class="min-w-full divide-y divide-gray-200 table-rounded table-actions-center">
     <thead class="bg-red-600 text-white">
       <tr>
-        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Funcionario</th>
-        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Fecha Inicio</th>
-        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Fecha Fin</th>
-        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Días Totales</th>
-        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Días Pendientes</th>
-        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Días Disfrutados</th>
-        <th class="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Acciones</th>
+        <th class="px-8 py-4 text-left text-sm font-medium tracking-wider">Funcionario</th>
+        <th class="px-8 py-4 text-left text-sm font-medium tracking-wider">Fecha Inicio</th>
+        <th class="px-8 py-4 text-left text-sm font-medium tracking-wider">Fecha Fin</th>
+        <th class="px-8 py-4 text-left text-sm font-medium tracking-wider">Días Totales</th>
+        <th class="px-8 py-4 text-left text-sm font-medium tracking-wider">Días Pendientes</th>
+        <th class="px-8 py-4 text-left text-sm font-medium tracking-wider">Días Disfrutados</th>
+        <th class="px-8 py-4 text-sm font-medium tracking-wider text-center !text-center">Acciones</th>
       </tr>
     </thead>
     <tbody class="bg-white divide-y divide-gray-200">
-      {% for periodo in periodos %}
-      <tr class="hover:bg-gray-50">
-        <td class="px-6 py-4 whitespace-nowrap">{{ periodo.funcionario.nombre }} {{ periodo.funcionario.apellido }}</td>
-        <td class="px-6 py-4 whitespace-nowrap">{{ periodo.fecha_inicio_periodo|date:"d/m/Y" }}</td>
-        <td class="px-6 py-4 whitespace-nowrap">{{ periodo.fecha_fin_periodo|date:"d/m/Y" }}</td>
-        <td class="px-6 py-4 whitespace-nowrap">{{ periodo.dias_totales_periodo }}</td>
-        <td class="px-6 py-4 whitespace-nowrap">{{ periodo.dias_pendientes_periodo }}</td>
-        <td class="px-6 py-4 whitespace-nowrap">{{ periodo.dias_disfrutados_periodo }}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-center flex justify-center gap-2">
-          <a href="{% url 'vacaciones:periodo_vacacional_update' periodo.pk %}" class="bg-yellow-400 hover:bg-yellow-500 text-white px-2 py-1 rounded text-sm font-semibold">
-            Editar
-          </a>
-          <a href="{% url 'vacaciones:periodo_vacacional_delete' periodo.pk %}" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm font-semibold">
-            Eliminar
-          </a>
-        </td>
-      </tr>
-      {% empty %}
-      <tr>
-        <td colspan="7" class="px-6 py-4 text-center text-gray-500">No hay periodos vacacionales registrados.</td>
-      </tr>
-      {% endfor %}
+      {% if periodos_con_dias %}
+        {% for item in periodos_con_dias %}
+          {% with periodo=item.periodo %}
+          <tr class="{% if forloop.counter0|divisibleby:2 %}bg-white{% else %}bg-gray-100{% endif %} hover:bg-gray-200 transition-colors duration-150">
+            <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900">{{ periodo.funcionario.nombre }} {{ periodo.funcionario.apellido }}</td>
+            <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900">{{ periodo.fecha_inicio_periodo|date:"d/m/Y" }}</td>
+            <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900">{{ periodo.fecha_fin_periodo|date:"d/m/Y" }}</td>
+            <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900">{{ periodo.dias_totales_periodo }}</td>
+            <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900">
+              <div class="flex flex-col">
+                <span class="text-base font-semibold text-gray-900">{{ item.dias_pendientes_reales }}</span>
+                <span class="text-xs {% if item.dias_habiles_pendientes > 0 and item.dias_calendario_pendientes > 0 %}text-blue-600{% elif item.dias_habiles_pendientes > 0 %}text-green-600{% elif item.dias_calendario_pendientes > 0 %}text-blue-600{% else %}text-gray-500{% endif %}">
+                  {% if item.dias_habiles_pendientes > 0 and item.dias_calendario_pendientes > 0 %}
+                    {{ item.dias_habiles_pendientes }}H / {{ item.dias_calendario_pendientes }}C
+                  {% elif item.dias_habiles_pendientes > 0 %}
+                    Hábiles
+                  {% elif item.dias_calendario_pendientes > 0 %}
+                    Calendario
+                  {% else %}
+                    0H / 0C
+                  {% endif %}
+                </span>
+              </div>
+            </td>
+            <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900">
+              <div class="flex flex-col">
+                <span class="text-base font-semibold text-gray-900">{{ item.dias_disfrutados_reales }}</span>
+                <span class="text-xs {% if item.habiles_totales > 0 and item.calendario_totales > 0 %}text-blue-600{% elif item.habiles_totales > 0 %}text-green-600{% elif item.calendario_totales > 0 %}text-blue-600{% else %}text-gray-500{% endif %}">
+                  {% if item.habiles_totales > 0 and item.calendario_totales > 0 %}
+                    {% if item.dias_disfrutados_reales > 0 %}
+                      {{ item.dias_habiles_disfrutados }}H / {{ item.dias_calendario_disfrutados }}C
+                    {% else %}
+                      0H / 0C
+                    {% endif %}
+                  {% elif item.habiles_totales > 0 %}
+                    Hábiles
+                  {% elif item.calendario_totales > 0 %}
+                    Calendario
+                  {% else %}
+                    0H / 0C
+                  {% endif %}
+                </span>
+              </div>
+            </td>
+            <td class="px-8 py-5 whitespace-nowrap text-center">
+              <div class="flex justify-center gap-3">
+                <a href="{% url 'vacaciones:periodo_vacacional_update' periodo.pk %}" 
+                   class="relative group bg-yellow-400 hover:bg-yellow-500 text-white p-2 rounded transition-colors duration-200"
+                   title="Editar periodo vacacional"
+                   aria-label="Editar periodo vacacional">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  <span class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+                    Editar
+                  </span>
+                </a>
+                <a href="{% url 'vacaciones:periodo_vacacional_delete' periodo.pk %}" 
+                   class="relative group bg-red-500 hover:bg-red-600 text-white p-2 rounded transition-colors duration-200"
+                   title="Eliminar periodo vacacional"
+                   aria-label="Eliminar periodo vacacional">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  <span class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+                    Eliminar
+                  </span>
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% endwith %}
+        {% empty %}
+        <tr>
+          <td colspan="7" class="px-8 py-6 text-center text-gray-500 text-sm">No hay periodos vacacionales registrados.</td>
+        </tr>
+        {% endfor %}
+      {% else %}
+        {% for periodo in periodos %}
+        <tr class="{% if forloop.counter0|divisibleby:2 %}bg-white{% else %}bg-gray-100{% endif %} hover:bg-gray-200 transition-colors duration-150">
+          <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900">{{ periodo.funcionario.nombre }} {{ periodo.funcionario.apellido }}</td>
+          <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900">{{ periodo.fecha_inicio_periodo|date:"d/m/Y" }}</td>
+          <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900">{{ periodo.fecha_fin_periodo|date:"d/m/Y" }}</td>
+          <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900">{{ periodo.dias_totales_periodo }}</td>
+          <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900">
+            <div class="flex flex-col">
+              <span class="text-base font-semibold text-gray-900">{{ periodo.dias_pendientes_periodo }}</span>
+              <span class="text-xs text-gray-500">0H / 0C</span>
+            </div>
+          </td>
+          <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900">
+            <div class="flex flex-col">
+              <span class="text-base font-semibold text-gray-900">{{ periodo.dias_disfrutados_periodo }}</span>
+              <span class="text-xs text-gray-500">0H / 0C</span>
+            </div>
+          </td>
+          <td class="px-8 py-5 whitespace-nowrap text-center">
+            <div class="flex justify-center gap-3">
+              <a href="{% url 'vacaciones:periodo_vacacional_update' periodo.pk %}" 
+                 class="relative group bg-yellow-400 hover:bg-yellow-500 text-white p-2 rounded transition-colors duration-200"
+                 title="Editar periodo vacacional"
+                 aria-label="Editar periodo vacacional">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                <span class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+                  Editar
+                </span>
+              </a>
+              <a href="{% url 'vacaciones:periodo_vacacional_delete' periodo.pk %}" 
+                 class="relative group bg-red-500 hover:bg-red-600 text-white p-2 rounded transition-colors duration-200"
+                 title="Eliminar periodo vacacional"
+                 aria-label="Eliminar periodo vacacional">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                <span class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+                  Eliminar
+                </span>
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="px-8 py-6 text-center text-gray-500 text-sm">No hay periodos vacacionales registrados.</td>
+        </tr>
+        {% endfor %}
+      {% endif %}
     </tbody>
   </table>
 </div>
-
-{% if is_paginated %}
-<div class="mt-6 flex justify-center items-center gap-2">
-  {% if page_obj.has_previous %}
-  <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" 
-     class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200">
-    Anterior
-  </a>
-  {% else %}
-  <span class="px-4 py-2 bg-gray-200 text-gray-400 rounded-md cursor-not-allowed">Anterior</span>
-  {% endif %}
-
-  <span class="text-gray-700">
-    Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
-  </span>
-
-  {% if page_obj.has_next %}
-  <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" 
-     class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200">
-    Siguiente
-  </a>
-  {% else %}
-  <span class="px-4 py-2 bg-gray-200 text-gray-400 rounded-md cursor-not-allowed">Siguiente</span>
-  {% endif %}
-</div>
-{% endif %}
 {% else %}
-<p class="text-gray-600">No hay periodos vacacionales registrados.</p>
+<p class="text-gray-600 text-base py-4">No hay periodos vacacionales registrados.</p>
 {% endif %}

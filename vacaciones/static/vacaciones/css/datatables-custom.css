@@ -1,0 +1,130 @@
+.dataTables_wrapper {
+    padding: 0;
+}
+
+.dataTables_length,
+.dataTables_filter {
+    margin-bottom: 1rem;
+}
+
+.dataTables_length label,
+.dataTables_filter label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+    color: #374151;
+}
+
+.dataTables_length select {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    background-color: white;
+    font-size: 0.875rem;
+}
+
+.dataTables_filter input {
+    padding: 0.5rem 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    margin-left: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.dataTables_filter input:focus,
+.dataTables_length select:focus {
+    outline: none;
+    border-color: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.dataTables_info {
+    padding: 0.75rem 0;
+    color: #374151;
+    font-size: 0.875rem;
+}
+
+.dataTables_paginate {
+    padding: 0.75rem 0;
+}
+
+.dataTables_paginate .paginate_button {
+    padding: 0.5rem 0.75rem;
+    margin: 0 0.25rem;
+    border-radius: 0.375rem;
+    border: 1px solid #d1d5db;
+    background-color: white;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.dataTables_paginate .paginate_button:hover {
+    background-color: #f3f4f6;
+    border-color: #9ca3af;
+}
+
+.dataTables_paginate .paginate_button.current {
+    background-color: #ef4444;
+    color: white;
+    border-color: #ef4444;
+}
+
+.dataTables_paginate .paginate_button.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.dataTables_paginate .paginate_button.disabled:hover {
+    background-color: white;
+}
+
+.table-rounded {
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.table-rounded thead th:first-child {
+    border-top-left-radius: 0.5rem;
+}
+
+.table-rounded thead th:last-child {
+    border-top-right-radius: 0.5rem;
+}
+
+.table-rounded tbody tr:last-child td:first-child {
+    border-bottom-left-radius: 0.5rem;
+}
+
+.table-rounded tbody tr:last-child td:last-child {
+    border-bottom-right-radius: 0.5rem;
+}
+
+.table-actions-center th:last-child,
+.table-actions-center td:last-child {
+    text-align: center !important;
+}
+
+.table-col-center {
+    text-align: center !important;
+}
+
+#tabla-periodos-vacacionales tbody tr:nth-child(even) {
+    background-color: #f3f4f6 !important;
+}
+
+#tabla-periodos-vacacionales tbody tr:nth-child(odd) {
+    background-color: #ffffff !important;
+}
+
+#tabla-periodos-vacacionales tbody tr:hover {
+    background-color: #e5e7eb !important;
+    transition: background-color 0.15s ease-in-out;
+}
+
+#tabla-periodos-vacacionales tbody tr td {
+    background-color: inherit !important;
+}

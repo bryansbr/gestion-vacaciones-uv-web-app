@@ -2,7 +2,7 @@ import holidays
 import json
 import urllib.parse
 
-from datetime import date
+from datetime import date, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -28,6 +28,7 @@ from .forms import (
 from .models import (
     PeriodoVacacional,
     ReintegroVacaciones,
+    SolicitudVacaciones,
     SolicitudVacaciones,
     generar_codigo_sabs
 )
@@ -88,7 +89,6 @@ class PeriodoVacacionalListView(LoginRequiredMixin, ListView):
     model = PeriodoVacacional
     template_name = PERIODO_VACACIONAL_LIST_TEMPLATE
     context_object_name = "periodos"
-    paginate_by = 20
 
     def get(self, request, *args, **kwargs):
         if request.htmx:
@@ -100,17 +100,127 @@ class PeriodoVacacionalListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         qs = PeriodoVacacional.objects.select_related('funcionario').order_by('-fecha_inicio_periodo')
-        
-        q = self.request.GET.get("q", "").strip()
-        
-        if q:
-            qs = qs.filter(
-                Q(funcionario__nombre__icontains=q) |
-                Q(funcionario__apellido__icontains=q) |
-                Q(funcionario__numero_identificacion__icontains=q)
-            )
-
         return qs
+    
+    def _calcular_dias_habiles_calendario_solicitud(self, solicitud):
+        """
+        Calcula los días hábiles y calendario de una solicitud según el estamento del funcionario.
+        """
+        if not (solicitud.fecha_inicio_vacaciones and solicitud.fecha_fin_vacaciones):
+            return 0, 0
+        
+        estamento = solicitud.funcionario.estamento.nombre.lower()
+        decreto = (solicitud.funcionario.decreto_resolucion or '').strip()
+        
+        festivos = holidays.Colombia(years=range(
+            solicitud.fecha_inicio_vacaciones.year, 
+            solicitud.fecha_fin_vacaciones.year + 1
+        ))
+        
+        if estamento == 'docente' and decreto == '1279':
+            actual = solicitud.fecha_inicio_vacaciones
+            habiles_marcados = 0
+            
+            while actual <= solicitud.fecha_fin_vacaciones and habiles_marcados < 15:
+                if actual.weekday() < 5 and actual not in festivos:
+                    habiles_marcados += 1
+                actual += timedelta(days=1)
+            
+            dias_calendario = 0
+            while actual <= solicitud.fecha_fin_vacaciones and dias_calendario < 15:
+                dias_calendario += 1
+                actual += timedelta(days=1)
+            
+            return habiles_marcados, dias_calendario
+            
+        elif estamento == 'administrativo':
+            actual = solicitud.fecha_inicio_vacaciones
+            dias_habiles = 0
+            while actual <= solicitud.fecha_fin_vacaciones:
+                if actual.weekday() < 5 and actual not in festivos:
+                    dias_habiles += 1
+                actual += timedelta(days=1)
+            return dias_habiles, 0
+            
+        elif estamento == 'docente' and decreto == '115':
+            dias_calendario = (solicitud.fecha_fin_vacaciones - solicitud.fecha_inicio_vacaciones).days + 1
+            return 0, dias_calendario
+            
+        elif estamento == 'trabajador oficial':
+            dias_calendario = (solicitud.fecha_fin_vacaciones - solicitud.fecha_inicio_vacaciones).days + 1
+            return 0, dias_calendario
+            
+        else:
+            dias_calendario = (solicitud.fecha_fin_vacaciones - solicitud.fecha_inicio_vacaciones).days + 1
+            return 0, dias_calendario
+    
+    def _obtener_tipo_dias_periodo(self, periodo):
+        """
+        Obtiene el tipo de días que otorga el periodo según el estamento del funcionario.
+        Retorna: (dias_habiles_totales, dias_calendario_totales)
+        """
+        estamento = periodo.funcionario.estamento.nombre.lower()
+        decreto = (periodo.funcionario.decreto_resolucion or '').strip()
+        
+        if estamento == 'docente' and decreto == '1279':
+            return 15, 15
+        elif estamento == 'administrativo':
+            return 15, 0
+        elif estamento == 'docente' and decreto == '115':
+            return 0, 30
+        elif estamento == 'trabajador oficial':
+            return 0, 30
+        else:
+            return 0, 0
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        periodos = context['periodos']
+        periodo_ids = [p.pk for p in periodos]
+
+        solicitudes_aprobadas = SolicitudVacaciones.objects.filter(
+            periodo_vacacional_id__in=periodo_ids,
+            estado_solicitud__in=['aprobado', 'autorizada']
+        ).select_related('funcionario', 'funcionario__estamento')
+        
+        solicitudes_por_periodo = {}
+        for solicitud in solicitudes_aprobadas:
+            periodo_id = solicitud.periodo_vacacional_id
+            if periodo_id not in solicitudes_por_periodo:
+                solicitudes_por_periodo[periodo_id] = []
+            solicitudes_por_periodo[periodo_id].append(solicitud)
+        
+        periodos_con_dias_reales = []
+        for periodo in periodos:
+            dias_habiles_disfrutados = 0
+            dias_calendario_disfrutados = 0
+            
+            solicitudes_periodo = solicitudes_por_periodo.get(periodo.pk, [])
+            for solicitud in solicitudes_periodo:
+                habiles, calendario = self._calcular_dias_habiles_calendario_solicitud(solicitud)
+                dias_habiles_disfrutados += habiles
+                dias_calendario_disfrutados += calendario
+            
+            dias_disfrutados_reales = dias_habiles_disfrutados + dias_calendario_disfrutados
+            habiles_totales, calendario_totales = self._obtener_tipo_dias_periodo(periodo)
+            dias_habiles_pendientes = max(0, habiles_totales - dias_habiles_disfrutados)
+            dias_calendario_pendientes = max(0, calendario_totales - dias_calendario_disfrutados)
+            dias_pendientes_reales = dias_habiles_pendientes + dias_calendario_pendientes
+            
+            periodos_con_dias_reales.append({
+                'periodo': periodo,
+                'dias_disfrutados_reales': dias_disfrutados_reales,
+                'dias_pendientes_reales': dias_pendientes_reales,
+                'dias_habiles_disfrutados': dias_habiles_disfrutados,
+                'dias_calendario_disfrutados': dias_calendario_disfrutados,
+                'dias_habiles_pendientes': dias_habiles_pendientes,
+                'dias_calendario_pendientes': dias_calendario_pendientes,
+                'habiles_totales': habiles_totales,
+                'calendario_totales': calendario_totales,
+            })
+        
+        context['periodos_con_dias'] = periodos_con_dias_reales
+        return context
 
 class PeriodoVacacionalCreateView(LoginRequiredMixin, CreateView):
     model = PeriodoVacacional
