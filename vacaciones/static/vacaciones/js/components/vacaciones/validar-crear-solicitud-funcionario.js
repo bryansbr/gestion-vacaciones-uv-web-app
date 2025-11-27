@@ -48,6 +48,11 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
       }
       
+      const urlCrear = btnCrear.dataset.urlCrear;
+      if (urlCrear) {
+        window.location.href = urlCrear;
+      }
+      
     } catch (error) {
       const urlCrear = btnCrear.dataset.urlCrear;
       if (urlCrear) {
