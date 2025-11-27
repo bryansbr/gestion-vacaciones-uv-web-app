@@ -1,0 +1,434 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load grupos_tags %}
+
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.css">
+  <style>
+    .stat-card {
+      transition: transform 0.2s;
+    }
+    .stat-card:hover {
+      transform: translateY(-2px);
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto p-6 mt-0">
+  <div class="mb-6">
+    <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-4">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">Dashboard de reportes</h1>
+        {% if rol_usuario %}
+        <p class="text-gray-600">Vista de reportes para: <strong>{{ rol_usuario }}</strong></p>
+        {% endif %}
+      </div>
+      <div class="flex flex-col sm:flex-row gap-2">
+        <a href="{% url 'vacaciones:exportar_solicitudes_csv' %}?fecha_inicio={{ fecha_inicio_str }}&fecha_fin={{ fecha_fin_str }}{% if facultad_seleccionada %}&facultad={{ facultad_seleccionada }}{% endif %}"
+           class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 flex items-center justify-center gap-2 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          <span>Exportar solicitudes (CSV)</span>
+        </a>
+        <a href="{% url 'vacaciones:exportar_reintegros_csv' %}?fecha_inicio={{ fecha_inicio_str }}&fecha_fin={{ fecha_fin_str }}{% if facultad_seleccionada %}&facultad={{ facultad_seleccionada }}{% endif %}"
+           class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-center gap-2 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          <span>Exportar reintegros (CSV)</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-md shadow-md p-6 mb-6">
+    <h2 class="text-xl font-semibold text-gray-700 mb-4">Filtros</h2>
+    <form method="get" id="form-filtros" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div>
+        <label for="fecha_inicio" class="block text-sm font-medium text-gray-700 mb-1">
+          Fecha Inicio
+        </label>
+        <input 
+          type="date" 
+          name="fecha_inicio" 
+          id="fecha_inicio"
+          value="{{ fecha_inicio_str }}"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+      </div>
+      <div>
+        <label for="fecha_fin" class="block text-sm font-medium text-gray-700 mb-1">
+          Fecha Fin
+        </label>
+        <input 
+          type="date" 
+          name="fecha_fin" 
+          id="fecha_fin"
+          value="{{ fecha_fin_str }}"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+      </div>
+      {% if puede_filtrar_facultad %}
+      <div>
+        <label for="facultad" class="block text-sm font-medium text-gray-700 mb-1">
+          Facultad/Dependencia
+        </label>
+        <select 
+          name="facultad" 
+          id="facultad"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Todas</option>
+          {% for facultad in facultades %}
+          <option value="{{ facultad.id }}" {% if facultad.id == facultad_seleccionada %}selected{% endif %}>
+            {{ facultad.nombre }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="flex items-end">
+        <button 
+          type="submit" 
+          class="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          Filtrar
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+    <div class="stat-card bg-white rounded-md shadow-md p-6 border-l-4 border-green-500">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-600">Aprobadas</p>
+          <p class="text-3xl font-bold text-gray-800 mt-2">
+            {{ reporte.estadisticas_solicitudes.solicitudes_aprobadas }}
+          </p>
+        </div>
+        <div class="bg-green-100 p-3 rounded-full">
+          <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="stat-card bg-white rounded-md shadow-md p-6 border-l-4 border-yellow-500">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-600">Pendientes</p>
+          <p class="text-3xl font-bold text-gray-800 mt-2">
+            {{ reporte.estadisticas_solicitudes.solicitudes_pendientes }}
+          </p>
+        </div>
+        <div class="bg-yellow-100 p-3 rounded-full">
+          <svg class="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="stat-card bg-white rounded-md shadow-md p-6 border-l-4 border-blue-500">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-600">Autorizadas</p>
+          <p class="text-3xl font-bold text-gray-800 mt-2">
+            {{ reporte.estadisticas_solicitudes.solicitudes_autorizadas }}
+          </p>
+        </div>
+        <div class="bg-blue-100 p-3 rounded-full">
+          <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="stat-card bg-white rounded-md shadow-md p-6 border-l-4 border-red-500">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-600">Rechazadas</p>
+          <p class="text-3xl font-bold text-gray-800 mt-2">
+            {{ reporte.estadisticas_solicitudes.solicitudes_rechazadas }}
+          </p>
+        </div>
+        <div class="bg-red-100 p-3 rounded-full">
+          <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="stat-card bg-white rounded-md shadow-md p-6 border-l-4 border-orange-500">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-600">Devueltas</p>
+          <p class="text-3xl font-bold text-gray-800 mt-2">
+            {{ reporte.estadisticas_solicitudes.solicitudes_devueltas }}
+          </p>
+        </div>
+        <div class="bg-orange-100 p-3 rounded-full">
+          <svg class="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="stat-card bg-white rounded-md shadow-md p-6 border-l-4 border-purple-500">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-600">Total Solicitudes</p>
+          <p class="text-3xl font-bold text-gray-800 mt-2">
+            {{ reporte.estadisticas_solicitudes.solicitudes_totales }}
+          </p>
+        </div>
+        <div class="bg-purple-100 p-3 rounded-full">
+          <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if reporte.estadisticas_solicitudes.solicitudes_totales > 0 %}
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div class="bg-white rounded-md shadow-md p-6">
+      <h3 class="text-xl font-semibold text-gray-700 mb-4">Distribución de estados (Circular)</h3>
+      <div class="h-80">
+        <canvas id="grafico-estados-circular"></canvas>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-md shadow-md p-6">
+      <h3 class="text-xl font-semibold text-gray-700 mb-4">Distribución de estados (Dona)</h3>
+      <div class="h-80">
+        <canvas id="grafico-estados-dona"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div class="bg-white rounded-md shadow-md p-6">
+      <h3 class="text-xl font-semibold text-gray-700 mb-4">Solicitudes por estado</h3>
+      <div class="h-80">
+        <canvas id="grafico-estados-barras"></canvas>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-md shadow-md p-6">
+      <h3 class="text-xl font-semibold text-gray-700 mb-4">Solicitudes por año</h3>
+      <div class="h-80">
+        <canvas id="grafico-anios"></canvas>
+      </div>
+    </div>
+  </div>
+
+  {% if reporte.solicitudes_por_facultad|length > 0 %}
+  <div class="grid grid-cols-1 gap-6 mb-6">
+    <div class="bg-white rounded-md shadow-md p-6">
+      <h3 class="text-xl font-semibold text-gray-700 mb-4">Solicitudes por Facultad/Dependencia</h3>
+      <div class="h-96">
+        <canvas id="grafico-facultades"></canvas>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if reporte.solicitudes_por_anio|length > 0 %}
+  <div class="grid grid-cols-1 gap-6 mb-6">
+    <div class="bg-white rounded-md shadow-md p-6">
+      <h3 class="text-xl font-semibold text-gray-700 mb-4">Comparativa de estados por año</h3>
+      <div class="h-96">
+        <canvas id="grafico-anios-estados"></canvas>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="bg-white rounded-md shadow-md p-6 mb-6">
+    <p class="text-gray-500 text-center">No hay datos disponibles para mostrar gráficos</p>
+  </div>
+  {% endif %}
+
+  {% if reporte.solicitudes_por_facultad %}
+  <div class="bg-white rounded-md shadow-md p-6 mb-6">
+    <h3 class="text-xl font-semibold text-gray-700 mb-4">Solicitudes por Facultad/Dependencia</h3>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Facultad/Dependencia
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Total
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Aprobadas
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Autorizadas
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Pendientes
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Rechazadas
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Devueltas
+            </th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          {% for item in reporte.solicitudes_por_facultad %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+              {{ item.facultad }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {{ item.total }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600">
+              {{ item.por_estado.aprobado|default:0 }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
+              {{ item.por_estado.autorizada|default:0 }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-yellow-600">
+              {{ item.por_estado.pendiente|default:0 }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600">
+              {{ item.por_estado.rechazado|default:0 }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-orange-600">
+              {{ item.por_estado.devuelta|default:0 }}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">
+              No hay datos disponibles
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if reporte.funcionarios_en_vacaciones %}
+  <div class="bg-white rounded-md shadow-md p-6 mb-6">
+    <h3 class="text-xl font-semibold text-gray-700 mb-4">Funcionarios en Vacaciones</h3>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Funcionario
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Facultad/Dependencia
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Código SABS
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Fecha Inicio
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Fecha Fin
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Días
+            </th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          {% for item in reporte.funcionarios_en_vacaciones %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+              {{ item.nombre_completo }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {{ item.facultad }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {{ item.codigo_sabs }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {{ item.fecha_inicio|date:"d/m/Y" }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {{ item.fecha_fin|date:"d/m/Y" }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {{ item.dias_solicitados }}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
+              No hay funcionarios en vacaciones actualmente
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if reporte.reintegros_anticipados.total_reintegros_anticipados > 0 %}
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div class="bg-white rounded-md shadow-md p-6">
+      <h3 class="text-xl font-semibold text-gray-700 mb-4">
+        Reintegros Anticipados (Total: {{ reporte.reintegros_anticipados.total_reintegros_anticipados }})
+      </h3>
+      <div class="mb-4">
+        <h4 class="text-sm font-medium text-gray-600 mb-2">Por Estado:</h4>
+        <div class="flex flex-wrap gap-2">
+          {% for estado, cantidad in reporte.reintegros_anticipados.por_estado.items %}
+            {% if cantidad > 0 %}
+            <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
+              {{ estado|capfirst }}: {{ cantidad }}
+            </span>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <div class="bg-white rounded-md shadow-md p-6">
+      <h3 class="text-xl font-semibold text-gray-700 mb-4">Distribución de Reintegros Anticipados</h3>
+      <div class="h-80">
+        <canvas id="grafico-reintegros-anticipados"></canvas>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+  {{ block.super }}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <div id="datos-reportes" 
+       data-estados='{{ datos_estados_json|safe }}'
+       data-anios='{{ solicitudes_por_anio_json|safe }}'
+       data-facultades='{{ solicitudes_por_facultad_json|safe }}'
+       data-reintegros='{{ reintegros_por_estado_json|safe }}'
+       style="display: none;">
+  </div>
+  <script src="{% static 'vacaciones/js/reportes/dashboard-reportes.js' %}"></script>
+{% endblock %}

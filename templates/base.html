@@ -285,6 +285,19 @@
               {% endif %}
             </ul>
           </li>
+          {% if request.user.is_superuser or request.user|has_group:"Jefe Inmediato" or request.user|has_group:"Secretaria" or request.user|has_group:"Coordinador Administrativo" or request.user|es_rrhh or request.user|has_group:"RRHH" or "recursos.humanos" in request.user.email|lower %}
+          <li>
+            <a href="{% url 'vacaciones:reportes_dashboard' %}"
+               id="sidebar-link-reportes"
+               data-url-path="{% url 'vacaciones:reportes_dashboard' %}"
+               class="sidebar-link block py-2 px-3 rounded hover:bg-red-600 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-7 w-7 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              <span class="sidebar-text" id="sidebar-text-reportes">Reportes</span>
+            </a>
+          </li>
+          {% endif %}
         </ul>
       </nav>
     </aside>

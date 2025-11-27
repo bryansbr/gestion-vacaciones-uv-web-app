@@ -1,30 +1,7 @@
 from django.urls import path, include
+from . import views, views_jefe, views_coord, views_rrhh, views_reportes
+from .views import *
 
-from . import views, views_jefe, views_coord, views_rrhh
-from .views import (
-    PeriodoVacacionalListView,
-    PeriodoVacacionalCreateView,
-    PeriodoVacacionalUpdateView,
-    PeriodoVacacionalDeleteView,
-    SecretariaSolicitudesListView,
-    SecretariaSolicitudCreateView,
-    SecretariaSolicitudUpdateView,
-    SecretariaSolicitudDeleteView,
-    SecretariaReintegrosListView,
-    SecretariaReintegroCreateView,
-    SecretariaReintegroUpdateView,
-    SecretariaReintegroDeleteView,
-    SolicitudVacacionesListView,
-    SolicitudVacacionesCreateView,
-    SolicitudVacacionesUpdateView,
-    SolicitudVacacionesDeleteView,
-    ReintegroVacacionesListView,
-    ReintegroVacacionesCreateView,
-    ReintegroVacacionesUpdateView,
-    ReintegroVacacionesDeleteView,
-    SolicitudVacacionesPDFView,
-    ReintegroVacacionesPDFView
-)
 
 app_name = "vacaciones"
 
@@ -120,6 +97,13 @@ urlpatterns = [
     path("reintegros/<int:pk>/autorizar/", views.autorizar_reintegro_view, name="reintegro_autorizar"),
     path("reintegros/<int:pk>/rechazar/",  views.rechazar_reintegro_view,  name="reintegro_rechazar"),
     path("reintegros/<int:pk>/pdf/",       ReintegroVacacionesPDFView.as_view(), name="reintegro_laboral_p4_pdf"),
+    
+    # -----------------------------------------
+    # REPORTES
+    # -----------------------------------------
+    path("reportes/", views_reportes.ReportesDashboardView.as_view(), name="reportes_dashboard"),
+    path("reportes/exportar-solicitudes-csv/", views_reportes.ExportarSolicitudesCSVView.as_view(), name="exportar_solicitudes_csv"),
+    path("reportes/exportar-reintegros-csv/", views_reportes.ExportarReintegrosCSVView.as_view(), name="exportar_reintegros_csv"),
     
     # -----------------------------------------
     # API REST
