@@ -84,6 +84,7 @@ TABLA_FUNCIONARIO_REINTEGROS_PARTIAL = "vacaciones/partials/_tabla-reintegros.ht
 # -----------------------------------------
 # VISTA: PeriodoVacacional
 # -----------------------------------------
+@method_decorator(group_required("RRHH"), name="dispatch")
 class PeriodoVacacionalListView(LoginRequiredMixin, ListView):
     model = PeriodoVacacional
     template_name = PERIODO_VACACIONAL_LIST_TEMPLATE
@@ -190,11 +191,13 @@ class PeriodoVacacionalListView(LoginRequiredMixin, ListView):
             solicitudes_por_periodo[periodo_id].append(solicitud)
         
         periodos_con_dias_reales = []
+        
         for periodo in periodos:
             dias_habiles_disfrutados = 0
             dias_calendario_disfrutados = 0
             
             solicitudes_periodo = solicitudes_por_periodo.get(periodo.pk, [])
+            
             for solicitud in solicitudes_periodo:
                 habiles, calendario = self._calcular_dias_habiles_calendario_solicitud(solicitud)
                 dias_habiles_disfrutados += habiles
@@ -206,6 +209,8 @@ class PeriodoVacacionalListView(LoginRequiredMixin, ListView):
             dias_calendario_pendientes = max(0, calendario_totales - dias_calendario_disfrutados)
             dias_pendientes_reales = dias_habiles_pendientes + dias_calendario_pendientes
             
+            puede_editar_eliminar = dias_disfrutados_reales == 0
+            
             periodos_con_dias_reales.append({
                 'periodo': periodo,
                 'dias_disfrutados_reales': dias_disfrutados_reales,
@@ -216,11 +221,13 @@ class PeriodoVacacionalListView(LoginRequiredMixin, ListView):
                 'dias_calendario_pendientes': dias_calendario_pendientes,
                 'habiles_totales': habiles_totales,
                 'calendario_totales': calendario_totales,
+                'puede_editar_eliminar': puede_editar_eliminar,
             })
         
         context['periodos_con_dias'] = periodos_con_dias_reales
         return context
 
+@method_decorator(group_required("RRHH"), name="dispatch")
 class PeriodoVacacionalCreateView(LoginRequiredMixin, CreateView):
     model = PeriodoVacacional
     form_class = PeriodoVacacionalForm
@@ -231,20 +238,220 @@ class PeriodoVacacionalCreateView(LoginRequiredMixin, CreateView):
         messages.success(self.request, "Periodo vacacional creado correctamente.")
         return super().form_valid(form)
 
+@method_decorator(group_required("RRHH"), name="dispatch")
 class PeriodoVacacionalUpdateView(LoginRequiredMixin, UpdateView):
     model = PeriodoVacacional
     form_class = PeriodoVacacionalForm
     template_name = PERIODO_VACACIONAL_FORM_TEMPLATE
     success_url = reverse_lazy("vacaciones:periodo-vacacional-list")
 
+    def _periodo_tiene_dias_disfrutados_o_pendientes(self, periodo):
+        solicitudes_aprobadas = SolicitudVacaciones.objects.filter(
+            periodo_vacacional=periodo,
+            estado_solicitud__in=['aprobado', 'autorizada']
+        ).select_related('funcionario', 'funcionario__estamento')
+        
+        if not solicitudes_aprobadas.exists():
+            return False
+        
+        dias_habiles_disfrutados = 0
+        dias_calendario_disfrutados = 0
+        
+        for solicitud in solicitudes_aprobadas:
+            habiles, calendario = self._calcular_dias_habiles_calendario_solicitud(solicitud)
+            dias_habiles_disfrutados += habiles
+            dias_calendario_disfrutados += calendario
+        
+        habiles_totales, calendario_totales = self._obtener_tipo_dias_periodo(periodo)
+        dias_habiles_pendientes = max(0, habiles_totales - dias_habiles_disfrutados)
+        dias_calendario_pendientes = max(0, calendario_totales - dias_calendario_disfrutados)
+        dias_pendientes_reales = dias_habiles_pendientes + dias_calendario_pendientes
+        dias_disfrutados_reales = dias_habiles_disfrutados + dias_calendario_disfrutados
+        
+        return dias_disfrutados_reales > 0
+    
+    def _calcular_dias_habiles_calendario_solicitud(self, solicitud):
+        if not (solicitud.fecha_inicio_vacaciones and solicitud.fecha_fin_vacaciones):
+            return 0, 0
+        
+        estamento = solicitud.funcionario.estamento.nombre.lower()
+        decreto = (solicitud.funcionario.decreto_resolucion or '').strip()
+        
+        festivos = holidays.Colombia(years=range(
+            solicitud.fecha_inicio_vacaciones.year, 
+            solicitud.fecha_fin_vacaciones.year + 1
+        ))
+        
+        if estamento == 'docente' and decreto == '1279':
+            actual = solicitud.fecha_inicio_vacaciones
+            habiles_marcados = 0
+            
+            while actual <= solicitud.fecha_fin_vacaciones and habiles_marcados < 15:
+                if actual.weekday() < 5 and actual not in festivos:
+                    habiles_marcados += 1
+                actual += timedelta(days=1)
+            
+            dias_calendario = 0
+            while actual <= solicitud.fecha_fin_vacaciones and dias_calendario < 15:
+                dias_calendario += 1
+                actual += timedelta(days=1)
+            
+            return habiles_marcados, dias_calendario
+            
+        elif estamento == 'administrativo':
+            actual = solicitud.fecha_inicio_vacaciones
+            dias_habiles = 0
+            while actual <= solicitud.fecha_fin_vacaciones:
+                if actual.weekday() < 5 and actual not in festivos:
+                    dias_habiles += 1
+                actual += timedelta(days=1)
+            return dias_habiles, 0
+            
+        elif estamento == 'docente' and decreto == '115':
+            dias_calendario = (solicitud.fecha_fin_vacaciones - solicitud.fecha_inicio_vacaciones).days + 1
+            return 0, dias_calendario
+            
+        elif estamento == 'trabajador oficial':
+            dias_calendario = (solicitud.fecha_fin_vacaciones - solicitud.fecha_inicio_vacaciones).days + 1
+            return 0, dias_calendario
+            
+        else:
+            dias_calendario = (solicitud.fecha_fin_vacaciones - solicitud.fecha_inicio_vacaciones).days + 1
+            return 0, dias_calendario
+    
+    def _obtener_tipo_dias_periodo(self, periodo):
+        estamento = periodo.funcionario.estamento.nombre.lower()
+        decreto = (periodo.funcionario.decreto_resolucion or '').strip()
+        
+        if estamento == 'docente' and decreto == '1279':
+            return 15, 15
+        elif estamento == 'administrativo':
+            return 15, 0
+        elif estamento == 'docente' and decreto == '115':
+            return 0, 30
+        elif estamento == 'trabajador oficial':
+            return 0, 30
+        else:
+            return 0, 0
+
+    def dispatch(self, request, *args, **kwargs):
+        periodo = self.get_object()
+        if self._periodo_tiene_dias_disfrutados_o_pendientes(periodo):
+            messages.error(
+                request, 
+                "No se puede editar un periodo vacacional que ya tiene días disfrutados o pendientes. Esto evitaría inconsistencias en los registros."
+            )
+            return redirect("vacaciones:periodo-vacacional-list")
+        return super().dispatch(request, *args, **kwargs)
+
     def form_valid(self, form):
         messages.success(self.request, "Periodo vacacional actualizado correctamente.")
         return super().form_valid(form)
 
+@method_decorator(group_required("RRHH"), name="dispatch")
 class PeriodoVacacionalDeleteView(LoginRequiredMixin, DeleteView):
     model = PeriodoVacacional
     template_name = PERIODO_VACACIONAL_CONFIRM_DELETE_TEMPLATE
     success_url = reverse_lazy("vacaciones:periodo-vacacional-list")
+
+    def _periodo_tiene_dias_disfrutados_o_pendientes(self, periodo):
+        solicitudes_aprobadas = SolicitudVacaciones.objects.filter(
+            periodo_vacacional=periodo,
+            estado_solicitud__in=['aprobado', 'autorizada']
+        ).select_related('funcionario', 'funcionario__estamento')
+        
+        if not solicitudes_aprobadas.exists():
+            return False
+        
+        dias_habiles_disfrutados = 0
+        dias_calendario_disfrutados = 0
+        
+        for solicitud in solicitudes_aprobadas:
+            habiles, calendario = self._calcular_dias_habiles_calendario_solicitud(solicitud)
+            dias_habiles_disfrutados += habiles
+            dias_calendario_disfrutados += calendario
+        
+        habiles_totales, calendario_totales = self._obtener_tipo_dias_periodo(periodo)
+        dias_habiles_pendientes = max(0, habiles_totales - dias_habiles_disfrutados)
+        dias_calendario_pendientes = max(0, calendario_totales - dias_calendario_disfrutados)
+        dias_pendientes_reales = dias_habiles_pendientes + dias_calendario_pendientes
+        dias_disfrutados_reales = dias_habiles_disfrutados + dias_calendario_disfrutados
+        
+        return dias_disfrutados_reales > 0
+    
+    def _calcular_dias_habiles_calendario_solicitud(self, solicitud):
+        if not (solicitud.fecha_inicio_vacaciones and solicitud.fecha_fin_vacaciones):
+            return 0, 0
+        
+        estamento = solicitud.funcionario.estamento.nombre.lower()
+        decreto = (solicitud.funcionario.decreto_resolucion or '').strip()
+        
+        festivos = holidays.Colombia(years=range(
+            solicitud.fecha_inicio_vacaciones.year, 
+            solicitud.fecha_fin_vacaciones.year + 1
+        ))
+        
+        if estamento == 'docente' and decreto == '1279':
+            actual = solicitud.fecha_inicio_vacaciones
+            habiles_marcados = 0
+            
+            while actual <= solicitud.fecha_fin_vacaciones and habiles_marcados < 15:
+                if actual.weekday() < 5 and actual not in festivos:
+                    habiles_marcados += 1
+                actual += timedelta(days=1)
+            
+            dias_calendario = 0
+            while actual <= solicitud.fecha_fin_vacaciones and dias_calendario < 15:
+                dias_calendario += 1
+                actual += timedelta(days=1)
+            
+            return habiles_marcados, dias_calendario
+            
+        elif estamento == 'administrativo':
+            actual = solicitud.fecha_inicio_vacaciones
+            dias_habiles = 0
+            while actual <= solicitud.fecha_fin_vacaciones:
+                if actual.weekday() < 5 and actual not in festivos:
+                    dias_habiles += 1
+                actual += timedelta(days=1)
+            return dias_habiles, 0
+            
+        elif estamento == 'docente' and decreto == '115':
+            dias_calendario = (solicitud.fecha_fin_vacaciones - solicitud.fecha_inicio_vacaciones).days + 1
+            return 0, dias_calendario
+            
+        elif estamento == 'trabajador oficial':
+            dias_calendario = (solicitud.fecha_fin_vacaciones - solicitud.fecha_inicio_vacaciones).days + 1
+            return 0, dias_calendario
+            
+        else:
+            dias_calendario = (solicitud.fecha_fin_vacaciones - solicitud.fecha_inicio_vacaciones).days + 1
+            return 0, dias_calendario
+    
+    def _obtener_tipo_dias_periodo(self, periodo):
+        estamento = periodo.funcionario.estamento.nombre.lower()
+        decreto = (periodo.funcionario.decreto_resolucion or '').strip()
+        
+        if estamento == 'docente' and decreto == '1279':
+            return 15, 15
+        elif estamento == 'administrativo':
+            return 15, 0
+        elif estamento == 'docente' and decreto == '115':
+            return 0, 30
+        elif estamento == 'trabajador oficial':
+            return 0, 30
+        else:
+            return 0, 0
+
+    def dispatch(self, request, *args, **kwargs):
+        periodo = self.get_object()
+        if self._periodo_tiene_dias_disfrutados_o_pendientes(periodo):
+            messages.error(
+                request, 
+                "No se puede eliminar un periodo vacacional que ya tiene días disfrutados o pendientes. Esto evitaría inconsistencias en los registros."
+            )
+            return redirect("vacaciones:periodo-vacacional-list")
+        return super().dispatch(request, *args, **kwargs)
 
     def delete(self, request, *args, **kwargs):
         messages.success(request, "Periodo vacacional eliminado correctamente.")

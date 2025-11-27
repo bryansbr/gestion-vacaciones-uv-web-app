@@ -44,3 +44,10 @@
 
 </div>
 {% endblock %}
+
+{% block extra_scripts %}
+{{ block.super }}
+{% if object %}
+<script src="{% static 'vacaciones/js/components/vacaciones/confirmar-edicion-periodo.js' %}"></script>
+{% endif %}
+{% endblock %}

@@ -88,6 +88,7 @@
               <span class="sidebar-text" id="sidebar-text-dashboard">Inicio</span>
             </a>
           </li>
+          {% if request.user.is_superuser or request.user|es_rrhh or request.user|has_group:"RRHH" %}
           <li>
             <a href="{% url 'vacaciones:periodo-vacacional-list' %}"
                class="sidebar-link block py-2 px-3 rounded hover:bg-red-600 flex items-center gap-2">
@@ -100,6 +101,7 @@
               <span class="sidebar-text" id="sidebar-text-periodos">Periodos vacacionales</span>
             </a>
           </li>
+          {% endif %}
           <li>
             <button id="submenu-solicitudes-toggle" 
                     class="sidebar-link w-full block py-2 px-3 rounded hover:bg-red-600 flex items-center justify-between gap-2 cursor-pointer">
@@ -176,7 +178,7 @@
                 </a>
               </li>
               {% endif %}
-              {% if request.user.is_superuser or request.user|es_rrhh or request.user|has_group:"Recursos Humanos" or "recursos.humanos" in request.user.email|lower %}
+              {% if request.user.is_superuser or request.user|es_rrhh or request.user|has_group:"RRHH" or "recursos.humanos" in request.user.email|lower %}
               <li>
                 <a href="{% url 'vacaciones:rrhh_solicitudes_list' %}"
                    id="submenu-link-rrhh-solicitudes"
@@ -268,7 +270,7 @@
                 </a>
               </li>
               {% endif %}
-              {% if request.user.is_superuser or request.user|has_group:"Recursos Humanos" or "recursos.humanos" in request.user.email|lower %}
+              {% if request.user.is_superuser or request.user|has_group:"RRHH" or "recursos.humanos" in request.user.email|lower %}
               <li>
                 <a href="{% url 'vacaciones:rrhh_reintegros_list' %}"
                    id="submenu-link-rrhh-reintegros"

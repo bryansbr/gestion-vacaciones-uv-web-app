@@ -41,9 +41,9 @@ def es_coordinador_administrativo(user):
 @register.filter(name='es_rrhh')
 def es_rrhh(user):
     """
-    Filtro de template que verifica si un usuario pertenece al grupo "Recursos Humanos".
+    Filtro de template que verifica si un usuario pertenece al grupo "RRHH".
     """
-    return has_group(user, "Recursos Humanos")
+    return has_group(user, "RRHH")
 
 @register.filter(name='es_funcionario')
 def es_funcionario(user):

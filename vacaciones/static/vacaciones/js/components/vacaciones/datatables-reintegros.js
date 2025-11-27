@@ -60,6 +60,13 @@ $(document).ready(function() {
           $(this).css('background-color', '#f3f4f6');
         }
       });
+      
+      if (typeof window.inicializarMenuAccionesReintegro === 'function') {
+        window.inicializarMenuAccionesReintegro();
+      }
+      if (typeof window.inicializarAccionesReintegro === 'function') {
+        window.inicializarAccionesReintegro();
+      }
     }
   });
 });

@@ -38,8 +38,8 @@ def es_coordinador_administrativo(user) -> bool:
 
 def es_rrhh(user) -> bool:
     """
-    Verifica si el usuario pertenece al grupo "Recursos Humanos".
+    Verifica si el usuario pertenece al grupo "RRHH".
     """
     if not user or not user.is_authenticated:
         return False
-    return user.groups.filter(name="Recursos Humanos").exists()
+    return user.groups.filter(name="RRHH").exists()

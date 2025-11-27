@@ -1,10 +1,11 @@
 (function() {
   'use strict';
 
-  document.addEventListener('DOMContentLoaded', function() {
-    const btnsMenu = document.querySelectorAll('[id^="reintegro-actions-"]');
+  function inicializarMenuAccionesReintegro() {
+    const btnsMenu = document.querySelectorAll('[id^="reintegro-actions-"]:not([data-menu-inicializado])');
 
     btnsMenu.forEach(btn => {
+      btn.setAttribute('data-menu-inicializado', 'true');
       const idReintegro = btn.id.replace('reintegro-actions-', '');
       const desplegable = document.getElementById(`reintegro-dropdown-${idReintegro}`);
 
@@ -29,7 +30,7 @@
             const alturaDesplegable = desplegable.offsetHeight || 200;
             const espacioAbajo = window.innerHeight - posicion.bottom;
             const espacioArriba = posicion.top;
-            const anchoDesplegable = desplegable.offsetWidth || 176; // w-44 = 176px
+            const anchoDesplegable = desplegable.offsetWidth || 176;
             
             desplegable.style.position = 'fixed';
             desplegable.style.zIndex = '9999';
@@ -64,6 +65,10 @@
         }
       });
     });
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    inicializarMenuAccionesReintegro();
 
     document.addEventListener('click', function(e) {
       if (!e.target.closest('[id^="reintegro-actions-"]') && !e.target.closest('[id^="reintegro-dropdown-"]')) {
@@ -76,4 +81,6 @@
       }
     });
   });
+
+  window.inicializarMenuAccionesReintegro = inicializarMenuAccionesReintegro;
 })();

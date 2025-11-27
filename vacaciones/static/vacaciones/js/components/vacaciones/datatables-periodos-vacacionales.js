@@ -40,6 +40,12 @@ $(document).ready(function() {
           $(this).css('background-color', '#f3f4f6');
         }
       });
+      
+      setTimeout(function() {
+        if (typeof window.inicializarConfirmacionEliminacionPeriodo === 'function') {
+          window.inicializarConfirmacionEliminacionPeriodo();
+        }
+      }, 100);
     }
   });
 });
