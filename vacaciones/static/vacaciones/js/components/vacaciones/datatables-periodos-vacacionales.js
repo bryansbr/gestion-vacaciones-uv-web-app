@@ -9,7 +9,7 @@ $(document).ready(function() {
     language: DATATABLES_SPANISH_LANGUAGE,
     pageLength: 5,
     lengthMenu: [[5, 10, 25, 50, 100, -1], [5, 10, 25, 50, 100, "Todos"]],
-    order: [[1, 'desc']],
+    order: [[2, 'desc']],
     searching: true,
     columnDefs: [
       {
@@ -22,11 +22,11 @@ $(document).ready(function() {
         }
       },
       {
-        targets: [1, 2],
+        targets: [2, 3],
         type: 'date-dd-mm-yyyy'
       },
       {
-        targets: [3, 4, 5],
+        targets: [4, 5, 6],
         type: 'num'
       }
     ],

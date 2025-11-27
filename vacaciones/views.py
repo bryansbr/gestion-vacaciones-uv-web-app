@@ -99,7 +99,7 @@ class PeriodoVacacionalListView(LoginRequiredMixin, ListView):
         return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
-        qs = PeriodoVacacional.objects.select_related('funcionario').order_by('-fecha_inicio_periodo')
+        qs = PeriodoVacacional.objects.select_related('funcionario', 'funcionario__facultad_dependencia').order_by('-fecha_inicio_periodo')
         return qs
     
     def _calcular_dias_habiles_calendario_solicitud(self, solicitud):

@@ -4,6 +4,7 @@
     <thead class="bg-red-600 text-white">
       <tr>
         <th class="px-8 py-4 text-left text-sm font-medium tracking-wider">Funcionario</th>
+        <th class="px-8 py-4 text-left text-sm font-medium tracking-wider">Facultad/Dependencia</th>
         <th class="px-8 py-4 text-left text-sm font-medium tracking-wider">Fecha Inicio</th>
         <th class="px-8 py-4 text-left text-sm font-medium tracking-wider">Fecha Fin</th>
         <th class="px-8 py-4 text-left text-sm font-medium tracking-wider">Días Totales</th>
@@ -18,6 +19,19 @@
           {% with periodo=item.periodo %}
           <tr class="{% if forloop.counter0|divisibleby:2 %}bg-white{% else %}bg-gray-100{% endif %} hover:bg-gray-200 transition-colors duration-150">
             <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900">{{ periodo.funcionario.nombre }} {{ periodo.funcionario.apellido }}</td>
+            <td class="px-8 py-5 text-sm text-gray-900 text-center columna-facultad-dependencia">
+              {% if periodo.funcionario.facultad_dependencia %}
+                {% if periodo.funcionario.facultad_dependencia.nombre %}
+                  {{ periodo.funcionario.facultad_dependencia.nombre }}
+                {% elif periodo.funcionario.facultad_dependencia.descripcion %}
+                  {{ periodo.funcionario.facultad_dependencia.descripcion }}
+                {% else %}
+                  -
+                {% endif %}
+              {% else %}
+                -
+              {% endif %}
+            </td>
             <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900">{{ periodo.fecha_inicio_periodo|date:"d/m/Y" }}</td>
             <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900">{{ periodo.fecha_fin_periodo|date:"d/m/Y" }}</td>
             <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900">{{ periodo.dias_totales_periodo }}</td>
@@ -110,7 +124,7 @@
           {% endwith %}
         {% empty %}
         <tr>
-          <td colspan="7" class="px-8 py-6 text-center text-gray-500 text-sm">No hay periodos vacacionales registrados.</td>
+          <td colspan="8" class="px-8 py-6 text-center text-gray-500 text-sm">No hay periodos vacacionales registrados.</td>
         </tr>
         {% endfor %}
       {% endif %}

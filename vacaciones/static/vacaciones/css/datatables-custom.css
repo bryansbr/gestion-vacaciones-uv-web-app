@@ -512,3 +512,12 @@
 #tabla-reintegros-rrhh thead th:nth-child(5) {
     max-width: 200px !important;
 }
+
+#tabla-periodos-vacacionales tbody td.columna-facultad-dependencia,
+#tabla-periodos-vacacionales thead th:nth-child(2) {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    max-width: 150px !important;
+    line-height: 1.5 !important;
+    text-align: center !important;
+}
