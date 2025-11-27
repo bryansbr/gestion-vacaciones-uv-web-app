@@ -26,10 +26,9 @@ from .forms import (
     ReintegroVacacionesForm,
 )
 from .models import (
-    PeriodoVacacional,
+    SolicitudVacaciones,
     ReintegroVacaciones,
-    SolicitudVacaciones,
-    SolicitudVacaciones,
+    PeriodoVacacional,
     generar_codigo_sabs
 )
 from .services.aprobaciones import (
@@ -74,13 +73,13 @@ TABLA_SECRETARIA_SOLICITUDES_PARTIAL = "vacaciones/partials/_tabla-solicitudes.h
 SECRETARIA_REINTEGROS_LIST_TEMPLATE = "vacaciones/roles/secretaria/secretaria-reintegros-list.html"
 SECRETARIA_REINTEGRO_FORM_TEMPLATE = "vacaciones/roles/secretaria/secretaria-reintegro-form.html"
 SECRETARIA_REINTEGRO_CONFIRM_DELETE_TEMPLATE = "vacaciones/roles/secretaria/secretaria-reintegro-confirm-delete.html"
-TABLA_SECRETARIA_REINTEGROS_PARTIAL = "vacaciones/partials/_tabla-secretaria-reintegros.html"
+TABLA_SECRETARIA_REINTEGROS_PARTIAL = "vacaciones/partials/_tabla-reintegros.html"
 
 REINTEGRO_P4_PDF_TEMPLATE = "vacaciones/pdf/reintegro-laboral-p4.html"
 REINTEGRO_VACACIONES_LIST_TEMPLATE = "vacaciones/reintegro-vac/reintegro-vacaciones-list.html"
 REINTEGRO_VACACIONES_FORM_TEMPLATE = "vacaciones/reintegro-vac/reintegro-vacaciones-form.html"
 REINTEGRO_VACACIONES_CONFIRM_DELETE_TEMPLATE = "vacaciones/reintegro-vac/reintegro-vacaciones-confirm-delete.html"
-TABLA_FUNCIONARIO_REINTEGROS_PARTIAL = "vacaciones/partials/_tabla-funcionario-reintegros.html"
+TABLA_FUNCIONARIO_REINTEGROS_PARTIAL = "vacaciones/partials/_tabla-reintegros.html"
 
 # -----------------------------------------
 # VISTA: PeriodoVacacional
@@ -968,12 +967,13 @@ class ReintegroVacacionesListView(LoginRequiredMixin, ListView):
     model = ReintegroVacaciones
     template_name = REINTEGRO_VACACIONES_LIST_TEMPLATE
     context_object_name = "reintegros"
-    paginate_by = 20
 
     def get(self, request, *args, **kwargs):
         if request.htmx:
             self.object_list = self.get_queryset()
             context = self.get_context_data()
+            context['tabla_id'] = 'tabla-reintegros-funcionario'
+            context['origen_menu'] = 'mis_reintegros'
             html = render_to_string(TABLA_FUNCIONARIO_REINTEGROS_PARTIAL, context, request)
             return HttpResponse(html)
         return super().get(request, *args, **kwargs)
@@ -1010,13 +1010,6 @@ class ReintegroVacacionesListView(LoginRequiredMixin, ListView):
             .order_by("-fecha_solicitud", "-id")
         )
 
-        q = self.request.GET.get("q", "").strip()
-        estado = self.request.GET.get("estado", "").strip()
-
-        if q:
-            qs = qs.filter(codigo_sabs__icontains=q)
-        if estado:
-            qs = qs.filter(estado_solicitud=estado)
         return qs
 
     @staticmethod
@@ -1042,11 +1035,16 @@ class ReintegroVacacionesListView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context['tabla_id'] = 'tabla-reintegros-funcionario'
+        context['origen_menu'] = 'mis_reintegros'
         funcionario = getattr(self.request.user, "funcionario", None)
         solicitudes_disponibles = []
 
         if funcionario:
             solicitudes_disponibles = self._solicitudes_autorizadas_sin_reintegro(funcionario)
+            context["tiene_solicitudes_autorizadas"] = len(solicitudes_disponibles) > 0
+        else:
+            context["tiene_solicitudes_autorizadas"] = False
 
         if es_secretaria(self.request.user) and funcionario and funcionario.jefe_inmediato:
             funcionarios_permitidos = Funcionario.objects.filter(
@@ -1197,6 +1195,7 @@ class ReintegroVacacionesListView(LoginRequiredMixin, ListView):
             context["puede_crear_reintegro"] = True
         else:
             context["puede_crear_reintegro"] = len(solicitudes_disponibles) > 0
+            context["tiene_solicitudes_autorizadas"] = len(solicitudes_disponibles) > 0
             context["secretaria_puede_crear"] = False
             context["secretaria_solicitudes_autorizadas"] = json.dumps([])
             context["funcionarios_bajo_jefe"] = json.dumps([])
@@ -2500,12 +2499,13 @@ class SecretariaReintegrosListView(LoginRequiredMixin, ListView):
     model = ReintegroVacaciones
     template_name = SECRETARIA_REINTEGROS_LIST_TEMPLATE
     context_object_name = "reintegros"
-    paginate_by = 20
 
     def get(self, request, *args, **kwargs):
         if request.htmx:
             self.object_list = self.get_queryset()
             context = self.get_context_data()
+            context['tabla_id'] = 'tabla-reintegros-secretaria'
+            context['origen_menu'] = 'solo_pdf'
             html = render_to_string(TABLA_SECRETARIA_REINTEGROS_PARTIAL, context, request)
             return HttpResponse(html)
         return super().get(request, *args, **kwargs)
@@ -2564,6 +2564,7 @@ class SecretariaReintegrosListView(LoginRequiredMixin, ListView):
         else:
             context["puede_crear_reintegro"] = False
             context["solicitudes_autorizadas"] = []
+            context["tiene_solicitudes_autorizadas"] = False
             context["solicitud_preseleccionada"] = None
             context["funcionarios_bajo_jefe"] = json.dumps([])
             context["secretaria_id"] = None
@@ -2596,18 +2597,6 @@ class SecretariaReintegrosListView(LoginRequiredMixin, ListView):
               )
               .filter(funcionario__jefe_inmediato=secretaria_func.jefe_inmediato)
               .order_by("-fecha_solicitud", "-id"))
-        
-        q = self.request.GET.get("q", "").strip()
-        estado = self.request.GET.get("estado", "").strip()
-
-        if q:
-            qs = qs.filter(
-                Q(codigo_sabs__icontains=q) |
-                Q(funcionario__nombre__icontains=q) |
-                Q(funcionario__apellido__icontains=q)
-            )
-        if estado:
-            qs = qs.filter(estado_solicitud=estado)
 
         return qs
 
@@ -2871,7 +2860,3 @@ class SecretariaReintegroDeleteView(LoginRequiredMixin, DeleteView):
         codigo = reintegro.codigo_sabs
         messages.success(request, "Reintegro eliminado correctamente.")
         response = super().delete(request, *args, **kwargs)
-        url = self.get_success_url()
-        separador = '&' if ('?' in url) else '?'
-        codigo_q = urllib.parse.quote(codigo)
-        return redirect(f"{url}{separador}eliminado=1&codigo={codigo_q}")

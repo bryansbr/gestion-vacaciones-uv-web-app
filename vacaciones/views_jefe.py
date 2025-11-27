@@ -590,12 +590,12 @@ class ReintegrosJefeListView(LoginRequiredMixin, ListView):
     model = ReintegroVacaciones
     template_name = JEFE_REINTEGROS_TEMPLATE
     context_object_name = "reintegros"
-    paginate_by = 20
 
     def get(self, request, *args, **kwargs):
         if request.htmx:
             self.object_list = self.get_queryset()
             context = self.get_context_data()
+            context['tabla_id'] = 'tabla-reintegros-jefe'
             html = render_to_string(JEFE_REINTEGROS_TABLE_PARTIAL, context, request)
             return HttpResponse(html)
         return super().get(request, *args, **kwargs)
@@ -612,18 +612,6 @@ class ReintegrosJefeListView(LoginRequiredMixin, ListView):
               .filter(funcionario__jefe_inmediato=jefe_func)
               .exclude(estado_solicitud='pendiente')
               .order_by("-fecha_solicitud", "-id"))
-
-        q = self.request.GET.get("q", "").strip()
-        estado = self.request.GET.get("estado", "").strip()
-
-        if q:
-            qs = qs.filter(
-                Q(codigo_sabs__icontains=q) |
-                Q(funcionario__nombre__icontains=q) |
-                Q(funcionario__apellido__icontains=q)
-            )
-        if estado:
-            qs = qs.filter(estado_solicitud=estado)
 
         return qs
 

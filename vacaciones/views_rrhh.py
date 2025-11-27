@@ -25,7 +25,7 @@ from .services.reintegros import (
 RRHH_SOLICITUDES_TEMPLATE = "vacaciones/roles/rrhh/rrhh-solicitudes-list.html"
 RRHH_SOLICITUDES_TABLE_PARTIAL = "vacaciones/partials/_tabla-rrhh-solicitudes.html"
 RRHH_REINTEGROS_TEMPLATE = "vacaciones/roles/rrhh/rrhh-reintegros-list.html"
-RRHH_REINTEGROS_TABLE_PARTIAL = "vacaciones/partials/_tabla-rrhh-reintegros.html"
+RRHH_REINTEGROS_TABLE_PARTIAL = "vacaciones/partials/_tabla-reintegros.html"
 
 def _es_rrhh_o_email(user):
     """
@@ -167,7 +167,6 @@ class ReintegrosRRHHListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     model = ReintegroVacaciones
     template_name = RRHH_REINTEGROS_TEMPLATE
     context_object_name = "reintegros"
-    paginate_by = 20
     raise_exception = False
     
     def test_func(self):
@@ -183,6 +182,7 @@ class ReintegrosRRHHListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
         if request.htmx:
             self.object_list = self.get_queryset()
             context = self.get_context_data()
+            context['tabla_id'] = 'tabla-reintegros-rrhh'
             html = render_to_string(RRHH_REINTEGROS_TABLE_PARTIAL, context, request)
             return HttpResponse(html)
         return super().get(request, *args, **kwargs)
@@ -227,18 +227,6 @@ class ReintegrosRRHHListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
                    .filter(id__in=ids_combinados)
                    .distinct()
                    .order_by("-fecha_solicitud", "-id"))
-
-        q = self.request.GET.get("q", "").strip()
-        estado = self.request.GET.get("estado", "").strip()
-
-        if q:
-            qs_final = qs_final.filter(
-                Q(codigo_sabs__icontains=q) |
-                Q(funcionario__nombre__icontains=q) |
-                Q(funcionario__apellido__icontains=q)
-            )
-        if estado:
-            qs_final = qs_final.filter(estado_solicitud=estado)
 
         return qs_final
 

@@ -25,7 +25,7 @@ from .views import ReintegroVacacionesListView
 COORD_SOLICITUDES_TEMPLATE = "vacaciones/roles/coord/coord-solicitudes-list.html"
 COORD_SOLICITUDES_TABLE_PARTIAL = "vacaciones/partials/_tabla-coord-solicitudes.html"
 COORD_REINTEGROS_TEMPLATE = "vacaciones/roles/coord/coord-reintegros-list.html"
-COORD_REINTEGROS_TABLE_PARTIAL = "vacaciones/partials/_tabla-coord-reintegros.html"
+COORD_REINTEGROS_TABLE_PARTIAL = "vacaciones/partials/_tabla-reintegros.html"
 COORD_REINTEGRO_FORM_TEMPLATE = "vacaciones/roles/coord/coord-reintegro-form.html"
 COORD_REINTEGRO_CONFIRM_DELETE_TEMPLATE = "vacaciones/roles/coord/coord-reintegro-confirm-delete.html"
 
@@ -144,12 +144,12 @@ class ReintegrosCoordListView(LoginRequiredMixin, ListView):
     model = ReintegroVacaciones
     template_name = COORD_REINTEGROS_TEMPLATE
     context_object_name = "reintegros"
-    paginate_by = 20
 
     def get(self, request, *args, **kwargs):
         if request.htmx:
             self.object_list = self.get_queryset()
             context = self.get_context_data()
+            context['tabla_id'] = 'tabla-reintegros-coord'
             html = render_to_string(COORD_REINTEGROS_TABLE_PARTIAL, context, request)
             return HttpResponse(html)
         return super().get(request, *args, **kwargs)
@@ -170,18 +170,6 @@ class ReintegrosCoordListView(LoginRequiredMixin, ListView):
               )
               .distinct()
               .order_by("-fecha_solicitud", "-id"))
-
-        q = self.request.GET.get("q", "").strip()
-        estado = self.request.GET.get("estado", "").strip()
-
-        if q:
-            qs = qs.filter(
-                Q(codigo_sabs__icontains=q) |
-                Q(funcionario__nombre__icontains=q) |
-                Q(funcionario__apellido__icontains=q)
-            )
-        if estado:
-            qs = qs.filter(estado_solicitud=estado)
 
         return qs
 

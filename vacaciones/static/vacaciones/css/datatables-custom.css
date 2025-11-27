@@ -364,3 +364,151 @@
     justify-content: center;
     align-items: center;
 }
+
+#tabla-reintegros-funcionario tbody tr:nth-child(even),
+#tabla-reintegros-jefe tbody tr:nth-child(even),
+#tabla-reintegros-secretaria tbody tr:nth-child(even),
+#tabla-reintegros-coord tbody tr:nth-child(even),
+#tabla-reintegros-rrhh tbody tr:nth-child(even) {
+    background-color: #f3f4f6 !important;
+}
+
+#tabla-reintegros-funcionario tbody tr:nth-child(odd),
+#tabla-reintegros-jefe tbody tr:nth-child(odd),
+#tabla-reintegros-secretaria tbody tr:nth-child(odd),
+#tabla-reintegros-coord tbody tr:nth-child(odd),
+#tabla-reintegros-rrhh tbody tr:nth-child(odd) {
+    background-color: #ffffff !important;
+}
+
+#tabla-reintegros-funcionario tbody tr:hover,
+#tabla-reintegros-jefe tbody tr:hover,
+#tabla-reintegros-secretaria tbody tr:hover,
+#tabla-reintegros-coord tbody tr:hover,
+#tabla-reintegros-rrhh tbody tr:hover {
+    background-color: #e5e7eb !important;
+    transition: background-color 0.15s ease-in-out;
+}
+
+#tabla-reintegros-funcionario tbody tr td,
+#tabla-reintegros-jefe tbody tr td,
+#tabla-reintegros-secretaria tbody tr td,
+#tabla-reintegros-coord tbody tr td,
+#tabla-reintegros-rrhh tbody tr td {
+    background-color: inherit !important;
+}
+
+#tabla-reintegros-funcionario .badge-estado,
+#tabla-reintegros-jefe .badge-estado,
+#tabla-reintegros-secretaria .badge-estado,
+#tabla-reintegros-coord .badge-estado,
+#tabla-reintegros-rrhh .badge-estado {
+    display: inline-block !important;
+    padding: 0.375rem 0.75rem !important;
+    border-radius: 9999px !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    margin: 0 !important;
+}
+
+#tabla-reintegros-funcionario .badge-estado-pendiente,
+#tabla-reintegros-jefe .badge-estado-pendiente,
+#tabla-reintegros-secretaria .badge-estado-pendiente,
+#tabla-reintegros-coord .badge-estado-pendiente,
+#tabla-reintegros-rrhh .badge-estado-pendiente {
+    background-color: #9ca3af !important;
+    color: #ffffff !important;
+}
+
+#tabla-reintegros-funcionario .badge-estado-en_revision,
+#tabla-reintegros-jefe .badge-estado-en_revision,
+#tabla-reintegros-secretaria .badge-estado-en_revision,
+#tabla-reintegros-coord .badge-estado-en_revision,
+#tabla-reintegros-rrhh .badge-estado-en_revision {
+    background-color: #f59e0b !important;
+    color: #ffffff !important;
+}
+
+#tabla-reintegros-funcionario .badge-estado-aprobado,
+#tabla-reintegros-jefe .badge-estado-aprobado,
+#tabla-reintegros-secretaria .badge-estado-aprobado,
+#tabla-reintegros-coord .badge-estado-aprobado,
+#tabla-reintegros-rrhh .badge-estado-aprobado {
+    background-color: #3b82f6 !important;
+    color: #ffffff !important;
+}
+
+#tabla-reintegros-funcionario .badge-estado-completado,
+#tabla-reintegros-jefe .badge-estado-completado,
+#tabla-reintegros-secretaria .badge-estado-completado,
+#tabla-reintegros-coord .badge-estado-completado,
+#tabla-reintegros-rrhh .badge-estado-completado {
+    background-color: #10b981 !important;
+    color: #ffffff !important;
+}
+
+#tabla-reintegros-funcionario .badge-estado-rechazado,
+#tabla-reintegros-jefe .badge-estado-rechazado,
+#tabla-reintegros-secretaria .badge-estado-rechazado,
+#tabla-reintegros-coord .badge-estado-rechazado,
+#tabla-reintegros-rrhh .badge-estado-rechazado {
+    background-color: #ef4444 !important;
+    color: #ffffff !important;
+}
+
+#tabla-reintegros-funcionario .badge-estado-cancelado,
+#tabla-reintegros-jefe .badge-estado-cancelado,
+#tabla-reintegros-secretaria .badge-estado-cancelado,
+#tabla-reintegros-coord .badge-estado-cancelado,
+#tabla-reintegros-rrhh .badge-estado-cancelado {
+    background-color: #6b7280 !important;
+    color: #ffffff !important;
+}
+
+#tabla-reintegros-funcionario tbody td,
+#tabla-reintegros-jefe tbody td,
+#tabla-reintegros-secretaria tbody td,
+#tabla-reintegros-coord tbody td,
+#tabla-reintegros-rrhh tbody td {
+    text-align: center !important;
+    vertical-align: middle !important;
+}
+
+#tabla-reintegros-funcionario thead th,
+#tabla-reintegros-jefe thead th,
+#tabla-reintegros-secretaria thead th,
+#tabla-reintegros-coord thead th,
+#tabla-reintegros-rrhh thead th {
+    text-align: center !important;
+}
+
+#tabla-reintegros-funcionario tbody td:nth-child(8) > div,
+#tabla-reintegros-jefe tbody td:nth-child(8) > div,
+#tabla-reintegros-secretaria tbody td:nth-child(8) > div,
+#tabla-reintegros-coord tbody td:nth-child(8) > div,
+#tabla-reintegros-rrhh tbody td:nth-child(8) > div {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#tabla-reintegros-funcionario tbody td.columna-motivo,
+#tabla-reintegros-jefe tbody td.columna-motivo,
+#tabla-reintegros-secretaria tbody td.columna-motivo,
+#tabla-reintegros-coord tbody td.columna-motivo,
+#tabla-reintegros-rrhh tbody td.columna-motivo {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    max-width: 200px !important;
+    line-height: 1.5 !important;
+}
+
+#tabla-reintegros-funcionario thead th:nth-child(5),
+#tabla-reintegros-jefe thead th:nth-child(5),
+#tabla-reintegros-secretaria thead th:nth-child(5),
+#tabla-reintegros-coord thead th:nth-child(5),
+#tabla-reintegros-rrhh thead th:nth-child(5) {
+    max-width: 200px !important;
+}

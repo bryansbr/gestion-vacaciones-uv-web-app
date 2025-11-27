@@ -1,6 +1,8 @@
 document.addEventListener('DOMContentLoaded', function () {
   const btnCrear = document.getElementById('btn-crear-reintegro-jefe');
   
+  if (!btnCrear) return;
+  
   if (btnCrear) {
     btnCrear.addEventListener('click', function() {
       Swal.fire({
@@ -37,7 +39,16 @@ document.addEventListener('DOMContentLoaded', function () {
               Swal.close();
               const jefeData = funcionariosData.find(f => f.id.toString() === jefeId);
               
-              if (!jefeData || !jefeData.tiene_solicitudes_autorizadas) {
+              if (typeof validarCrearReintegro !== 'undefined' && typeof mostrarAlertaValidacion !== 'undefined') {
+                const resultado = validarCrearReintegro({
+                  tiene_solicitudes_autorizadas: jefeData?.tiene_solicitudes_autorizadas || false
+                });
+                
+                if (!resultado.puede_crear) {
+                  mostrarAlertaValidacion(resultado);
+                  return;
+                }
+              } else if (!jefeData || !jefeData.tiene_solicitudes_autorizadas) {
                 Swal.fire({
                   icon: 'error',
                   title: '¡Atención!',
@@ -123,7 +134,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (result.isConfirmed && result.value) {
                   const funcionarioSeleccionado = funcionariosConSolicitudes.find(f => f.id.toString() === result.value);
                   
-                  if (!funcionarioSeleccionado || !funcionarioSeleccionado.tiene_solicitudes_autorizadas) {
+                  if (typeof validarCrearReintegro !== 'undefined' && typeof mostrarAlertaValidacion !== 'undefined') {
+                    const resultado = validarCrearReintegro({
+                      tiene_solicitudes_autorizadas: funcionarioSeleccionado?.tiene_solicitudes_autorizadas || false,
+                      nombre_funcionario: funcionarioSeleccionado ? `${funcionarioSeleccionado.nombre} ${funcionarioSeleccionado.apellido}` : ''
+                    });
+                    
+                    if (!resultado.puede_crear) {
+                      mostrarAlertaValidacion(resultado);
+                      return;
+                    }
+                  } else if (!funcionarioSeleccionado || !funcionarioSeleccionado.tiene_solicitudes_autorizadas) {
                     Swal.fire({
                       icon: 'error',
                       title: '¡Atención!',
@@ -178,4 +199,3 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 });
-

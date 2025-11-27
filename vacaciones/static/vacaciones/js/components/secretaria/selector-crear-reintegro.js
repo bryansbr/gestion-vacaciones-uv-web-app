@@ -34,8 +34,18 @@ document.addEventListener('DOMContentLoaded', function () {
           
           if (btnParaMi) {
             btnParaMi.addEventListener('click', function() {
-              if (!secretariaPuedeCrear) {
-                Swal.close();
+              Swal.close();
+              
+              if (typeof validarCrearReintegro !== 'undefined' && typeof mostrarAlertaValidacion !== 'undefined') {
+                const resultado = validarCrearReintegro({
+                  tiene_solicitudes_autorizadas: secretariaPuedeCrear
+                });
+                
+                if (!resultado.puede_crear) {
+                  mostrarAlertaValidacion(resultado);
+                  return;
+                }
+              } else if (!secretariaPuedeCrear) {
                 Swal.fire({
                   icon: 'error',
                   title: '¡Atención!',
@@ -124,7 +134,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (result.isConfirmed && result.value) {
                   const funcionarioSeleccionado = funcionariosConSolicitudes.find(f => f.id.toString() === result.value);
                   
-                  if (!funcionarioSeleccionado || !funcionarioSeleccionado.tiene_solicitudes_autorizadas) {
+                  if (typeof validarCrearReintegro !== 'undefined' && typeof mostrarAlertaValidacion !== 'undefined') {
+                    const resultado = validarCrearReintegro({
+                      tiene_solicitudes_autorizadas: funcionarioSeleccionado?.tiene_solicitudes_autorizadas || false,
+                      nombre_funcionario: funcionarioSeleccionado ? `${funcionarioSeleccionado.nombre} ${funcionarioSeleccionado.apellido}` : ''
+                    });
+                    
+                    if (!resultado.puede_crear) {
+                      mostrarAlertaValidacion(resultado);
+                      return;
+                    }
+                  } else if (!funcionarioSeleccionado || !funcionarioSeleccionado.tiene_solicitudes_autorizadas) {
                     Swal.fire({
                       icon: 'error',
                       title: '¡Atención!',

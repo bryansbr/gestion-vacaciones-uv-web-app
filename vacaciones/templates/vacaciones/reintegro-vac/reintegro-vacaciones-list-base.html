@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load grupos_tags %}
+
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'vacaciones/css/tabla-solicitudes-vacaciones.css' %}">
+  <link rel="stylesheet" href="{% static 'vacaciones/css/semaforo.css' %}">
+  <link rel="stylesheet" href="{% static 'vacaciones/css/menu-acciones-dropdown.css' %}">
+  <link rel="stylesheet" href="{% static 'vacaciones/css/datatables-custom.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto p-6 bg-white rounded-md shadow-md mt-8">
+  <div class="flex justify-between items-center mb-6">
+    {% block titulo_tabla %}
+    <h2 class="text-2xl font-bold text-gray-700">Mis reintegros de vacaciones</h2>
+    {% endblock %}
+    
+    {% block boton_crear %}{% endblock %}
+  </div>
+
+  {% block alerta_informativa %}{% endblock %}
+
+  <div id="tabla-contenedor">
+    {% block tabla_contenido %}{% endblock %}
+  </div>
+</div>
+
+{% block formulario_eliminacion %}
+<form id="form-eliminar-reintegro" method="POST" action="" class="hidden">
+  {% csrf_token %}
+  <input type="hidden" name="_method" value="delete">
+  <button type="submit"></button>
+</form>
+{% endblock %}
+{% endblock %}
+
+{% block extra_scripts %}
+  {{ block.super }}
+  <script src="{% static 'vacaciones/js/utils/validar-crear-solicitud.js' %}"></script>
+  <script src="{% static 'vacaciones/js/utils/validar-crear-reintegro.js' %}"></script>
+  <script src="{% static 'vacaciones/js/components/vacaciones/datatables-reintegros.js' %}"></script>
+  <script src="{% static 'vacaciones/js/components/vacaciones/menu-acciones-reintegro.js' %}"></script>
+  
+  {% block scripts_comunes %}
+  <script src="{% static 'vacaciones/js/components/vacaciones/acciones-reintegro.js' %}"></script>
+  <script src="{% static 'vacaciones/js/components/vacaciones/confirmar-envio-reintegro.js' %}"></script>
+  <script src="{% static 'vacaciones/js/components/vacaciones/creacion-exitosa-reintegro.js' %}"></script>
+  <script src="{% static 'vacaciones/js/components/vacaciones/edicion-exitosa-reintegro.js' %}"></script>
+  <script src="{% static 'vacaciones/js/components/vacaciones/eliminacion-exitosa-reintegro.js' %}"></script>
+  {% endblock %}
+  
+  {% block scripts_especificos %}
+  {% endblock %}
+{% endblock %}

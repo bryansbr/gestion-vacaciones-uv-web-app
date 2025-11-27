@@ -1,0 +1,98 @@
+{% if reintegros %}
+<div class="overflow-x-auto bg-white shadow-lg rounded-lg p-6">
+  <table id="{{ tabla_id }}" class="min-w-full divide-y divide-gray-200 table-rounded table-actions-center">
+    <thead class="bg-red-600 text-white">
+      <tr>
+        <th class="px-8 py-4 text-center text-sm font-medium tracking-wider">Código SABS</th>
+        <th class="px-8 py-4 text-center text-sm font-medium tracking-wider">Funcionario</th>
+        <th class="px-8 py-4 text-center text-sm font-medium tracking-wider">Fecha de creación</th>
+        <th class="px-8 py-4 text-center text-sm font-medium tracking-wider">Fecha de reintegro</th>
+        <th class="px-8 py-4 text-center text-sm font-medium tracking-wider">Motivo</th>
+        <th class="px-8 py-4 text-center text-sm font-medium tracking-wider">Días disfrutados</th>
+        <th class="px-8 py-4 text-center text-sm font-medium tracking-wider">Días pendientes</th>
+        <th class="px-8 py-4 text-center text-sm font-medium tracking-wider">Avance</th>
+        <th class="px-8 py-4 text-center text-sm font-medium tracking-wider">Estado</th>
+        <th class="px-8 py-4 text-sm font-medium tracking-wider text-center !text-center">Acciones</th>
+      </tr>
+    </thead>
+    <tbody class="bg-white divide-y divide-gray-200">
+      {% for reintegro in reintegros %}
+      <tr class="{% if forloop.counter0|divisibleby:2 %}bg-white{% else %}bg-gray-100{% endif %} hover:bg-gray-200 transition-colors duration-150">
+        <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900 text-center">{{ reintegro.codigo_sabs }}</td>
+
+        <td class="px-8 py-5 text-sm text-gray-900 text-center">
+          <div class="text-center">
+            <div class="font-medium">{{ reintegro.funcionario.nombre }} {{ reintegro.funcionario.apellido }}</div>
+            <div class="text-xs text-gray-500">
+              {% if reintegro.funcionario.facultad_dependencia %}
+                {% if reintegro.funcionario.facultad_dependencia.nombre %}
+                  {{ reintegro.funcionario.facultad_dependencia.nombre }}
+                {% elif reintegro.funcionario.facultad_dependencia.descripcion %}
+                  {{ reintegro.funcionario.facultad_dependencia.descripcion }}
+                {% endif %}
+              {% endif %}
+            </div>
+            {% if reintegro.creada_por %}
+            <div class="text-xs text-blue-600 mt-1">
+              Creada por: {% if reintegro.creada_por.funcionario %}
+                {{ reintegro.creada_por.funcionario.nombre }} {{ reintegro.creada_por.funcionario.apellido }}
+              {% elif reintegro.creada_por.email %}
+                {{ reintegro.creada_por.email }}
+              {% else %}
+                N/A
+              {% endif %}
+            </div>
+            {% endif %}
+          </div>
+        </td>
+
+        <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900 text-center">{{ reintegro.fecha_solicitud|date:"d/m/Y" }}</td>
+
+        <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900 text-center">{{ reintegro.fecha_reintegro|date:"d/m/Y" }}</td>
+
+        <td class="px-8 py-5 text-sm text-gray-900 text-center columna-motivo">{{ reintegro.get_motivo_reintegro_display }}</td>
+
+        <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900 text-center">
+          {{ reintegro.dias_disfrutados }}
+          {% if reintegro.dias_disfrutados_habiles %}<span class="block text-xs text-gray-500">{{ reintegro.dias_disfrutados_habiles }} Hábiles</span>{% endif %}
+          {% if reintegro.dias_disfrutados_calendario %}<span class="block text-xs text-gray-500">{{ reintegro.dias_disfrutados_calendario }} Calendario</span>{% endif %}
+        </td>
+
+        <td class="px-8 py-5 whitespace-nowrap text-sm text-gray-900 text-center">
+          {{ reintegro.dias_pendientes }}
+          {% if reintegro.dias_pendientes_habiles %}<span class="block text-xs text-gray-500">{{ reintegro.dias_pendientes_habiles }} Hábiles</span>{% endif %}
+          {% if reintegro.dias_pendientes_calendario %}<span class="block text-xs text-gray-500">{{ reintegro.dias_pendientes_calendario }} Calendario</span>{% endif %}
+        </td>
+
+        <td class="px-8 py-5 text-sm text-gray-900 text-center"
+            hx-get="{% url 'vacaciones:semaforo_cell_reintegro' reintegro.id %}"
+            hx-trigger="load, every 25s"
+            hx-swap="innerHTML">
+          {% include 'vacaciones/partials/_semaforo-cell-reintegro.html' with reintegro=reintegro %}
+        </td>
+
+        <td class="px-8 py-5 whitespace-nowrap text-sm text-center">
+          <span class="badge-estado badge-estado-{{ reintegro.estado_solicitud }}">
+            {{ reintegro.get_estado_solicitud_display }}
+          </span>
+        </td>
+
+        <td class="px-8 py-5 whitespace-nowrap text-center">
+          <div class="flex justify-center items-center">
+            {% if origen_menu == 'mis_reintegros' %}
+              {% include "vacaciones/partials/_menu-acciones-reintegro.html" with reintegro=reintegro %}
+            {% elif origen_menu == 'solo_pdf' %}
+              {% include "vacaciones/partials/_menu-acciones-reintegro.html" with reintegro=reintegro solo_pdf=True %}
+            {% else %}
+              {% include "vacaciones/partials/_menu-acciones-reintegro.html" with reintegro=reintegro %}
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="text-gray-600 text-base py-4">{{ mensaje_vacio|default:"No hay reintegros registrados." }}</p>
+{% endif %}
