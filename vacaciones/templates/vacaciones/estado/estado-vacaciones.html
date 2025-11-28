@@ -1,0 +1,402 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'vacaciones/css/estado-vacaciones.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto p-6 mt-0">
+  <div class="mb-6">
+    <h1 class="text-3xl font-bold text-gray-800 mb-2">Estado de vacaciones</h1>
+    <p class="text-gray-600">
+      Información consolidada sobre tus vacaciones
+    </p>
+  </div>
+
+  {% if estado_vacaciones %}
+    {% with estado=estado_vacaciones %}
+      <div class="bg-white rounded-md shadow-md p-6 mb-6">
+        <h2 class="text-xl font-semibold text-gray-700 mb-4">Información</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Nombre completo</p>
+            <p class="text-lg text-gray-800">{{ estado.funcionario.nombre_completo }}</p>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-gray-600">N° de identificación</p>
+            <p class="text-lg text-gray-800">{{ estado.funcionario.numero_identificacion }}</p>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-gray-600">Facultad/Dependencia</p>
+            <p class="text-lg text-gray-800">{{ estado.funcionario.facultad_dependencia }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-md shadow-md p-6 mb-6">
+        <h2 class="text-xl font-semibold text-gray-700 mb-4">Régimen</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Estamento</p>
+            <p class="text-lg text-gray-800">{{ estado.datos_regimen.estamento }}</p>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-gray-600">Tipo de días</p>
+            <p class="text-lg text-gray-800">{{ estado.datos_regimen.tipo_calculo }}</p>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-gray-600">Días por normatividad</p>
+            <p class="text-lg text-gray-800">{{ estado.datos_regimen.dias_normativos }} días</p>
+          </div>
+          {% if estado.datos_regimen.decreto_resolucion != 'N/A' %}
+          <div>
+            <p class="text-sm font-medium text-gray-600">Decreto/Resolución</p>
+            <p class="text-lg text-gray-800">{{ estado.datos_regimen.decreto_resolucion }}</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="mb-6">
+        <h2 class="text-2xl font-bold text-gray-700 mb-4">Resumen vacacional</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div class="stat-card bg-white rounded-md shadow-md p-6 border-l-4 border-blue-500">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Días totales</p>
+                <p class="text-3xl font-bold text-gray-800 mt-2">
+                  {{ estado.resumen_vacacional.dias_totales_asignados }}
+                </p>
+              </div>
+              <div class="bg-blue-100 p-3 rounded-full">
+                <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="stat-card bg-white rounded-md shadow-md p-6 border-l-4 border-green-500">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Días disfrutados</p>
+                <p class="text-3xl font-bold text-gray-800 mt-2">
+                  {{ estado.resumen_vacacional.dias_disfrutados }}
+                </p>
+              </div>
+              <div class="bg-green-100 p-3 rounded-full">
+                <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="stat-card bg-white rounded-md shadow-md p-6 border-l-4 border-yellow-500">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Días pendientes</p>
+                <p class="text-3xl font-bold text-gray-800 mt-2">
+                  {{ estado.resumen_vacacional.dias_pendientes }}
+                </p>
+              </div>
+              <div class="bg-yellow-100 p-3 rounded-full">
+                <svg class="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="stat-card bg-white rounded-md shadow-md p-6 border-l-4 border-purple-500">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Periodos totales</p>
+                <p class="text-3xl font-bold text-gray-800 mt-2">
+                  {{ estado.resumen_vacacional.numero_periodos }}
+                </p>
+              </div>
+              <div class="bg-purple-100 p-3 rounded-full">
+                <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="stat-card bg-white rounded-md shadow-md p-6 border-l-4 border-orange-500">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Periodos activos</p>
+                <p class="text-3xl font-bold text-gray-800 mt-2">
+                  {{ estado.resumen_vacacional.numero_periodos_activos }}
+                </p>
+              </div>
+              <div class="bg-orange-100 p-3 rounded-full">
+                <svg class="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-md shadow-md p-6 mb-6">
+        <h2 class="text-xl font-semibold text-gray-700 mb-4">Periodos vacacionales</h2>
+        {% if estado.listado_periodos %}
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Fecha de inicio
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Fecha de fin
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Días totales
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Días disfrutados
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Días pendientes
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                {% for periodo in estado.listado_periodos %}
+                <tr class="hover:bg-gray-50">
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {{ periodo.fecha_inicio|date:"d/m/Y" }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {{ periodo.fecha_fin|date:"d/m/Y" }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ periodo.dias_totales }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ periodo.dias_disfrutados }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium {% if periodo.dias_pendientes > 0 %}text-yellow-600{% else %}text-gray-500{% endif %}">
+                    {{ periodo.dias_pendientes }}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-gray-500 text-center py-4">No hay periodos vacacionales registrados.</p>
+        {% endif %}
+      </div>
+
+      <div class="bg-white rounded-md shadow-md p-6 mb-6">
+        <h2 class="text-xl font-semibold text-gray-700 mb-4">Historial de solicitudes</h2>
+        {% if estado.historial_solicitudes %}
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Código SABS
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Fecha de solicitud
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Fecha de inicio
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Fecha de fin
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Días solicitados
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Estado
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Periodo
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Motivo rechazo
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                {% for solicitud in estado.historial_solicitudes %}
+                <tr class="hover:bg-gray-50">
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {{ solicitud.codigo_sabs }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ solicitud.fecha_solicitud|date:"d/m/Y" }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ solicitud.fecha_inicio_vacaciones|date:"d/m/Y" }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ solicitud.fecha_fin_vacaciones|date:"d/m/Y" }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ solicitud.total_dias_solicitados }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm">
+                    <span class="badge-estado badge-{{ solicitud.estado_solicitud }}">
+                      {{ solicitud.estado_display }}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {% if solicitud.periodo_vacacional_anio %}
+                      {{ solicitud.periodo_vacacional_anio }}
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                  <td class="px-6 py-4 text-sm text-gray-500">
+                    {% if solicitud.estado_solicitud == 'rechazado' and solicitud.motivo_rechazo %}
+                      <button 
+                        type="button"
+                        class="text-red-600 hover:text-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 rounded p-1 transition-colors"
+                        onclick="mostrarMotivoRechazo('{{ solicitud.codigo_sabs }}', `{{ solicitud.motivo_rechazo|escapejs }}`)"
+                        title="Ver motivo del rechazo">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </button>
+                    {% else %}
+                      <span class="text-gray-400">-</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-gray-500 text-center py-4">No hay solicitudes registradas.</p>
+        {% endif %}
+      </div>
+
+      <div class="bg-white rounded-md shadow-md p-6 mb-6">
+        <h2 class="text-xl font-semibold text-gray-700 mb-4">Historial de reintegros</h2>
+        {% if estado.historial_reintegros %}
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Código SABS
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Fecha de solicitud
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Fecha de reintegro
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Fecha disfrute desde
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Fecha disfrute hasta
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Días disfrutados
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Días pendientes
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Motivo
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Estado
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                {% for reintegro in estado.historial_reintegros %}
+                <tr class="hover:bg-gray-50">
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {{ reintegro.codigo_sabs }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ reintegro.fecha_solicitud|date:"d/m/Y" }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ reintegro.fecha_reintegro|date:"d/m/Y" }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ reintegro.fecha_disfrute_desde|date:"d/m/Y" }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ reintegro.fecha_disfrute_hasta|date:"d/m/Y" }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ reintegro.dias_disfrutados }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium {% if reintegro.dias_pendientes > 0 %}text-yellow-600{% else %}text-gray-500{% endif %}">
+                    {{ reintegro.dias_pendientes }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ reintegro.motivo_display }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm">
+                    <span class="badge-estado badge-{{ reintegro.estado_solicitud }}">
+                      {{ reintegro.estado_display }}
+                    </span>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-gray-500 text-center py-4">No hay reintegros registrados.</p>
+        {% endif %}
+      </div>
+
+    {% endwith %}
+  {% else %}
+    <div class="bg-white rounded-md shadow-md p-6">
+      <p class="text-gray-500 text-center">No se pudo obtener la información del estado de vacaciones.</p>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+function mostrarMotivoRechazo(codigoSabs, motivo) {
+  Swal.fire({
+    title: 'Motivo del rechazo',
+    html: `
+      <div style="text-align: left;">
+        <p style="margin-bottom: 12px;">
+          <span style="font-weight: 600; color: #374151;">Código SABS:</span>
+          <span style="color: #111827; margin-left: 8px;">${codigoSabs}</span>
+        </p>
+        <div style="margin-top: 16px;">
+          <p style="font-weight: 600; color: #374151; margin-bottom: 8px;">Motivo:</p>
+          <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 16px; font-size: 14px; color: #111827; white-space: pre-wrap; text-align: left;">
+            ${motivo}
+          </div>
+        </div>
+      </div>
+    `,
+    icon: 'error',
+    iconColor: '#ef4444',
+    confirmButtonText: 'Cerrar',
+    confirmButtonColor: '#6b7280',
+    width: '600px',
+    customClass: {
+      popup: 'rounded-lg'
+    }
+  });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,56 @@
+.stat-card {
+  transition: transform 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+}
+
+.badge-estado {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-pendiente {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.badge-en_revision {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.badge-aprobado {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.badge-autorizada {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.badge-rechazado {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.badge-devuelta {
+  background-color: #fed7aa;
+  color: #9a3412;
+}
+
+.badge-cancelado {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.badge-completado {
+  background-color: #d1fae5;
+  color: #065f46;
+}

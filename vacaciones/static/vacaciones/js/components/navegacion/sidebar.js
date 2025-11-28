@@ -40,6 +40,24 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
+  const enlaceEstadoVacaciones = document.getElementById('sidebar-link-estado-vacaciones');
+
+  if (enlaceEstadoVacaciones) {
+    const rutaActual = window.location.pathname;
+    const rutaEnlace = enlaceEstadoVacaciones.getAttribute('data-url-path') || '';
+    const rutaActualLimpia = rutaActual.split('?')[0];
+    const rutaEnlaceLimpia = rutaEnlace.split('?')[0];
+    
+    if (rutaActualLimpia === rutaEnlaceLimpia || rutaActual.startsWith(rutaEnlaceLimpia)) {
+      enlaceEstadoVacaciones.classList.add('bg-red-800', 'font-semibold', 'shadow-md');
+      enlaceEstadoVacaciones.classList.remove('hover:bg-red-600');
+      const icono = enlaceEstadoVacaciones.querySelector('svg');
+      const texto = enlaceEstadoVacaciones.querySelector('.sidebar-text');
+      if (icono) icono.classList.add('text-white');
+      if (texto) texto.classList.add('text-white');
+    }
+  }
+
   const enlaceReportes = document.getElementById('sidebar-link-reportes');
 
   if (enlaceReportes) {

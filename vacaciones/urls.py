@@ -1,5 +1,5 @@
 from django.urls import path, include
-from . import views, views_jefe, views_coord, views_rrhh, views_reportes
+from . import views, views_jefe, views_coord, views_rrhh, views_reportes, views_estado
 from .views import *
 
 
@@ -104,6 +104,11 @@ urlpatterns = [
     path("reportes/", views_reportes.ReportesDashboardView.as_view(), name="reportes_dashboard"),
     path("reportes/exportar-solicitudes-csv/", views_reportes.ExportarSolicitudesCSVView.as_view(), name="exportar_solicitudes_csv"),
     path("reportes/exportar-reintegros-csv/", views_reportes.ExportarReintegrosCSVView.as_view(), name="exportar_reintegros_csv"),
+    
+    # -----------------------------------------
+    # ESTADO DE VACACIONES
+    # -----------------------------------------
+    path("estado-vacaciones/", views_estado.EstadoVacacionesView.as_view(), name="estado_vacaciones"),
     
     # -----------------------------------------
     # API REST

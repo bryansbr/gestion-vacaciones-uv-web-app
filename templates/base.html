@@ -88,6 +88,19 @@
               <span class="sidebar-text" id="sidebar-text-dashboard">Inicio</span>
             </a>
           </li>
+          {% if request.user.funcionario %}
+          <li>
+            <a href="{% url 'vacaciones:estado_vacaciones' %}"
+               id="sidebar-link-estado-vacaciones"
+               data-url-path="{% url 'vacaciones:estado_vacaciones' %}"
+               class="sidebar-link block py-2 px-3 rounded hover:bg-red-600 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-7 w-7 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span class="sidebar-text" id="sidebar-text-estado-vacaciones">Estado de vacaciones</span>
+            </a>
+          </li>
+          {% endif %}
           {% if request.user.is_superuser or request.user|es_rrhh or request.user|has_group:"RRHH" %}
           <li>
             <a href="{% url 'vacaciones:periodo-vacacional-list' %}"
