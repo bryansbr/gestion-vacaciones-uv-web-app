@@ -81,6 +81,8 @@
         <ul class="space-y-2 mt-8">
           <li>
             <a href="{% url 'usuarios:dashboard' %}"
+               id="sidebar-link-dashboard"
+               data-url-path="{% url 'usuarios:dashboard' %}"
                class="sidebar-link block py-2 px-3 rounded hover:bg-red-600 flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-7 w-7 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l9-9 9 9M4 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0h6" />
@@ -104,6 +106,8 @@
           {% if request.user.is_superuser or request.user|es_rrhh or request.user|has_group:"RRHH" %}
           <li>
             <a href="{% url 'vacaciones:periodo-vacacional-list' %}"
+               id="sidebar-link-periodos"
+               data-url-path="{% url 'vacaciones:periodo-vacacional-list' %}"
                class="sidebar-link block py-2 px-3 rounded hover:bg-red-600 flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon h-7 w-7 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <rect x="3.5" y="5" width="17" height="15" rx="2" stroke-width="2" />

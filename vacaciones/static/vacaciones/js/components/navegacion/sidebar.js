@@ -75,4 +75,66 @@ document.addEventListener("DOMContentLoaded", function () {
       if (texto) texto.classList.add('text-white');
     }
   }
+
+  function resaltarEnlaceActivo(enlace) {
+    enlace.classList.add('bg-red-800', 'font-semibold', 'shadow-md');
+    enlace.classList.remove('hover:bg-red-600');
+    const iconos = enlace.querySelectorAll('svg');
+    const texto = enlace.querySelector('.sidebar-text');
+    iconos.forEach(icono => icono.classList.add('text-white'));
+    if (texto) texto.classList.add('text-white');
+  }
+
+  function verificarRutaActiva(enlace) {
+    const rutaActual = window.location.pathname;
+    const rutaEnlace = enlace.getAttribute('data-url-path') || enlace.getAttribute('href') || '';
+    if (!rutaEnlace) return false;
+    
+    const rutaActualLimpia = rutaActual.split('?')[0];
+    const rutaEnlaceLimpia = rutaEnlace.split('?')[0];
+    
+    if (rutaActualLimpia === rutaEnlaceLimpia) {
+      return true;
+    }
+    
+    if (rutaEnlaceLimpia && rutaEnlaceLimpia !== '/' && rutaActual.startsWith(rutaEnlaceLimpia)) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  const todosLosEnlaces = document.querySelectorAll('.sidebar-link[data-url-path], .sidebar-link[href], .popover-link[data-url-path], .popover-link[href]');
+  
+  todosLosEnlaces.forEach(enlace => {
+    if (verificarRutaActiva(enlace)) {
+      resaltarEnlaceActivo(enlace);
+      
+      const submenuPadre = enlace.closest('ul');
+      if (submenuPadre && submenuPadre.id) {
+        submenuPadre.classList.remove('hidden');
+        submenuPadre.classList.add('block');
+        
+        const botonToggle = document.getElementById(submenuPadre.id + '-toggle');
+        if (botonToggle) {
+          const flecha = document.getElementById(submenuPadre.id + '-arrow');
+          if (flecha) {
+            flecha.classList.add('rotate-180');
+          }
+        }
+      }
+      
+      const popoverPadre = enlace.closest('.sidebar-popover');
+      if (popoverPadre) {
+        popoverPadre.classList.remove('hidden');
+        const botonPadre = document.querySelector(`[data-dropdown-toggle="${popoverPadre.id}"]`);
+        if (botonPadre) {
+          const flecha = botonPadre.querySelector('.sidebar-dropdown-arrow');
+          if (flecha) {
+            flecha.classList.add('rotate-180');
+          }
+        }
+      }
+    }
+  });
 });
