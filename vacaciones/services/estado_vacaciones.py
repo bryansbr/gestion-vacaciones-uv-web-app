@@ -3,7 +3,7 @@ Servicio para calcular y obtener el estado de vacaciones de un funcionario.
 Proporciona información consolidada sobre días asignados, disfrutados y pendientes.
 """
 from typing import Dict, List, Optional, Tuple
-from datetime import timedelta
+from datetime import date, timedelta
 from django.db.models import Sum, Q
 from django.utils import timezone
 import holidays
@@ -11,7 +11,7 @@ import holidays
 from vacaciones.models import PeriodoVacacional, SolicitudVacaciones, ReintegroVacaciones
 from usuarios.models import Funcionario
 
-def obtener_tipo_calculo_dias(funcionario: Funcionario) -> str:
+def obtener_tipo_calculo_dias(funcionario: Funcionario):
     """
     Determina el tipo de cálculo de días según el estamento y decreto del funcionario.
     
@@ -33,7 +33,7 @@ def obtener_tipo_calculo_dias(funcionario: Funcionario) -> str:
     
     return 'No definido'
 
-def obtener_dias_normativos(funcionario: Funcionario) -> int:
+def obtener_dias_normativos(funcionario: Funcionario):
     """
     Obtiene los días normativos asignados según el estamento del funcionario.
     
@@ -55,7 +55,7 @@ def obtener_dias_normativos(funcionario: Funcionario) -> int:
     
     return 0
 
-def _calcular_dias_habiles_calendario_solicitud(solicitud: SolicitudVacaciones) -> Tuple[int, int]:
+def _calcular_dias_habiles_calendario_solicitud(solicitud: SolicitudVacaciones):
     """
     Calcula los días hábiles y calendario de una solicitud según el estamento.
     """
@@ -108,7 +108,7 @@ def _calcular_dias_habiles_calendario_solicitud(solicitud: SolicitudVacaciones) 
         return 0, dias_calendario
 
 
-def _obtener_tipo_dias_periodo(periodo: PeriodoVacacional) -> Tuple[int, int]:
+def _obtener_tipo_dias_periodo(periodo: PeriodoVacacional):
     """
     Obtiene los días hábiles y calendario totales de un periodo según el estamento.
     """
@@ -127,7 +127,7 @@ def _obtener_tipo_dias_periodo(periodo: PeriodoVacacional) -> Tuple[int, int]:
         return 0, 0
 
 
-def calcular_resumen_vacacional(funcionario: Funcionario) -> Dict:
+def calcular_resumen_vacacional(funcionario: Funcionario):
     """
     Calcula el resumen vacacional del funcionario basándose en las solicitudes
     aprobadas/autorizadas y reintegros, no en los campos del modelo que pueden
@@ -196,7 +196,7 @@ def calcular_resumen_vacacional(funcionario: Funcionario) -> Dict:
         'numero_periodos_activos': periodos_activos,
     }
 
-def obtener_listado_periodos(funcionario: Funcionario) -> List[Dict]:
+def obtener_listado_periodos(funcionario: Funcionario):
     """
     Obtiene el listado de periodos vacacionales con sus detalles calculados
     desde las solicitudes aprobadas/autorizadas.
@@ -249,7 +249,7 @@ def obtener_listado_periodos(funcionario: Funcionario) -> List[Dict]:
     
     return listado
 
-def obtener_historial_solicitudes(funcionario: Funcionario) -> List[Dict]:
+def obtener_historial_solicitudes(funcionario: Funcionario):
     """
     Obtiene el historial de solicitudes de vacaciones del funcionario.
     
@@ -299,7 +299,7 @@ def obtener_historial_solicitudes(funcionario: Funcionario) -> List[Dict]:
     
     return historial
 
-def obtener_historial_reintegros(funcionario: Funcionario) -> List[Dict]:
+def obtener_historial_reintegros(funcionario: Funcionario):
     """
     Obtiene el historial de reintegros de vacaciones del funcionario.
     
@@ -335,7 +335,108 @@ def obtener_historial_reintegros(funcionario: Funcionario) -> List[Dict]:
     
     return historial
 
-def obtener_estado_completo_vacaciones(funcionario: Funcionario) -> Dict:
+def obtener_ultimo_periodo_disfrutado(funcionario: Funcionario):
+    """
+    Obtiene el último periodo vacacional disfrutado por el funcionario.
+    Un periodo se considera disfrutado si tiene solicitudes autorizadas que ya finalizaron.
+    
+    Si no hay periodos disfrutados pero hay periodos creados, calcula el último periodo
+    disfrutado restando un año a las fechas del periodo más antiguo.
+    
+    Returns:
+        Dict con información del último periodo disfrutado o None
+    """
+    hoy = timezone.now().date()
+    
+    solicitudes_disfrutadas = SolicitudVacaciones.objects.filter(
+        funcionario=funcionario,
+        estado_solicitud='autorizada',
+        fecha_fin_vacaciones__lt=hoy
+    ).select_related('periodo_vacacional').order_by('-fecha_fin_vacaciones')
+    
+    if solicitudes_disfrutadas.exists():
+        ultima_solicitud = solicitudes_disfrutadas.first()
+        
+        return {
+            'fecha_inicio': ultima_solicitud.fecha_inicio_vacaciones,
+            'fecha_fin': ultima_solicitud.fecha_fin_vacaciones,
+            'periodo_anio': ultima_solicitud.periodo_vacacional.fecha_inicio_periodo.year if ultima_solicitud.periodo_vacacional else None,
+        }
+    
+    periodos = PeriodoVacacional.objects.filter(
+        funcionario=funcionario
+    ).order_by('fecha_inicio_periodo')
+    
+    if periodos.exists():
+        periodo_mas_antiguo = periodos.first()
+
+        fecha_inicio_anterior = date(
+            periodo_mas_antiguo.fecha_inicio_periodo.year - 1,
+            periodo_mas_antiguo.fecha_inicio_periodo.month,
+            periodo_mas_antiguo.fecha_inicio_periodo.day
+        )
+        
+        fecha_fin_anterior = date(
+            periodo_mas_antiguo.fecha_fin_periodo.year - 1,
+            periodo_mas_antiguo.fecha_fin_periodo.month,
+            periodo_mas_antiguo.fecha_fin_periodo.day
+        )
+        
+        return {
+            'fecha_inicio': fecha_inicio_anterior,
+            'fecha_fin': fecha_fin_anterior,
+            'periodo_anio': fecha_inicio_anterior.year,
+        }
+    
+    return None
+
+def verificar_periodos_acumulados(funcionario: Funcionario):
+    """
+    Verifica si el funcionario tiene 2 periodos acumulados y calcula cuándo
+    empezaría el tercer periodo, momento en el que perdería el derecho al más antiguo.
+    
+    Returns:
+        Dict con información de la advertencia o None si no hay 2 periodos acumulados
+    """
+    periodos = PeriodoVacacional.objects.filter(
+        funcionario=funcionario
+    ).order_by('fecha_inicio_periodo')
+    
+    if periodos.count() != 2:
+        return None
+    
+    periodo1 = periodos[0]
+    periodo2 = periodos[1]
+    
+    fecha_inicio_periodo3 = date(
+        periodo2.fecha_inicio_periodo.year + 1,
+        periodo2.fecha_inicio_periodo.month,
+        periodo2.fecha_inicio_periodo.day
+    )
+    
+    fecha_fin_periodo3 = date(
+        periodo2.fecha_fin_periodo.year + 1,
+        periodo2.fecha_fin_periodo.month,
+        periodo2.fecha_fin_periodo.day
+    )
+    
+    fecha_limite_perdida = periodo2.fecha_fin_periodo
+    
+    return {
+        'periodo1': {
+            'fecha_inicio': periodo1.fecha_inicio_periodo,
+            'fecha_fin': periodo1.fecha_fin_periodo,
+        },
+        'periodo2': {
+            'fecha_inicio': periodo2.fecha_inicio_periodo,
+            'fecha_fin': periodo2.fecha_fin_periodo,
+        },
+        'periodo3_fecha_inicio': fecha_inicio_periodo3,
+        'periodo3_fecha_fin': fecha_fin_periodo3,
+        'fecha_limite_perdida': fecha_limite_perdida,  # Fecha límite para solicitar vacaciones del periodo más antiguo
+    }
+
+def obtener_estado_completo_vacaciones(funcionario: Funcionario):
     """
     Obtiene el estado completo de vacaciones del funcionario.
     Consolida toda la información necesaria para el módulo de estado.
@@ -350,6 +451,7 @@ def obtener_estado_completo_vacaciones(funcionario: Funcionario) -> Dict:
     listado_periodos = obtener_listado_periodos(funcionario)
     historial_solicitudes = obtener_historial_solicitudes(funcionario)
     historial_reintegros = obtener_historial_reintegros(funcionario)
+    ultimo_periodo_disfrutado = obtener_ultimo_periodo_disfrutado(funcionario)
     
     datos_regimen = {
         'estamento': funcionario.estamento.nombre if funcionario.estamento else 'No definido',
@@ -358,16 +460,28 @@ def obtener_estado_completo_vacaciones(funcionario: Funcionario) -> Dict:
         'decreto_resolucion': funcionario.decreto_resolucion or 'N/A',
     }
     
+    jefe_inmediato = None
+
+    if funcionario.jefe_inmediato:
+        jefe_inmediato = {
+            'nombre_completo': f"{funcionario.jefe_inmediato.nombre} {funcionario.jefe_inmediato.apellido}",
+        }
+    
+    advertencia_periodos_acumulados = verificar_periodos_acumulados(funcionario)
+    
     return {
         'funcionario': {
             'id': funcionario.id,
             'nombre_completo': f"{funcionario.nombre} {funcionario.apellido}",
             'numero_identificacion': funcionario.numero_identificacion,
             'facultad_dependencia': funcionario.facultad_dependencia.nombre if funcionario.facultad_dependencia else 'No asignada',
+            'jefe_inmediato': jefe_inmediato,
         },
         'resumen_vacacional': resumen,
         'listado_periodos': listado_periodos,
         'historial_solicitudes': historial_solicitudes,
         'historial_reintegros': historial_reintegros,
         'datos_regimen': datos_regimen,
+        'ultimo_periodo_disfrutado': ultimo_periodo_disfrutado,
+        'advertencia_periodos_acumulados': advertencia_periodos_acumulados,
     }

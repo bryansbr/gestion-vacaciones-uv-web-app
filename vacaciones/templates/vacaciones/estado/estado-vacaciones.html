@@ -32,8 +32,56 @@
             <p class="text-sm font-medium text-gray-600">Facultad/Dependencia</p>
             <p class="text-lg text-gray-800">{{ estado.funcionario.facultad_dependencia }}</p>
           </div>
+          {% if estado.funcionario.jefe_inmediato %}
+          <div>
+            <p class="text-sm font-medium text-gray-600">Jefe inmediato</p>
+            <p class="text-lg text-gray-800">{{ estado.funcionario.jefe_inmediato.nombre_completo }}</p>
+          </div>
+          {% endif %}
+          {% if estado.ultimo_periodo_disfrutado %}
+          <div>
+            <p class="text-sm font-medium text-gray-600">Último periodo disfrutado</p>
+            <p class="text-lg text-gray-800">
+              {{ estado.ultimo_periodo_disfrutado.fecha_inicio|date:"d/m/Y" }} - {{ estado.ultimo_periodo_disfrutado.fecha_fin|date:"d/m/Y" }}
+            </p>
+          </div>
+          {% else %}
+          <div>
+            <p class="text-sm font-medium text-gray-600">Último periodo disfrutado</p>
+            <p class="text-lg text-gray-500">No hay periodos disfrutados registrados</p>
+          </div>
+          {% endif %}
         </div>
       </div>
+
+      {% if estado.advertencia_periodos_acumulados %}
+      <div class="bg-yellow-50 border-l-4 border-yellow-400 rounded-md shadow-md p-6 mb-6">
+        <div class="flex items-start">
+          <div class="flex-shrink-0">
+            <svg class="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <div class="ml-3 flex-1">
+            <h3 class="text-lg font-semibold text-yellow-800 mb-2">¡Atención!</h3>
+            <p class="text-sm text-yellow-700 mb-3">
+              Tienes dos (2) periodos vacacionales acumulados. Si no solicitas vacaciones antes del 
+              <strong>{{ estado.advertencia_periodos_acumulados.fecha_limite_perdida|date:"d/m/Y" }}</strong>, 
+              perderás el derecho al periodo más antiguo.
+            </p>
+            <div class="mt-4 space-y-2">
+              <div class="text-sm text-yellow-800">
+                <p class="font-semibold mb-1">Periodo más antiguo:</p>
+                <p class="ml-4">
+                  {{ estado.advertencia_periodos_acumulados.periodo1.fecha_inicio|date:"d/m/Y" }} - 
+                  {{ estado.advertencia_periodos_acumulados.periodo1.fecha_fin|date:"d/m/Y" }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
 
       <div class="bg-white rounded-md shadow-md p-6 mb-6">
         <h2 class="text-xl font-semibold text-gray-700 mb-4">Régimen</h2>
