@@ -3,6 +3,8 @@ from datetime import date, datetime
 from django import forms
 from django.db.models import Q
 
+from collections import OrderedDict
+from core.models import FacultadDependencia
 from core.permissions import es_secretaria, es_jefe_inmediato
 from usuarios.models import Funcionario
 
@@ -10,6 +12,17 @@ from .models import PeriodoVacacional, ReintegroVacaciones, SolicitudVacaciones
 from .utils import get_current_date_colombia
 
 class PeriodoVacacionalForm(forms.ModelForm):
+    facultad_dependencia_filtro = forms.ModelChoiceField(
+        queryset=FacultadDependencia.objects.all().order_by('nombre'),
+        required=False,
+        label='Filtrar por Facultad/Dependencia',
+        widget=forms.Select(attrs={
+            'class': 'form-select',
+            'id': 'id_facultad_dependencia_filtro'
+        }),
+        help_text='Seleccione una facultad/dependencia para filtrar los funcionarios'
+    )
+
     class Meta:
         model = PeriodoVacacional
         fields = [
@@ -22,13 +35,37 @@ class PeriodoVacacionalForm(forms.ModelForm):
             'fecha_inicio_periodo': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
             'fecha_fin_periodo': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
             'dias_disfrutados_periodo': forms.NumberInput(attrs={'class': 'form-input'}),
-            'funcionario': forms.Select(attrs={'class': 'form-select'}),
+            'funcionario': forms.Select(attrs={'class': 'form-select', 'id': 'id_funcionario'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        field_order = ['facultad_dependencia_filtro', 'funcionario', 'fecha_inicio_periodo', 
+                       'fecha_fin_periodo', 'dias_disfrutados_periodo']
+        try:
+            self.order_fields(field_order)
+        except AttributeError:
+            
+            new_fields = OrderedDict()
+            for field_name in field_order:
+                if field_name in self.fields:
+                    new_fields[field_name] = self.fields[field_name]
+            for field_name, field in self.fields.items():
+                if field_name not in new_fields:
+                    new_fields[field_name] = field
+            self.fields = new_fields
+
+        self.fields['funcionario'].queryset = Funcionario.objects.all().select_related(
+            'facultad_dependencia'
+        ).order_by('nombre', 'apellido')
+
+        self.fields['facultad_dependencia_filtro'].widget.attrs['name'] = ''
 
     def clean(self):
         cleaned_data = super().clean()
+        cleaned_data.pop('facultad_dependencia_filtro', None)
         return cleaned_data
-
 
 class SolicitudVacacionesForm(forms.ModelForm):
     numero_identificacion = forms.CharField(required=False, disabled=True)
@@ -257,7 +294,6 @@ class SolicitudVacacionesForm(forms.ModelForm):
             hoy = get_current_date_colombia()
 
             if estamento_nombre == 'docente':
-                # Docentes: pago mensual el día 30
                 if hoy.day <= 10:
                     if hoy.month == 12:
                         fecha_pago = date(hoy.year, 12, 30)
@@ -269,7 +305,6 @@ class SolicitudVacacionesForm(forms.ModelForm):
                     else:
                         fecha_pago = date(hoy.year, hoy.month + 1, 30)
             else:
-                # Administrativos y trabajadores oficiales: pago quincenal (15 y 30)
                 if hoy.day <= 3:
                     fecha_pago = date(hoy.year, hoy.month, 15)
                 elif hoy.day <= 18:
@@ -312,7 +347,6 @@ class SolicitudVacacionesForm(forms.ModelForm):
                 self.fields['fecha_fin_vacaciones'].initial = self.instance.fecha_fin_vacaciones.strftime('%d/%m/%Y')
             if hasattr(self.instance, 'es_por_reintegro_anticipado'):
                 self.initial['es_por_reintegro_anticipado'] = self.instance.es_por_reintegro_anticipado
-
 
     def clean_tiene_dias_pendientes(self):
         """
@@ -375,7 +409,6 @@ class SolicitudVacacionesForm(forms.ModelForm):
             instance.save()
             self.save_m2m()
         return instance
-
 
 class ReintegroVacacionesForm(forms.ModelForm):
     numero_identificacion = forms.CharField(required=False, disabled=True)
@@ -491,7 +524,7 @@ class ReintegroVacacionesForm(forms.ModelForm):
                     required=True,
                     empty_label="Seleccione un funcionario"
                 )
-                funcionario = None  # No establecer funcionario todavía
+                funcionario = None
 
         if funcionario is not None:
             estamento_nombre = getattr(funcionario.estamento, 'nombre', '') or ''

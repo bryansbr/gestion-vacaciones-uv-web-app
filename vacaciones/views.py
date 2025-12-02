@@ -234,6 +234,19 @@ class PeriodoVacacionalCreateView(LoginRequiredMixin, CreateView):
     template_name = PERIODO_VACACIONAL_FORM_TEMPLATE
     success_url = reverse_lazy("vacaciones:periodo-vacacional-list")
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        funcionarios = Funcionario.objects.select_related('facultad_dependencia').order_by('nombre', 'apellido')
+        funcionarios_data = []
+        for func in funcionarios:
+            funcionarios_data.append({
+                'id': func.id,
+                'nombre_completo': f"{func.nombre} {func.apellido}",
+                'facultad_dependencia_id': func.facultad_dependencia.id
+            })
+        context['funcionarios_data'] = json.dumps(funcionarios_data)
+        return context
+
     def form_valid(self, form):
         messages.success(self.request, "Periodo vacacional creado correctamente.")
         return super().form_valid(form)
@@ -244,6 +257,21 @@ class PeriodoVacacionalUpdateView(LoginRequiredMixin, UpdateView):
     form_class = PeriodoVacacionalForm
     template_name = PERIODO_VACACIONAL_FORM_TEMPLATE
     success_url = reverse_lazy("vacaciones:periodo-vacacional-list")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        funcionarios = Funcionario.objects.select_related('facultad_dependencia').order_by('nombre', 'apellido')
+        funcionarios_data = []
+        for func in funcionarios:
+            funcionarios_data.append({
+                'id': func.id,
+                'nombre_completo': f"{func.nombre} {func.apellido}",
+                'facultad_dependencia_id': func.facultad_dependencia.id
+            })
+        context['funcionarios_data'] = json.dumps(funcionarios_data)
+        if self.object and self.object.funcionario:
+            context['facultad_seleccionada'] = self.object.funcionario.facultad_dependencia.id
+        return context
 
     def _periodo_tiene_dias_disfrutados_o_pendientes(self, periodo):
         solicitudes_aprobadas = SolicitudVacaciones.objects.filter(

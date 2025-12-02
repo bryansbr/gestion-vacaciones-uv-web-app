@@ -16,8 +16,13 @@
   </div>
 
   <div class="bg-white shadow rounded-lg p-8">
-    <form method="POST" class="space-y-6">
+    <form method="POST" class="space-y-6" id="periodo-vacacional-form">
       {% csrf_token %}
+
+      <div id="datos-funcionarios-periodo" 
+           data-funcionarios="{{ funcionarios_data|safe }}"
+           {% if object and object.funcionario %}data-facultad-inicial="{{ object.funcionario.facultad_dependencia.id }}"{% endif %}
+           style="display: none;"></div>
 
       {% for field in form %}
       <div>
@@ -26,7 +31,7 @@
         </label>
         {{ field }}
         {% if field.help_text %}
-        <p class="text-xs text-gray-500">{{ field.help_text }}</p>
+        <p class="text-xs text-gray-500 mt-1">{{ field.help_text }}</p>
         {% endif %}
         {% if field.errors %}
         <p class="text-sm text-red-500">{{ field.errors|striptags }}</p>
@@ -47,6 +52,7 @@
 
 {% block extra_scripts %}
 {{ block.super }}
+<script src="{% static 'vacaciones/js/components/vacaciones/filtro-funcionarios-periodo.js' %}"></script>
 {% if object %}
 <script src="{% static 'vacaciones/js/components/vacaciones/confirmar-edicion-periodo.js' %}"></script>
 {% endif %}
