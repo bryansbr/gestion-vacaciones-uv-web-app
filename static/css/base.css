@@ -117,3 +117,29 @@
   background-color: rgba(248, 250, 252, 0.15);
   text-decoration: none;
 }
+
+#submenu-solicitudes .relative.pl-6,
+#submenu-reintegros .relative.pl-6 {
+  padding-left: 1.5rem !important;
+}
+
+.sidebar-link-with-popover {
+  padding-left: 0.75rem !important;
+  padding-right: 0.75rem !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+#submenu-solicitudes .sidebar-link-with-popover .sidebar-icon:first-of-type,
+#submenu-reintegros .sidebar-link-with-popover .sidebar-icon:first-of-type {
+  margin-right: 0.5rem !important;
+  margin-left: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+#submenu-solicitudes .sidebar-link-with-popover .sidebar-text,
+#submenu-reintegros .sidebar-link-with-popover .sidebar-text {
+  margin-left: 0.5rem !important;
+  padding-left: 0 !important;
+  flex: 1;
+}

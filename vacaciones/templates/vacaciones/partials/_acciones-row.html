@@ -46,7 +46,7 @@
         {% if not request.user|es_secretaria and (request.user.is_superuser or request.user|has_group:"RRHH") %}
           <form method="post" action="{% url 'vacaciones:solicitud_aprobar' solicitud.id %}">
             {% csrf_token %}
-            <button class="px-2 py-1 text-white bg-green-600 rounded hover:bg-green-700">Autorizar</button>
+            <button class="px-2 py-1 text-green bg-green-600 rounded hover:bg-green-700">Autorizar</button>
           </form>
           <form method="post" action="{% url 'vacaciones:solicitud_devolver' solicitud.id %}">
             {% csrf_token %}
@@ -54,7 +54,7 @@
           </form>
           <form method="post" action="{% url 'vacaciones:solicitud_rechazar' solicitud.id %}">
             {% csrf_token %}
-            <button class="px-2 py-1 text-white bg-red-600 rounded hover:bg-red-700">Rechazar</button>
+            <button class="px-2 py-1 text-red bg-red-600 rounded hover:bg-red-700">Rechazar</button>
           </form>
         {% endif %}
       {% endif %}

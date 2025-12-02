@@ -4,8 +4,8 @@ document.addEventListener('DOMContentLoaded', function () {
     if (params.get('creado') === '1') {
       const codigo = (params.get('codigo') || '').trim();
       const titulo = codigo
-        ? `¡El reintegro <strong>${codigo}</strong> fue creado exitosamente!`
-        : '¡El reintegro fue creado exitosamente!';
+        ? `¡La solicitud de reintegro <strong>${codigo}</strong> fue creada exitosamente!`
+        : '¡La solicitud de reintegro fue creada exitosamente!';
       Swal.fire({
         position: 'top-end',
         icon: 'success',

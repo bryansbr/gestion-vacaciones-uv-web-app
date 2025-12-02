@@ -14,8 +14,8 @@
     const modo = form.dataset.mode === 'edit' ? 'edit' : 'create';
     const mensajes = {
       create: {
-        titulo: 'Confirmar creación',
-        texto: '¿Deseas crear la solicitud de reintegro de vacaciones?'
+        titulo: '¿Está seguro de crear la solicitud de reintegro de vacaciones?',
+        texto: 'Podría editarla más adelante antes de enviarla a su Jefe Inmediato.'
       },
       edit: {
         titulo: '¿Está seguro de guardar los cambios?',
@@ -242,7 +242,7 @@
           icon: 'question',
           showCancelButton: true,
           confirmButtonColor: '#3085d6',
-          cancelButtonColor: '#d33',
+          cancelButtonColor: '#6b7280',
           confirmButtonText: 'Sí, continuar',
           cancelButtonText: 'Cancelar'
         }).then((result) => {
@@ -262,7 +262,7 @@
           icon: 'warning',
           showCancelButton: true,
           confirmButtonColor: '#3085d6',
-          cancelButtonColor: '#d33',
+          cancelButtonColor: '#6b7280',
           confirmButtonText: 'Sí, cancelar',
           cancelButtonText: 'Volver'
         }).then((result) => {
