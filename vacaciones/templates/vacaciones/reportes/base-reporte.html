@@ -1,0 +1,51 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Reporte Estadístico{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'vacaciones/css/reportes/exportar-reporte-solicitudes.css' %}">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+  {% block buttons %}
+  <div class="no-print button-container">
+    <button onclick="window.print()" class="btn-action btn-pdf">
+      Guardar como PDF
+    </button>
+    {% block csv_button %}{% endblock %}
+  </div>
+  {% endblock %}
+
+  {% block header %}
+  <div class="header">
+    <h1>{% block report_title %}Reporte{% endblock %}</h1>
+    {% block report_subtitle %}{% endblock %}
+    <p><strong>Fecha de generación:</strong> {{ fecha_generacion|date:"d/m/Y" }}</p>
+    <p><strong>Generado por:</strong> {{ nombre_funcionario }}</p>
+    {% if rol_usuario %}
+    <p><strong>Rol:</strong> {{ rol_usuario }}</p>
+    {% endif %}
+    {% if facultad_nombre %}
+    <p><strong>Facultad/Dependencia:</strong> {{ facultad_nombre }}</p>
+    {% endif %}
+    <p><strong>Período:</strong> {{ fecha_inicio|date:"d/m/Y" }} - {{ fecha_fin|date:"d/m/Y" }}</p>
+  </div>
+  {% endblock %}
+
+  {% block content %}{% endblock %}
+
+  {% block datos_container %}{% endblock %}
+
+  {% block footer %}
+  <div class="footer">
+    <p>Reporte generado automáticamente — Sistema de Gestión de Vacaciones de la Universidad del Valle (SGV-UV)</p>
+    <p>Copyright © {{ fecha_generacion|date:"Y" }} Universidad del Valle. Todos los derechos reservados.</p>
+  </div>
+  {% endblock %}
+
+  {% include 'vacaciones/reportes/partials/_chartjs.html' %}
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

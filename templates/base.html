@@ -18,7 +18,7 @@
   {% block extra_head %}{% endblock %}
 </head>
 
-<body class="bg-gray-100 text-gray-900 min-h-screen flex flex-col">
+<body class="bg-gray-100 text-gray-900 min-h-screen flex flex-col h-screen">
 
   <!-- Navbar superior -->
   {% if request.user.is_authenticated %}
@@ -68,9 +68,9 @@
   </header>
   {% endif %}
 
-  <div class="flex flex-1 overflow-hidden">
+  <div class="flex flex-1 overflow-hidden min-h-0">
     {% if request.user.is_authenticated %}
-    <aside id="sidebar" class="bg-red-700 text-white w-64 transition-all duration-300 ease-in-out space-y-6 px-4 py-6 lg:block hidden">
+    <aside id="sidebar" class="bg-red-700 text-white w-64 transition-all duration-300 ease-in-out space-y-6 px-4 py-6 lg:block hidden flex flex-col">
       <button data-action="close-sidebar" class="md:hidden text-gray-600 focus:outline-none">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-7 h-7">
           <path stroke-linecap="round" stroke-linejoin="round"
@@ -324,12 +324,18 @@
     </aside>
     {% endif %}
 
-    {% if request.user.is_authenticated %}
-    <main class="flex-1 overflow-y-auto p-6">
-    {% else %}
-    <main class="flex-1 overflow-y-auto p-0">
-    {% endif %}
-      {% block content %}{% endblock %}
+    <main class="flex-1 overflow-y-auto flex flex-col min-h-0">
+      <div class="flex-1 {% if request.user.is_authenticated %}p-6{% else %}p-0{% endif %}">
+        {% block content %}{% endblock %}
+      </div>
+      <footer class="{% if request.user.is_authenticated %}px-6{% else %}px-0{% endif %} py-2 mt-auto">
+        <p class="text-sm text-gray-600">
+          Sistema de Gestión de Vacaciones de la Universidad del Valle (SGV-UV)
+        </p>
+        <p class="text-sm text-gray-600">
+          Copyright © {% now "Y" %} Universidad del Valle. Todos los derechos reservados.   
+        </p>
+      </footer>
     </main>
   </div>
 

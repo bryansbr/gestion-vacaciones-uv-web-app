@@ -1,0 +1,227 @@
+{% extends 'vacaciones/reportes/base-reporte.html' %}
+{% load static %}
+
+{% block title %}Reporte Estadístico - Reintegros de Vacaciones{% endblock %}
+
+{% block csv_button %}
+<a href="{% url 'vacaciones:exportar_estadisticas_reintegros_csv' %}?fecha_inicio={{ fecha_inicio_str }}&fecha_fin={{ fecha_fin_str }}{% if facultad_id %}&facultad={{ facultad_id }}{% endif %}" class="btn-action btn-csv">
+  Descargar estadísticas (CSV)
+</a>
+{% endblock %}
+
+{% block report_title %}Reporte - Reintegros de vacaciones (SGV-UV){% endblock %}
+
+{% block report_subtitle %}
+<br>
+<h2>Universidad del Valle</h2>
+<br>
+{% endblock %}
+
+{% block content %}
+<div class="info-section">
+  <h2>Estadísticas generales</h2>
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="label">Aprobados</div>
+      <div class="value">{{ estadisticas.reintegros_aprobados }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Autorizados</div>
+      <div class="value">{{ estadisticas.reintegros_autorizados }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Pendientes</div>
+      <div class="value">{{ estadisticas.reintegros_pendientes }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Rechazados</div>
+      <div class="value">{{ estadisticas.reintegros_rechazados }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Devueltos</div>
+      <div class="value">{{ estadisticas.reintegros_devueltos }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Total</div>
+      <div class="value">{{ estadisticas.reintegros_totales }}</div>
+    </div>
+  </div>
+</div>
+
+{% if estadisticas.reintegros_totales > 0 %}
+<div class="info-section">
+  <h2>Gráficos</h2>
+  
+  <div class="chart-container">
+    <div class="chart-wrapper">
+      <div class="chart-title">Distribución de estados (circular)</div>
+      <div style="height: 400px;">
+        <canvas id="grafico-estados-circular-reintegros" class="chart-canvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-container">
+    <div class="chart-wrapper">
+      <div class="chart-title">Distribución de estados (dona)</div>
+      <div style="height: 400px;">
+        <canvas id="grafico-estados-dona-reintegros" class="chart-canvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-container">
+    <div class="chart-wrapper">
+      <div class="chart-title">Reintegros por estado (barras)</div>
+      <div style="height: 400px;">
+        <canvas id="grafico-estados-barras-reintegros" class="chart-canvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  {% if reintegros_por_anio|length > 0 %}
+  <div class="chart-container">
+    <div class="chart-wrapper">
+      <div class="chart-title">Reintegros por año</div>
+      <div style="height: 400px;">
+        <canvas id="grafico-anios-reintegros" class="chart-canvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-container">
+    <div class="chart-wrapper">
+      <div class="chart-title">Comparativa de estados por año</div>
+      <div style="height: 500px;">
+        <canvas id="grafico-anios-estados-reintegros" class="chart-canvas"></canvas>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if reintegros_por_facultad|length > 0 %}
+  <div class="chart-container">
+    <div class="chart-wrapper">
+      <div class="chart-title">Reintegros por facultad/dependencia</div>
+      <div style="height: 500px;">
+        <canvas id="grafico-facultades-reintegros" class="chart-canvas"></canvas>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if reintegros_anticipados.total_reintegros_anticipados > 0 %}
+  <div class="chart-container">
+    <div class="chart-wrapper">
+      <div class="chart-title">Reintegros anticipados</div>
+      <div style="height: 400px;">
+        <canvas id="grafico-reintegros-anticipados" class="chart-canvas"></canvas>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if reintegros_por_facultad %}
+<div class="info-section">
+  <h2>Reintegros por facultad/dependencia</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Facultad/Dependencia</th>
+        <th>Total</th>
+        <th>Aprobados</th>
+        <th>Autorizados</th>
+        <th>Pendientes</th>
+        <th>Rechazados</th>
+        <th>Devueltos</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in reintegros_por_facultad %}
+      <tr>
+        <td>{{ item.facultad }}</td>
+        <td>{{ item.total }}</td>
+        <td>{{ item.por_estado.aprobado|default:0 }}</td>
+        <td>{{ item.por_estado.autorizada|default:0 }}</td>
+        <td>{{ item.por_estado.pendiente|default:0 }}</td>
+        <td>{{ item.por_estado.rechazado|default:0 }}</td>
+        <td>{{ item.por_estado.devuelta|default:0 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if reintegros_por_anio %}
+<div class="info-section">
+  <h2>Reintegros por año</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Año</th>
+        <th>Total</th>
+        <th>Aprobados</th>
+        <th>Autorizados</th>
+        <th>Pendientes</th>
+        <th>Rechazados</th>
+        <th>Devueltos</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in reintegros_por_anio %}
+      <tr>
+        <td>{{ item.anio }}</td>
+        <td>{{ item.total }}</td>
+        <td>{{ item.por_estado.aprobado|default:0 }}</td>
+        <td>{{ item.por_estado.autorizada|default:0 }}</td>
+        <td>{{ item.por_estado.pendiente|default:0 }}</td>
+        <td>{{ item.por_estado.rechazado|default:0 }}</td>
+        <td>{{ item.por_estado.devuelta|default:0 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if reintegros_anticipados.total_reintegros_anticipados > 0 %}
+<div class="info-section">
+  <h2>Reintegros anticipados</h2>
+  <p><strong>Total:</strong> {{ reintegros_anticipados.total_reintegros_anticipados }}</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Estado</th>
+        <th>Cantidad</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for estado, cantidad in reintegros_anticipados.por_estado.items %}
+        {% if cantidad > 0 %}
+        <tr>
+          <td>{{ estado|capfirst }}</td>
+          <td>{{ cantidad }}</td>
+        </tr>
+        {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block datos_container %}
+<div id="datos-reporte-reintegros" 
+     data-estados='{{ datos_estados_json|safe }}'
+     data-anios='{{ reintegros_por_anio_json|safe }}'
+     data-facultades='{{ reintegros_por_facultad_json|safe }}'
+     data-reintegros-anticipados='{{ reintegros_anticipados_json|safe }}'
+     style="display: none;"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'vacaciones/js/reportes/exportar-reporte-reintegros.js' %}"></script>
+{% endblock %}

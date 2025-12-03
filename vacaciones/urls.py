@@ -104,6 +104,10 @@ urlpatterns = [
     path("reportes/", views_reportes.ReportesDashboardView.as_view(), name="reportes_dashboard"),
     path("reportes/exportar-solicitudes-csv/", views_reportes.ExportarSolicitudesCSVView.as_view(), name="exportar_solicitudes_csv"),
     path("reportes/exportar-reintegros-csv/", views_reportes.ExportarReintegrosCSVView.as_view(), name="exportar_reintegros_csv"),
+    path("reportes/exportar-reporte-solicitudes/", views_reportes.ExportarReporteSolicitudesView.as_view(), name="exportar_reporte_solicitudes"),
+    path("reportes/exportar-reporte-reintegros/", views_reportes.ExportarReporteReintegrosView.as_view(), name="exportar_reporte_reintegros"),
+    path("reportes/exportar-estadisticas-solicitudes-csv/", views_reportes.ExportarEstadisticasSolicitudesCSVView.as_view(), name="exportar_estadisticas_solicitudes_csv"),
+    path("reportes/exportar-estadisticas-reintegros-csv/", views_reportes.ExportarEstadisticasReintegrosCSVView.as_view(), name="exportar_estadisticas_reintegros_csv"),
     
     # -----------------------------------------
     # ESTADO DE VACACIONES

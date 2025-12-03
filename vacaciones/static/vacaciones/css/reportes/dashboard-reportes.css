@@ -1,0 +1,23 @@
+.stat-card {
+  transition: transform 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+}
+
+.tab-button {
+  transition: all 0.3s;
+}
+
+.tab-button.active {
+  border-bottom: 3px solid #dc2626;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}

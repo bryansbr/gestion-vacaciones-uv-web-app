@@ -2,6 +2,12 @@
 Servicio de reportes para el módulo de vacaciones.
 Proporciona funciones para calcular estadísticas y métricas de solicitudes y reintegros.
 """
+from core.permissions import (
+    es_jefe_inmediato,
+    es_secretaria,
+    es_coordinador_administrativo,
+    es_rrhh
+)
 from django.db.models import Count, Q
 from django.db.models.functions import ExtractYear
 from django.utils import timezone
@@ -17,12 +23,6 @@ def _filtrar_por_rol(queryset_solicitudes, queryset_reintegros, user):
     - Coordinación Administrativa: solo su Facultad/Dependencia
     - RRHH: todos los funcionarios
     """
-    from core.permissions import (
-        es_jefe_inmediato,
-        es_secretaria,
-        es_coordinador_administrativo,
-        es_rrhh
-    )
     
     if es_rrhh(user):
         return queryset_solicitudes, queryset_reintegros
@@ -149,14 +149,25 @@ def obtener_solicitudes_por_facultad(user, fecha_inicio=None, fecha_fin=None):
     
     return resultados
 
-def obtener_solicitudes_por_anio(user, anio=None):
+def obtener_solicitudes_por_anio(user, anio=None, fecha_inicio=None, fecha_fin=None):
     """
     Agrupa solicitudes por año según el rol del usuario.
+    
+    Args:
+        user: Usuario autenticado
+        anio: Año específico para filtrar (opcional)
+        fecha_inicio: Fecha de inicio para filtrar (opcional)
+        fecha_fin: Fecha de fin para filtrar (opcional)
     
     Returns:
         Lista de dicts con {'anio': int, 'total': int, 'por_estado': dict}
     """
     queryset = SolicitudVacaciones.objects.all()
+    
+    if fecha_inicio:
+        queryset = queryset.filter(fecha_solicitud__gte=fecha_inicio)
+    if fecha_fin:
+        queryset = queryset.filter(fecha_solicitud__lte=fecha_fin)
     
     if anio:
         queryset = queryset.filter(fecha_solicitud__year=anio)
@@ -221,6 +232,142 @@ def obtener_funcionarios_en_vacaciones(user, fecha_consulta=None):
     
     return funcionarios
 
+def obtener_estadisticas_reintegros(user, fecha_inicio=None, fecha_fin=None, facultad_id=None):
+    """
+    Calcula estadísticas generales de reintegros según el rol del usuario.
+    
+    Args:
+        user: Usuario autenticado
+        fecha_inicio: Fecha de inicio para filtrar (opcional)
+        fecha_fin: Fecha de fin para filtrar (opcional)
+        facultad_id: ID de facultad para filtrar (opcional, solo para RRHH)
+    
+    Returns:
+        Dict con estadísticas de reintegros
+    """
+    queryset = ReintegroVacaciones.objects.select_related(
+        'funcionario', 'funcionario__facultad_dependencia'
+    )
+    
+    if fecha_inicio:
+        queryset = queryset.filter(fecha_solicitud__gte=fecha_inicio)
+    if fecha_fin:
+        queryset = queryset.filter(fecha_solicitud__lte=fecha_fin)
+    
+    if facultad_id:
+        queryset = queryset.filter(funcionario__facultad_dependencia_id=facultad_id)
+    
+    _, queryset = _filtrar_por_rol(SolicitudVacaciones.objects.none(), queryset, user)
+    
+    return {
+        'reintegros_aprobados': queryset.filter(estado_solicitud='aprobado').count(),
+        'reintegros_devueltos': queryset.filter(estado_solicitud='devuelta').count(),
+        'reintegros_autorizados': queryset.filter(estado_solicitud='autorizada').count(),
+        'reintegros_rechazados': queryset.filter(estado_solicitud='rechazado').count(),
+        'reintegros_pendientes': queryset.filter(
+            estado_solicitud__in=['pendiente', 'en_revision']
+        ).count(),
+        'reintegros_completados': queryset.filter(estado_solicitud='completado').count(),
+        'reintegros_cancelados': queryset.filter(estado_solicitud='cancelado').count(),
+        'reintegros_totales': queryset.count(),
+    }
+
+def obtener_reintegros_por_facultad(user, fecha_inicio=None, fecha_fin=None):
+    """
+    Agrupa reintegros por facultad/dependencia según el rol del usuario.
+    
+    Returns:
+        Lista de dicts con {'facultad': str, 'total': int, 'por_estado': dict}
+    """
+    queryset = ReintegroVacaciones.objects.select_related(
+        'funcionario__facultad_dependencia'
+    )
+    
+    if fecha_inicio:
+        queryset = queryset.filter(fecha_solicitud__gte=fecha_inicio)
+    if fecha_fin:
+        queryset = queryset.filter(fecha_solicitud__lte=fecha_fin)
+    
+    _, queryset = _filtrar_por_rol(SolicitudVacaciones.objects.none(), queryset, user)
+    
+    resultados_agrupados = queryset.values(
+        'funcionario__facultad_dependencia__nombre'
+    ).annotate(
+        total=Count('id'),
+        aprobados=Count('id', filter=Q(estado_solicitud='aprobado')),
+        devueltos=Count('id', filter=Q(estado_solicitud='devuelta')),
+        autorizados=Count('id', filter=Q(estado_solicitud='autorizada')),
+        rechazados=Count('id', filter=Q(estado_solicitud='rechazado')),
+        pendientes=Count('id', filter=Q(estado_solicitud__in=['pendiente', 'en_revision'])),
+        completados=Count('id', filter=Q(estado_solicitud='completado')),
+        cancelados=Count('id', filter=Q(estado_solicitud='cancelado')),
+    ).order_by('funcionario__facultad_dependencia__nombre')
+    
+    resultados = []
+    for item in resultados_agrupados:
+        resultados.append({
+            'facultad': item['funcionario__facultad_dependencia__nombre'] or 'Sin asignar',
+            'total': item['total'],
+            'por_estado': {
+                'aprobado': item['aprobados'],
+                'devuelta': item['devueltos'],
+                'autorizada': item['autorizados'],
+                'rechazado': item['rechazados'],
+                'pendiente': item['pendientes'],
+                'completado': item['completados'],
+                'cancelado': item['cancelados'],
+            }
+        })
+    
+    return resultados
+
+def obtener_reintegros_por_anio(user, anio=None, fecha_inicio=None, fecha_fin=None):
+    """
+    Agrupa reintegros por año según el rol del usuario.
+    
+    Args:
+        user: Usuario autenticado
+        anio: Año específico para filtrar (opcional)
+        fecha_inicio: Fecha de inicio para filtrar (opcional)
+        fecha_fin: Fecha de fin para filtrar (opcional)
+    
+    Returns:
+        Lista de dicts con {'anio': int, 'total': int, 'por_estado': dict}
+    """
+    queryset = ReintegroVacaciones.objects.all()
+    
+    if fecha_inicio:
+        queryset = queryset.filter(fecha_solicitud__gte=fecha_inicio)
+    if fecha_fin:
+        queryset = queryset.filter(fecha_solicitud__lte=fecha_fin)
+    
+    if anio:
+        queryset = queryset.filter(fecha_solicitud__year=anio)
+    
+    _, queryset = _filtrar_por_rol(SolicitudVacaciones.objects.none(), queryset, user)
+
+    resultados = queryset.annotate(
+        anio=ExtractYear('fecha_solicitud')
+    ).values('anio', 'estado_solicitud').annotate(
+        total=Count('id')
+    ).order_by('anio')
+    
+    por_anio = {}
+    for item in resultados:
+        anio_val = item['anio']
+        if anio_val is None:
+            continue
+        if anio_val not in por_anio:
+            por_anio[anio_val] = {
+                'anio': anio_val,
+                'total': 0,
+                'por_estado': {}
+            }
+        por_anio[anio_val]['total'] += item['total']
+        por_anio[anio_val]['por_estado'][item['estado_solicitud']] = item['total']
+    
+    return list(por_anio.values())
+
 def obtener_reintegros_anticipados(user, fecha_inicio=None, fecha_fin=None, facultad_id=None):
     """
     Obtiene estadísticas de reintegros anticipados según el rol del usuario.
@@ -268,7 +415,7 @@ def obtener_reporte_completo(user, fecha_inicio=None, fecha_fin=None, facultad_i
     Genera un reporte completo con todas las métricas según el rol del usuario.
     
     Returns:
-        Dict con todas las estadísticas
+        Dict con todas las estadísticas separadas para solicitudes y reintegros
     """
     return {
         'estadisticas_solicitudes': obtener_estadisticas_solicitudes(
@@ -277,8 +424,15 @@ def obtener_reporte_completo(user, fecha_inicio=None, fecha_fin=None, facultad_i
         'solicitudes_por_facultad': obtener_solicitudes_por_facultad(
             user, fecha_inicio, fecha_fin
         ),
-        'solicitudes_por_anio': obtener_solicitudes_por_anio(user),
+        'solicitudes_por_anio': obtener_solicitudes_por_anio(user, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin),
         'funcionarios_en_vacaciones': obtener_funcionarios_en_vacaciones(user),
+        'estadisticas_reintegros': obtener_estadisticas_reintegros(
+            user, fecha_inicio, fecha_fin, facultad_id
+        ),
+        'reintegros_por_facultad': obtener_reintegros_por_facultad(
+            user, fecha_inicio, fecha_fin
+        ),
+        'reintegros_por_anio': obtener_reintegros_por_anio(user, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin),
         'reintegros_anticipados': obtener_reintegros_anticipados(
             user, fecha_inicio, fecha_fin, facultad_id
         ),
