@@ -307,9 +307,14 @@ class SolicitudVacaciones(models.Model):
         - RRHH autorizó la solicitud (estado_global == 'autorizada')
         """
         if self.estado_solicitud == 'pendiente':
+            if self.estado_global == 'autorizada' or self.estado_global == 'rechazada':
+                return False
             return True
         
         if self.estado_global == 'rechazada':
+            return False
+        
+        if self.estado_global == 'autorizada':
             return False
         
         if self.estado_global == 'devuelta':
@@ -591,7 +596,6 @@ class SolicitudVacaciones(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        # Calcular automáticamente el total de días solicitados antes de guardar
         if self.fecha_inicio_vacaciones and self.fecha_fin_vacaciones:
             self.total_dias_solicitados = self._obtener_total_dias_por_estamento()
 
@@ -677,7 +681,10 @@ class AprobacionEtapa(models.Model):
 
     def __str__(self):
         target = self.content_object
-        target_label = getattr(target, 'codigo_sabs', str(target.pk))
+        if target is None:
+            target_label = f"ID {self.object_id}"
+        else:
+            target_label = getattr(target, 'codigo_sabs', str(target.pk))
         return f"{self.get_etapa_display()} – {self.get_estado_display()} – {target_label}"
 
 
@@ -860,8 +867,12 @@ class ReintegroVacaciones(models.Model):
     @property
     def puede_editar_eliminar(self) -> bool:
         if self.estado_solicitud == 'pendiente':
+            if self.estado_global == 'autorizada' or self.estado_global == 'rechazada':
+                return False
             return True
         if self.estado_global == 'rechazada':
+            return False
+        if self.estado_global == 'autorizada':
             return False
         if self.estado_global == 'devuelta':
             return True
